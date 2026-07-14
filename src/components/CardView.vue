@@ -1,5 +1,5 @@
 <template>
-  <div class="card-view" :class="{ armed, disabled }" @click="$emit('click')">
+  <div class="card-view" :class="{ armed, selected, disabled }" @click="$emit('click')">
     <div class="card-header" :style="{ background: headerColor }">
       <span class="card-name">{{ card.name }}</span>
       <span class="card-cost">{{ card.cost ?? 0 }}</span>
@@ -38,6 +38,7 @@ export default {
   props: {
     card: { type: Object, required: true },
     armed: { type: Boolean, default: false },
+    selected: { type: Boolean, default: false },
     disabled: { type: Boolean, default: false }
   },
   emits: ['click'],
@@ -72,6 +73,11 @@ export default {
 .card-view.armed {
   border-color: #ffffff;
   box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
+}
+
+.card-view.selected {
+  border-color: #f2a444;
+  box-shadow: 0 0 6px rgba(242, 164, 68, 0.6);
 }
 
 .card-view.disabled {

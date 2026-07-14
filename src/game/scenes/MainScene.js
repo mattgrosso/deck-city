@@ -1,10 +1,12 @@
 import Phaser from 'phaser'
-import { DEFAULT_CITY_GRID_SIZE, createCityGrid, instanceAt } from '@/game/core'
+import { DEFAULT_CITY_GRID_SIZE, createCityGrid, instanceAt, hasRoadFrontage, listRoadEdges } from '@/game/core'
 import { colorForCardType, iconForCard } from '@/game/theme'
 
 const EMPTY_FILL = 0x232838
 const EMPTY_STROKE = 0x3a4050
 const HIGHLIGHT_STROKE = 0xffffff
+const ROAD_COLOR = 0xf2c744
+const ROAD_WIDTH = 6
 const MARGIN = 40
 
 function toHexNumber (cssColor) {
@@ -20,11 +22,12 @@ export default class MainScene extends Phaser.Scene {
     const { width, height } = DEFAULT_CITY_GRID_SIZE
     const areaWidth = this.scale.width - MARGIN * 2
     const areaHeight = this.scale.height - MARGIN * 2
-    const cellSize = Math.floor(Math.min(areaWidth / width, areaHeight / height))
-    const startX = (this.scale.width - cellSize * width) / 2 + cellSize / 2
-    const startY = (this.scale.height - cellSize * height) / 2 + cellSize / 2
+    this.cellSize = Math.floor(Math.min(areaWidth / width, areaHeight / height))
+    this.startX = (this.scale.width - this.cellSize * width) / 2 + this.cellSize / 2
+    this.startY = (this.scale.height - this.cellSize * height) / 2 + this.cellSize / 2
 
     this.placementModeActive = false
+    this.placementRequiresRoadAccess = true
     this.lastCityGrid = createCityGrid()
     this.cellRects = []
 
@@ -32,10 +35,10 @@ export default class MainScene extends Phaser.Scene {
       const row = []
       for (let x = 0; x < width; x++) {
         const rect = this.add.rectangle(
-          startX + x * cellSize,
-          startY + y * cellSize,
-          cellSize - 4,
-          cellSize - 4,
+          this.startX + x * this.cellSize,
+          this.startY + y * this.cellSize,
+          this.cellSize - 4,
+          this.cellSize - 4,
           EMPTY_FILL
         )
         rect.setStrokeStyle(1, EMPTY_STROKE)
@@ -48,7 +51,34 @@ export default class MainScene extends Phaser.Scene {
       this.cellRects.push(row)
     }
 
+    this.roadGraphics = this.add.graphics()
+
     this.game.events.emit('mainSceneReady', this)
+  }
+
+  cellLeft (x) {
+    return this.startX + x * this.cellSize - this.cellSize / 2
+  }
+
+  cellTop (y) {
+    return this.startY + y * this.cellSize - this.cellSize / 2
+  }
+
+  drawRoads (cityGrid) {
+    this.roadGraphics.clear()
+    this.roadGraphics.lineStyle(ROAD_WIDTH, ROAD_COLOR, 1)
+
+    listRoadEdges(cityGrid).forEach(({ kind, x, y }) => {
+      this.roadGraphics.beginPath()
+      if (kind === 'h') {
+        this.roadGraphics.moveTo(this.cellLeft(x), this.cellTop(y))
+        this.roadGraphics.lineTo(this.cellLeft(x + 1), this.cellTop(y))
+      } else {
+        this.roadGraphics.moveTo(this.cellLeft(x), this.cellTop(y))
+        this.roadGraphics.lineTo(this.cellLeft(x), this.cellTop(y + 1))
+      }
+      this.roadGraphics.strokePath()
+    })
   }
 
   /**
@@ -75,19 +105,27 @@ export default class MainScene extends Phaser.Scene {
       }
     }
 
-    if (this.placementModeActive) this.setPlacementMode(true)
+    this.drawRoads(cityGrid)
+
+    if (this.placementModeActive) this.setPlacementMode(true, { requiresRoadAccess: this.placementRequiresRoadAccess })
   }
 
-  /** @param {boolean} active */
-  setPlacementMode (active) {
+  /**
+   * @param {boolean} active
+   * @param {Object} [options]
+   * @param {boolean} [options.requiresRoadAccess] - if true (the default), only empty cells with road frontage are eligible; road cards pass false since they create frontage rather than needing it
+   */
+  setPlacementMode (active, { requiresRoadAccess = true } = {}) {
     this.placementModeActive = active
+    this.placementRequiresRoadAccess = requiresRoadAccess
 
     for (let y = 0; y < this.lastCityGrid.height; y++) {
       for (let x = 0; x < this.lastCityGrid.width; x++) {
         const { rect } = this.cellRects[y][x]
         const isEmpty = !instanceAt(this.lastCityGrid, x, y)
+        const eligible = isEmpty && (!requiresRoadAccess || hasRoadFrontage(this.lastCityGrid, x, y))
 
-        if (active && isEmpty) {
+        if (active && eligible) {
           rect.setInteractive({ useHandCursor: true })
           rect.setStrokeStyle(3, HIGHLIGHT_STROKE, 0.9)
         } else {

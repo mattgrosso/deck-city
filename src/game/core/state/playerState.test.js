@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { registerEffect } from '../effects/effectRegistry'
+import { isBuildable, isCellEmpty } from './cityGrid'
 import {
   createPlayerState,
   addTreasury,
@@ -9,6 +10,7 @@ import {
   calcStatTotal,
   countCardsByTag,
   buildStructure,
+  placeRoad,
   expandSlots,
   resetSlotUsage,
   resetAllSlotUsage,
@@ -134,6 +136,39 @@ describe('buildStructure', () => {
     buildStructure(state, built)
 
     expect(calls).toEqual([7])
+  })
+})
+
+describe('placeRoad', () => {
+  const ROAD = { id: 'road', type: 'building', name: 'Road', placesRoad: true }
+
+  it('roads the target cell without occupying it, and returns the card to discard', () => {
+    const state = createPlayerState()
+    placeRoad(state, ROAD, { position: { x: 0, y: 0 } })
+
+    expect(isCellEmpty(state.cityGrid, 0, 0)).toBe(true)
+    expect(isBuildable(state.cityGrid, 0, 0)).toBe(true)
+    expect(state.builtStructures).toEqual([])
+    expect(state.deck.discardPile).toEqual([ROAD])
+  })
+
+  it('resolves onBuild effects, same as buildStructure', () => {
+    const calls = []
+    registerEffect('test.onRoadBuild', () => calls.push('called'))
+    const roadWithEffect = { ...ROAD, effects: { onBuild: [{ type: 'test.onRoadBuild' }] } }
+    const state = createPlayerState()
+
+    placeRoad(state, roadWithEffect, { position: { x: 1, y: 1 } })
+
+    expect(calls).toEqual(['called'])
+  })
+})
+
+describe('createPlayerState starting roads', () => {
+  it('seeds a starting road patch so some cells are buildable turn one', () => {
+    const state = createPlayerState()
+    expect(isBuildable(state.cityGrid, 2, 1)).toBe(true)
+    expect(isBuildable(state.cityGrid, 3, 1)).toBe(true)
   })
 })
 

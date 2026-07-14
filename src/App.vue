@@ -4,7 +4,15 @@
       <PhaserGame ref="phaserGame" @cell-click="onCellClick" @ready="refresh" />
       <Hud :game="game" :render-tick="renderTick" @advance="advance" @acquire="acquire" />
     </div>
-    <HandBar :game="game" :armed-index="armedIndex" :render-tick="renderTick" @arm="armCard" />
+    <HandBar
+      :game="game"
+      :armed-index="armedIndex"
+      :civic-selection="civicSelection"
+      :render-tick="renderTick"
+      @arm="armCard"
+      @toggle-discard="toggleDiscardSelection"
+      @cancel-civic="cancelCivicSelection"
+    />
   </div>
 </template>
 
@@ -12,7 +20,7 @@
 import PhaserGame from '@/components/PhaserGame.vue'
 import Hud from '@/components/Hud.vue'
 import HandBar from '@/components/HandBar.vue'
-import { createGame, exampleCards } from '@/game/core'
+import { createGame, starterCards } from '@/game/core'
 
 export default {
   name: 'App',
@@ -21,16 +29,18 @@ export default {
     return {
       game: null,
       armedIndex: null,
+      // { cardIndex, discardIndices } while a civic card's discard
+      // selection is in progress, otherwise null.
+      civicSelection: null,
       renderTick: 0
     }
   },
   created () {
-    // Wires up a demo game from the illustrative example cards — not real
-    // starter content. See src/game/core/cards/exampleCards.js.
+    // Wires up the real 10-card starter deck. See
+    // src/game/core/cards/starterCards.js.
     this.game = createGame({
-      cardCatalog: exampleCards.EXAMPLE_CARDS,
-      startingDeckCardIds: ['road', 'road', 'residential', 'residential', 'road'],
-      cityDeckCardIds: ['clinic'],
+      cardCatalog: starterCards.STARTER_CARD_CATALOG,
+      startingDeckCardIds: starterCards.STARTER_DECK_CARDS,
       treasury: 10
     })
   },
@@ -48,15 +58,57 @@ export default {
     advance () {
       this.game.actions.advance()
       this.armedIndex = null
+      this.civicSelection = null
       this.$refs.phaserGame.setPlacementMode(false)
       this.refresh()
     },
     // Tracked by hand position, not card id — multiple cards in hand can
-    // share the same id (e.g. two Roads), and armedCardId used to arm all
-    // of them at once instead of just the one that was clicked.
+    // share the same id (e.g. two Roads), and id-based tracking would arm
+    // all of them at once instead of just the one that was clicked.
     armCard (index) {
+      const card = this.game.state.hand[index]
+      if (!card) return
+
+      // Civic cards don't target the grid — clicking one starts a "pick 2
+      // cards to discard" selection instead of arming for placement.
+      if (card.type === 'civic') {
+        this.civicSelection = { cardIndex: index, discardIndices: [] }
+        return
+      }
+
       this.armedIndex = this.armedIndex === index ? null : index
-      this.$refs.phaserGame.setPlacementMode(this.armedIndex !== null)
+      this.$refs.phaserGame.setPlacementMode(this.armedIndex !== null, {
+        // Road cards create frontage rather than needing it, so any empty
+        // cell is a valid target; everything else requires road access.
+        requiresRoadAccess: !card.placesRoad
+      })
+    },
+    cancelCivicSelection () {
+      this.civicSelection = null
+    },
+    toggleDiscardSelection (index) {
+      if (!this.civicSelection) return
+      const { discardIndices } = this.civicSelection
+      const existingPos = discardIndices.indexOf(index)
+
+      if (existingPos !== -1) {
+        discardIndices.splice(existingPos, 1)
+        return
+      }
+      if (discardIndices.length >= 2) return
+      discardIndices.push(index)
+
+      if (discardIndices.length === 2) {
+        const civicCard = this.game.state.hand[this.civicSelection.cardIndex]
+        const discardCardIds = discardIndices.map(i => this.game.state.hand[i].id)
+        try {
+          this.game.actions.playCivicCard(civicCard.id, discardCardIds)
+        } catch (err) {
+          console.error(err)
+        }
+        this.civicSelection = null
+        this.refresh()
+      }
     },
     onCellClick ({ x, y }) {
       if (this.armedIndex === null) return

@@ -4,9 +4,10 @@
       v-for="(card, index) in hand()"
       :key="index"
       :card="card"
-      :armed="index === armedIndex"
+      :armed="index === armedIndex || index === civicSelectionCardIndex"
+      :selected="isMarkedForDiscard(index)"
       :disabled="!isBuildPhase()"
-      @click="$emit('arm', index)"
+      @click="onCardClick(index)"
     />
     <div v-if="hand().length === 0" class="empty">Hand is empty</div>
   </div>
@@ -21,17 +22,39 @@ export default {
   props: {
     game: { type: Object, required: true },
     armedIndex: { type: Number, default: null },
+    // { cardIndex, discardIndices } while a civic card's "pick 2 to
+    // discard" selection is in progress, otherwise null. Indices, not card
+    // ids, for the same reason armedIndex is an index — duplicate cards
+    // in hand share an id, so id-based tracking would mark all of them.
+    civicSelection: { type: Object, default: null },
     // Unused directly, but a changing prop is what makes Vue re-render
     // this component — the engine mutates game.state in place, outside
     // Vue's reactivity, so something has to force a fresh read.
     renderTick: { type: Number, required: true }
   },
-  emits: ['arm'],
+  emits: ['arm', 'toggle-discard', 'cancel-civic'],
+  computed: {
+    civicSelectionCardIndex () { return this.civicSelection?.cardIndex ?? null }
+  },
   methods: {
     hand () { return this.game.state.hand },
     isBuildPhase () {
       const { phases, currentPhaseIndex } = this.game.turnManager
       return phases[currentPhaseIndex].name === 'build'
+    },
+    isMarkedForDiscard (index) {
+      return this.civicSelection?.discardIndices.includes(index) ?? false
+    },
+    onCardClick (index) {
+      if (this.civicSelection) {
+        if (index === this.civicSelection.cardIndex) {
+          this.$emit('cancel-civic')
+        } else {
+          this.$emit('toggle-discard', index)
+        }
+        return
+      }
+      this.$emit('arm', index)
     }
   }
 }

@@ -8,6 +8,7 @@ export { createGame } from './game'
 
 export { CARD_TYPES, validateCard, buildCardCatalog } from './cards/cardSchema'
 export * as exampleCards from './cards/exampleCards'
+export * as starterCards from './cards/starterCards'
 
 export { registerEffect, hasEffect, resolveEffect, resolveEffects, resolveTrigger } from './effects/effectRegistry'
 
@@ -25,6 +26,7 @@ export {
   calcStatTotal,
   countCardsByTag,
   buildStructure,
+  placeRoad,
   expandSlots,
   resetSlotUsage,
   resetAllSlotUsage,
@@ -35,12 +37,19 @@ export {
 } from './state/playerState'
 export {
   DEFAULT_CITY_GRID_SIZE,
+  DEFAULT_STARTING_ROAD_CELLS,
   createCityGrid,
   isInBounds,
   isCellEmpty,
   placeInstance,
   findFirstEmptyCell,
-  instanceAt
+  instanceAt,
+  cellEdgeKeys,
+  addRoadsAroundCell,
+  hasRoadFrontage,
+  isBuildable,
+  listRoadEdges,
+  seedStartingRoads
 } from './state/cityGrid'
 
 export { DEFAULT_PHASES } from './turn/phases'
