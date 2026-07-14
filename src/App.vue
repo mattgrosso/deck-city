@@ -1,15 +1,17 @@
 <template>
   <div id="app">
     <PhaserGame />
+    <Hud />
   </div>
 </template>
 
 <script>
 import PhaserGame from '@/components/PhaserGame.vue'
+import Hud from '@/components/Hud.vue'
 
 export default {
   name: 'App',
-  components: { PhaserGame }
+  components: { PhaserGame, Hud }
 }
 </script>
 

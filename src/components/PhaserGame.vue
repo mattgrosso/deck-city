@@ -24,7 +24,8 @@ export default {
 
 <style scoped>
 .phaser-game {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   height: 100%;
 }
 </style>
