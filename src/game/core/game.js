@@ -3,12 +3,13 @@
 // gated actions (playCard, acquireCard, advance) a future Vue HUD or
 // Phaser scene (or a test) drives the game with.
 
-import { buildCardCatalog } from './cards/cardSchema'
-import { createPlayerState, buildStructure, spendTreasury } from './state/playerState'
-import { isCellEmpty } from './state/cityGrid'
+import { CARD_TYPES, buildCardCatalog } from './cards/cardSchema'
+import { createPlayerState, buildStructure, placeRoad, spendTreasury } from './state/playerState'
+import { isCellEmpty, isBuildable } from './state/cityGrid'
 import { createDeck, addToDiscardPile } from './piles/deck'
 import { createRow, acquireFromRow } from './piles/row'
 import { createTurnManager, advancePhase, assertPhase } from './turn/turnManager'
+import { resolveTrigger } from './effects/effectRegistry'
 import './effects/coreEffects' // registers the starter effect vocabulary as a side effect
 
 /**
@@ -55,13 +56,39 @@ export function createGame ({
     assertPhase(turnManager, 'build')
     const index = state.hand.findIndex(card => card.id === cardId)
     if (index === -1) throw new Error(`Card "${cardId}" is not in hand`)
+
+    const card = state.hand[index]
+
     if (!position || !isCellEmpty(state.cityGrid, position.x, position.y)) {
       throw new Error(`Invalid or occupied cell: ${JSON.stringify(position)}`)
     }
+    // Road cards create road frontage, so they don't require it themselves —
+    // everything else can only be built on a cell with an adjacent road.
+    if (!card.placesRoad && !isBuildable(state.cityGrid, position.x, position.y)) {
+      throw new Error(`Cell (${position.x}, ${position.y}) has no road access`)
+    }
 
-    const [card] = state.hand.splice(index, 1)
+    state.hand.splice(index, 1)
     spendTreasury(state, card.cost ?? 0)
+
+    if (card.placesRoad) {
+      return placeRoad(state, card, { ...context, position })
+    }
     return buildStructure(state, card, { ...context, position })
+  }
+
+  function playCivicCard (cardId, discardCardIds = []) {
+    assertPhase(turnManager, 'build')
+    const index = state.hand.findIndex(card => card.id === cardId)
+    if (index === -1) throw new Error(`Card "${cardId}" is not in hand`)
+
+    const card = state.hand[index]
+    if (card.type !== CARD_TYPES.CIVIC) throw new Error(`Card "${cardId}" is not a civic card`)
+
+    state.hand.splice(index, 1)
+    resolveTrigger(card, 'onPlay', { ...context, cardIds: discardCardIds })
+    addToDiscardPile(state.deck, [card])
+    return card
   }
 
   function acquireCard (cardId) {
@@ -78,5 +105,12 @@ export function createGame ({
     return advancePhase(turnManager, context)
   }
 
-  return { state, cityRow, turnManager, catalog, log, actions: { playCard, acquireCard, advance } }
+  return {
+    state,
+    cityRow,
+    turnManager,
+    catalog,
+    log,
+    actions: { playCard, playCivicCard, acquireCard, advance }
+  }
 }

@@ -7,13 +7,17 @@ export const CARD_TYPE_COLORS = Object.freeze({
   building: '#3a6ea5',
   status: '#a54a3a',
   goal: '#c9a227',
-  disaster: '#6a2a6a'
+  disaster: '#6a2a6a',
+  civic: '#2f855a'
 })
 
 export const DEFAULT_CARD_TYPE_COLOR = '#4a5568'
 
 export const TAG_ICONS = Object.freeze({
   residential: '🏠',
+  commercial: '🏬',
+  industrial: '🏭',
+  civic: '🏛️',
   infrastructure: '🛣️',
   consumer: '⚕️',
   negative: '⚠️',

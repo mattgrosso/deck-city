@@ -9,7 +9,8 @@ export const CARD_TYPES = Object.freeze({
   BUILDING: 'building', // includes plain buildings and city-row unlocks (Clinic, School, ...)
   STATUS: 'status',
   GOAL: 'goal',
-  DISASTER: 'disaster'
+  DISASTER: 'disaster',
+  CIVIC: 'civic' // immediate-effect action cards: no grid placement, resolved via 'onPlay', then discarded like any other card
 })
 
 /**
@@ -34,6 +35,7 @@ export const CARD_TYPES = Object.freeze({
  * @property {string[]} [tags]
  * @property {Object<string, number>} [stats] - generic numeric contributions, e.g. { population: 2, revenue: 1 }
  * @property {SlotsConfig} [slots] - consumer buildings only
+ * @property {boolean} [placesRoad] - building cards only; paints the 4 edges of the targeted cell instead of occupying it (see state/cityGrid.js)
  * @property {number} [tier] - goals only
  * @property {Object} [condition] - goals only, a descriptor checked by the caller
  * @property {Object<string, EffectDescriptor[]>} [effects] - triggerName -> effect descriptors

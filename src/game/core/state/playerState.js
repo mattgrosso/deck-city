@@ -6,7 +6,7 @@
 
 import { createDeck, addToDiscardPile } from '../piles/deck'
 import { resolveTrigger } from '../effects/effectRegistry'
-import { createCityGrid, placeInstance } from './cityGrid'
+import { createCityGrid, placeInstance, addRoadsAroundCell, seedStartingRoads } from './cityGrid'
 
 /**
  * @param {Object} options
@@ -15,13 +15,16 @@ import { createCityGrid, placeInstance } from './cityGrid'
  * @param {() => number} [options.rng]
  */
 export function createPlayerState ({ startingDeckCards = [], treasury = 0, rng } = {}) {
+  const cityGrid = createCityGrid()
+  seedStartingRoads(cityGrid)
+
   return {
     treasury,
     deck: createDeck({ id: 'player', cards: startingDeckCards, rng }),
     hand: [],
     builtStructures: [],
     structureSeq: 0,
-    cityGrid: createCityGrid(),
+    cityGrid,
     goals: { active: [], completed: [] },
     disasterTimer: { turnsUntilDeadline: 4, headedOff: false },
     turnNumber: 0
@@ -144,6 +147,24 @@ export function buildStructure (state, card, context = {}) {
   addToDiscardPile(state.deck, [card])
 
   return instance
+}
+
+/**
+ * Places a road card: paints the 4 edges of context.position onto the
+ * city grid (see cityGrid.js), resolves the card's onBuild effects (if
+ * any), then returns the card itself to the discard pile. Unlike
+ * buildStructure(), this never creates a builtStructures instance — a
+ * road never occupies its cell. Does not remove the card from hand or
+ * charge its cost — callers are responsible for that.
+ * @param {Object} state
+ * @param {Object} card
+ * @param {Object} [context] - passed through to onBuild effect resolution
+ * @param {{x: number, y: number}} context.position
+ */
+export function placeRoad (state, card, context = {}) {
+  addRoadsAroundCell(state.cityGrid, context.position.x, context.position.y)
+  resolveTrigger(card, 'onBuild', { ...context, state })
+  addToDiscardPile(state.deck, [card])
 }
 
 /**
