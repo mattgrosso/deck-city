@@ -20,9 +20,11 @@ describe('createGame', () => {
     expect(game.state.hand.map(card => card.id)).toEqual(['clinic', 'residential', 'road'])
 
     // Legal because the current phase is 'build'.
-    game.actions.playCard('residential')
+    game.actions.playCard('residential', { x: 0, y: 0 })
     expect(game.state.builtStructures).toHaveLength(1)
     expect(game.state.builtStructures[0].card).toBe(RESIDENTIAL)
+    expect(game.state.builtStructures[0].position).toEqual({ x: 0, y: 0 })
+    expect(game.state.cityGrid.cells[0]).toBe(game.state.builtStructures[0].instanceId)
     expect(game.state.hand.map(card => card.id)).toEqual(['clinic', 'road'])
     expect(game.state.deck.discardPile.map(card => card.id)).toEqual(
       expect.arrayContaining(['residential', 'crime'])
@@ -52,5 +54,20 @@ describe('createGame', () => {
   it('rejects acquiring a card outside the acquire phase', () => {
     const game = createGame({ cardCatalog: EXAMPLE_CARDS, cityDeckCardIds: ['road'] })
     expect(() => game.actions.acquireCard('road')).toThrow(/requires phase "acquire"/)
+  })
+
+  it('rejects building without a position', () => {
+    const game = createGame({ cardCatalog: EXAMPLE_CARDS, startingDeckCardIds: ['road'] })
+    game.actions.advance() // draw -> build
+    expect(() => game.actions.playCard('road')).toThrow(/Invalid or occupied cell/)
+  })
+
+  it('rejects building onto an already-occupied cell', () => {
+    const game = createGame({
+      cardCatalog: EXAMPLE_CARDS, startingDeckCardIds: ['road', 'road'], handSize: 2, treasury: 5
+    })
+    game.actions.advance() // draw -> build
+    game.actions.playCard('road', { x: 0, y: 0 })
+    expect(() => game.actions.playCard('road', { x: 0, y: 0 })).toThrow(/Invalid or occupied cell/)
   })
 })

@@ -5,6 +5,7 @@
 
 import { buildCardCatalog } from './cards/cardSchema'
 import { createPlayerState, buildStructure, spendTreasury } from './state/playerState'
+import { isCellEmpty } from './state/cityGrid'
 import { createDeck, addToDiscardPile } from './piles/deck'
 import { createRow, acquireFromRow } from './piles/row'
 import { createTurnManager, advancePhase, assertPhase } from './turn/turnManager'
@@ -50,14 +51,17 @@ export function createGame ({
   const log = []
   const context = { state, catalog, cityRow, log, handSize }
 
-  function playCard (cardId) {
+  function playCard (cardId, position) {
     assertPhase(turnManager, 'build')
     const index = state.hand.findIndex(card => card.id === cardId)
     if (index === -1) throw new Error(`Card "${cardId}" is not in hand`)
+    if (!position || !isCellEmpty(state.cityGrid, position.x, position.y)) {
+      throw new Error(`Invalid or occupied cell: ${JSON.stringify(position)}`)
+    }
 
     const [card] = state.hand.splice(index, 1)
     spendTreasury(state, card.cost ?? 0)
-    return buildStructure(state, card, context)
+    return buildStructure(state, card, { ...context, position })
   }
 
   function acquireCard (cardId) {

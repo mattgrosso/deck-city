@@ -33,6 +33,15 @@ export {
   tickDisasterTimer,
   resetDisasterTimer
 } from './state/playerState'
+export {
+  DEFAULT_CITY_GRID_SIZE,
+  createCityGrid,
+  isInBounds,
+  isCellEmpty,
+  placeInstance,
+  findFirstEmptyCell,
+  instanceAt
+} from './state/cityGrid'
 
 export { DEFAULT_PHASES } from './turn/phases'
 export {
