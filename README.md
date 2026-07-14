@@ -63,3 +63,5 @@ Merging to `main` triggers a GitHub Action
 
 See [AGENTS.md](./AGENTS.md) — shared conventions and context for both
 Claude and ChatGPT.
+
+_Testing the PR workflow — safe to ignore/remove this line._
