@@ -8,16 +8,31 @@ import { createGameConfig } from '@/game/config'
 
 export default {
   name: 'PhaserGame',
+  emits: ['cell-click', 'ready'],
   data () {
     return {
-      game: null
+      game: null,
+      mainScene: null
     }
   },
   mounted () {
     this.game = new Phaser.Game(createGameConfig(this.$refs.gameContainer))
+    this.game.events.once('mainSceneReady', (scene) => {
+      this.mainScene = scene
+      this.mainScene.events.on('cellClick', (cell) => this.$emit('cell-click', cell))
+      this.$emit('ready')
+    })
   },
   beforeUnmount () {
     this.game?.destroy(true)
+  },
+  methods: {
+    renderCity (cityGrid, builtStructures) {
+      this.mainScene?.renderCity(cityGrid, builtStructures)
+    },
+    setPlacementMode (active) {
+      this.mainScene?.setPlacementMode(active)
+    }
   }
 }
 </script>

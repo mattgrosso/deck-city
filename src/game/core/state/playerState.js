@@ -6,6 +6,7 @@
 
 import { createDeck, addToDiscardPile } from '../piles/deck'
 import { resolveTrigger } from '../effects/effectRegistry'
+import { createCityGrid, placeInstance } from './cityGrid'
 
 /**
  * @param {Object} options
@@ -20,6 +21,7 @@ export function createPlayerState ({ startingDeckCards = [], treasury = 0, rng }
     hand: [],
     builtStructures: [],
     structureSeq: 0,
+    cityGrid: createCityGrid(),
     goals: { active: [], completed: [] },
     disasterTimer: { turnsUntilDeadline: 4, headedOff: false },
     turnNumber: 0
@@ -112,24 +114,31 @@ export function countCardsByTag (state, tag) {
 /**
  * Builds a structure from a played Building card: adds a permanent instance
  * to builtStructures (with its own consumption slots if the card defines
- * any), resolves the card's onBuild effects, then returns the card itself
- * to the discard pile so it cycles like any other card. Does not remove
- * the card from hand or charge its cost — callers (e.g. a playCard action)
- * are responsible for that.
+ * any), places it on the city grid if context.position is given, resolves
+ * the card's onBuild effects, then returns the card itself to the discard
+ * pile so it cycles like any other card. Does not remove the card from
+ * hand or charge its cost — callers (e.g. a playCard action) are
+ * responsible for that, including validating the position is free.
  * @param {Object} state
  * @param {Object} card
  * @param {Object} [context] - passed through to onBuild effect resolution
+ * @param {{x: number, y: number}} [context.position]
  * @returns {Object} the new instance
  */
 export function buildStructure (state, card, context = {}) {
   const instance = {
     instanceId: `${card.id}#${state.structureSeq++}`,
     card,
+    position: context.position,
     slots: card.slots
       ? { capacity: card.slots.capacity, used: 0 }
       : undefined
   }
   state.builtStructures.push(instance)
+
+  if (context.position) {
+    placeInstance(state.cityGrid, context.position.x, context.position.y, instance.instanceId)
+  }
 
   resolveTrigger(card, 'onBuild', { ...context, state })
   addToDiscardPile(state.deck, [card])

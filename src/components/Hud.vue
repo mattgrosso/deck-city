@@ -7,39 +7,20 @@
       <span>Disaster in {{ disasterTurnsRemaining() }} turns</span>
     </div>
 
-    <button class="advance" @click="advance">Next phase &rarr;</button>
-
-    <section>
-      <h3>Hand</h3>
-      <ul>
-        <li v-for="card in hand()" :key="card.id">
-          <span>{{ card.name }} <em>(cost {{ card.cost ?? 0 }})</em></span>
-          <button :disabled="currentPhaseName() !== 'build'" @click="play(card.id)">Build</button>
-        </li>
-        <li v-if="hand().length === 0" class="empty">— empty —</li>
-      </ul>
-    </section>
+    <button class="advance" @click="$emit('advance')">Next phase &rarr;</button>
 
     <section>
       <h3>City row</h3>
-      <ul>
-        <li v-for="card in cityRow()" :key="card.id">
-          <span>{{ card.name }} <em>(cost {{ card.cost ?? 0 }})</em></span>
-          <button :disabled="currentPhaseName() !== 'acquire'" @click="acquire(card.id)">Acquire</button>
-        </li>
-        <li v-if="cityRow().length === 0" class="empty">— empty —</li>
-      </ul>
-    </section>
-
-    <section>
-      <h3>Built</h3>
-      <ul>
-        <li v-for="instance in builtStructures()" :key="instance.instanceId">
-          {{ instance.card.name }}
-          <span v-if="instance.slots">(slots {{ instance.slots.used }}/{{ instance.slots.capacity }})</span>
-        </li>
-        <li v-if="builtStructures().length === 0" class="empty">— nothing built yet —</li>
-      </ul>
+      <div class="card-row">
+        <CardView
+          v-for="card in cityRow()"
+          :key="card.id"
+          :card="card"
+          :disabled="currentPhaseName() !== 'acquire'"
+          @click="$emit('acquire', card.id)"
+        />
+        <div v-if="cityRow().length === 0" class="empty">— empty —</div>
+      </div>
     </section>
 
     <section class="log">
@@ -52,28 +33,22 @@
 </template>
 
 <script>
-import { createGame, exampleCards } from '@/game/core'
+import CardView from './CardView.vue'
 
 export default {
   name: 'Hud',
-  data () {
-    return { game: null }
+  components: { CardView },
+  props: {
+    game: { type: Object, required: true },
+    // Unused directly, but a changing prop is what makes Vue re-render
+    // this component — the engine mutates game.state in place, outside
+    // Vue's reactivity, so something has to force a fresh read.
+    renderTick: { type: Number, required: true }
   },
-  created () {
-    // Wires up a demo game from the illustrative example cards — not real
-    // starter content. See src/game/core/cards/exampleCards.js.
-    this.game = createGame({
-      cardCatalog: exampleCards.EXAMPLE_CARDS,
-      startingDeckCardIds: ['road', 'road', 'residential', 'residential', 'road'],
-      cityDeckCardIds: ['clinic'],
-      treasury: 10
-    })
-  },
+  emits: ['advance', 'acquire'],
   methods: {
-    // The engine mutates its own plain-object state directly rather than
-    // through Vue's reactivity system, so these read live values via
-    // methods (not computed/cached properties) and pair with
-    // $forceUpdate() after every action to reflect changes.
+    // Read live values via methods (not computed/cached properties) so
+    // they never go stale between forced re-renders.
     turnNumber () { return this.game.turnManager.turnNumber },
     currentPhaseName () {
       const { phases, currentPhaseIndex } = this.game.turnManager
@@ -81,30 +56,15 @@ export default {
     },
     treasury () { return this.game.state.treasury },
     disasterTurnsRemaining () { return this.game.state.disasterTimer.turnsUntilDeadline },
-    hand () { return this.game.state.hand },
     cityRow () { return this.game.cityRow.cards },
-    builtStructures () { return this.game.state.builtStructures },
-    recentLog () { return this.game.log.slice(-8) },
-
-    advance () {
-      this.game.actions.advance()
-      this.$forceUpdate()
-    },
-    play (cardId) {
-      this.game.actions.playCard(cardId)
-      this.$forceUpdate()
-    },
-    acquire (cardId) {
-      this.game.actions.acquireCard(cardId)
-      this.$forceUpdate()
-    }
+    recentLog () { return this.game.log.slice(-8) }
   }
 }
 </script>
 
 <style scoped>
 .hud {
-  width: 320px;
+  width: 280px;
   flex-shrink: 0;
   height: 100%;
   overflow-y: auto;
@@ -149,37 +109,21 @@ section {
   margin-bottom: 16px;
 }
 
-ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-li {
+.card-row {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
-  padding: 4px 0;
 }
 
-li.empty {
+.empty {
   color: #656d7a;
   font-style: italic;
 }
 
-em {
-  color: #9aa4b2;
-  font-style: normal;
-}
-
-button {
-  cursor: pointer;
-}
-
-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.4;
+ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
 .log ul {
