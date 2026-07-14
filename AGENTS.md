@@ -1,9 +1,9 @@
 # Deck City — Agent Instructions
 
 Deck City is a deck-building city-builder game, built collaboratively by two
-people — one working primarily with Claude, one with ChatGPT. This file is
-the shared source of truth for both. If you're an AI assistant working in
-this repo, read this before making changes.
+people, both working with Claude. This file is the shared source of truth
+for both. If you're an AI assistant working in this repo, read this before
+making changes.
 
 ## Stack
 
