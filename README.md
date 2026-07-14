@@ -61,5 +61,4 @@ Merging to `main` triggers a GitHub Action
 
 ## For AI assistants
 
-See [AGENTS.md](./AGENTS.md) — shared conventions and context for both
-Claude and ChatGPT.
+See [AGENTS.md](./AGENTS.md) — shared conventions and context for Claude.
