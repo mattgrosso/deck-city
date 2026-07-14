@@ -5,6 +5,9 @@ A deck-building city-builder game.
 Built with Vue 3 + Phaser 3, browser-first, with an eye toward an eventual
 Steam release.
 
+See [STATUS.md](./STATUS.md) for what's built, what's playable right now,
+and where the design is headed next.
+
 ## Project setup
 
 ```
