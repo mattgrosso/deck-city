@@ -79,3 +79,52 @@ describe('resolveTrigger with the real registry', () => {
     expect(resolveTrigger(ROAD, 'onBuild', {})).toEqual([])
   })
 })
+
+describe('gainStatusPerAdjacent', () => {
+  const RESIDENTIAL_TAGGED = { id: 'residential-tagged', type: 'building', tags: ['residential'], stats: {} }
+
+  it('grants one status card per adjacent instance matching the target tag', () => {
+    const state = createPlayerState()
+    const park = buildStructure(state, { id: 'park', type: 'building', stats: {} }, { position: { x: 2, y: 2 } })
+    buildStructure(state, RESIDENTIAL_TAGGED, { position: { x: 2, y: 1 } })
+    buildStructure(state, RESIDENTIAL_TAGGED, { position: { x: 3, y: 2 } })
+    buildStructure(state, { id: 'commercial', type: 'building', tags: ['commercial'], stats: {} }, { position: { x: 1, y: 2 } })
+
+    const count = resolveEffect(
+      { type: 'gainStatusPerAdjacent', card: 'crime', targetTag: 'residential' },
+      { state, catalog, instanceId: park.instanceId }
+    )
+
+    expect(count).toBe(2)
+    expect(state.deck.discardPile.filter(card => card.id === 'crime')).toHaveLength(2)
+  })
+
+  it('grants nothing when no neighbor matches', () => {
+    const state = createPlayerState()
+    const park = buildStructure(state, { id: 'park', type: 'building', stats: {} }, { position: { x: 2, y: 2 } })
+
+    const count = resolveEffect(
+      { type: 'gainStatusPerAdjacent', card: 'crime', targetTag: 'residential' },
+      { state, catalog, instanceId: park.instanceId }
+    )
+
+    expect(count).toBe(0)
+    expect(state.deck.discardPile.filter(card => card.id === 'crime')).toHaveLength(0)
+  })
+})
+
+describe('headOffDisaster effect', () => {
+  it('freezes the disaster timer', () => {
+    const state = createPlayerState()
+    resolveEffect({ type: 'headOffDisaster' }, { state })
+    expect(state.disasterTimer.headedOff).toBe(true)
+  })
+})
+
+describe('raiseTreasuryRolloverCap effect', () => {
+  it('raises the cap', () => {
+    const state = createPlayerState()
+    resolveEffect({ type: 'raiseTreasuryRolloverCap', amount: 10 }, { state })
+    expect(state.treasuryRolloverCap).toBe(10)
+  })
+})

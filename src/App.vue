@@ -2,7 +2,13 @@
   <div id="app">
     <div class="game-area">
       <PhaserGame ref="phaserGame" @cell-click="onCellClick" @ready="refresh" />
-      <Hud :game="game" :render-tick="renderTick" @advance="advance" @acquire="acquire" />
+      <Hud
+        :game="game"
+        :render-tick="renderTick"
+        @advance="advance"
+        @acquire="acquire"
+        @claim-goal="claimGoal"
+      />
     </div>
     <HandBar
       :game="game"
@@ -13,6 +19,10 @@
       @toggle-discard="toggleDiscardSelection"
       @cancel-civic="cancelCivicSelection"
     />
+    <div v-if="gameStatus() !== 'playing'" class="game-over-banner" :class="gameStatus()">
+      <h1>{{ gameStatus() === 'won' ? 'You Win!' : 'Game Over' }}</h1>
+      <p>{{ gameStatus() === 'won' ? `Population target reached on turn ${game.turnManager.turnNumber}.` : 'The goal deck ran dry before the city hit its population target.' }}</p>
+    </div>
   </div>
 </template>
 
@@ -20,7 +30,7 @@
 import PhaserGame from '@/components/PhaserGame.vue'
 import Hud from '@/components/Hud.vue'
 import HandBar from '@/components/HandBar.vue'
-import { createGame, starterCards } from '@/game/core'
+import { createGame, starterCards, facilityCards, goalCards, disasterCards } from '@/game/core'
 
 export default {
   name: 'App',
@@ -36,12 +46,20 @@ export default {
     }
   },
   created () {
-    // Wires up the real 10-card starter deck. See
-    // src/game/core/cards/starterCards.js.
+    // Wires up the real starter deck (10 cards), the city row (facilities,
+    // acquirable with treasury), and the goal row (the actual win/lose
+    // clock) — see src/game/core/cards/{starter,facility,goal,disaster}Cards.js.
     this.game = createGame({
-      cardCatalog: starterCards.STARTER_CARD_CATALOG,
+      cardCatalog: [
+        ...starterCards.STARTER_CARD_CATALOG,
+        ...facilityCards.FACILITY_CATALOG,
+        ...goalCards.GOAL_CATALOG,
+        ...disasterCards.DISASTER_CATALOG
+      ],
       startingDeckCardIds: starterCards.STARTER_DECK_CARDS,
-      treasury: 10
+      cityDeckCardIds: facilityCards.CITY_DECK_CARDS,
+      goalDeckCardIds: goalCards.GOAL_DECK_CARDS,
+      disasterCardIds: disasterCards.DISASTER_CARDS
     })
   },
   methods: {
@@ -54,6 +72,12 @@ export default {
     refresh () {
       this.renderTick++
       this.$refs.phaserGame.renderCity(this.game.state.cityGrid, this.game.state.builtStructures)
+    },
+    // renderTick isn't consumed here directly, but this needs to be a
+    // method (not a cached computed) for the same reason Hud/HandBar's own
+    // read methods are — see the renderTick comment above.
+    gameStatus () {
+      return this.game.state.gameStatus
     },
     advance () {
       this.game.actions.advance()
@@ -125,7 +149,19 @@ export default {
       this.refresh()
     },
     acquire (cardId) {
-      this.game.actions.acquireCard(cardId)
+      try {
+        this.game.actions.acquireCard(cardId)
+      } catch (err) {
+        console.error(err)
+      }
+      this.refresh()
+    },
+    claimGoal (goalId) {
+      try {
+        this.game.actions.claimGoal(goalId)
+      } catch (err) {
+        console.error(err)
+      }
       this.refresh()
     }
   }
@@ -144,5 +180,39 @@ export default {
   flex: 1;
   min-height: 0;
   display: flex;
+}
+
+.game-over-banner {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(10, 12, 18, 0.88);
+  color: #e6e6e6;
+  text-align: center;
+  padding: 24px;
+}
+
+.game-over-banner h1 {
+  margin: 0;
+  font-size: 2.5rem;
+}
+
+.game-over-banner.won h1 {
+  color: #c9a227;
+}
+
+.game-over-banner.lost h1 {
+  color: #a54a3a;
+}
+
+.game-over-banner p {
+  margin: 0;
+  color: #9aa4b2;
+  max-width: 480px;
 }
 </style>

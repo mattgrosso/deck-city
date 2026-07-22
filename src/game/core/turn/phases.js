@@ -9,10 +9,63 @@
 // caller (game.js's `actions`, or a test) while the current phase is
 // active. TurnManager.assertPhase() is what enforces that gating.
 
-import { resetAllSlotUsage, calcStatTotal, addTreasury, tickDisasterTimer, resetDisasterTimer } from '../state/playerState'
+import {
+  resetAllSlotUsage, calcStatTotal, tickDisasterTimer, resetDisasterTimer
+} from '../state/playerState'
 import { resolveTrigger } from '../effects/effectRegistry'
-import { draw, discardCards } from '../piles/deck'
-import { expireOldest } from '../piles/row'
+import { draw, discardCards, addToDrawPile, shuffle } from '../piles/deck'
+import { expireOldest, expireLowestValue } from '../piles/row'
+
+/**
+ * Shuffles a random disaster card (from ctx.disasterCards, resolved by
+ * game.js at setup) into the player's draw pile — the payoff for the
+ * disaster timer reaching its deadline unheaded-off. Cards use the same
+ * onDraw-trigger mechanism as any other card (see the 'draw' phase below),
+ * so a disaster's actual bite (treasury loss, a status spike, ...) is
+ * ordinary card data, not special-cased here.
+ */
+function triggerDisaster (ctx) {
+  const pool = ctx.disasterCards ?? []
+  if (!pool.length) return undefined
+
+  const card = pool[Math.floor(ctx.state.deck.rng() * pool.length)]
+  addToDrawPile(ctx.state.deck, [card])
+  shuffle(ctx.state.deck)
+  ctx.log?.push(`A disaster looms: ${card.name} has been shuffled into your deck`)
+  return card
+}
+
+/**
+ * Win: population hits ctx.populationTarget, checked every turn,
+ * independent of the goal deck. Lose: the goal deck's draw pile, discard
+ * pile, and visible row are all simultaneously empty - there's nothing left
+ * to ever claim. Both are terminal; once set, checkGameStatus is a no-op
+ * (see its own early return), so a win latched in one turn can't flip to a
+ * loss in a later one just because the goal deck later runs dry.
+ */
+function checkGameStatus (ctx) {
+  if (ctx.state.gameStatus !== 'playing') return
+
+  if (calcStatTotal(ctx.state, 'population') >= (ctx.populationTarget ?? 20)) {
+    ctx.state.gameStatus = 'won'
+    ctx.log?.push(`Population target reached (${ctx.populationTarget ?? 20}) — you win!`)
+    return
+  }
+
+  // ctx.hasGoals distinguishes "the goal deck was configured and has
+  // genuinely run dry" from "no goal content was ever set up" (e.g. many
+  // engine tests) - without it, an intentionally-empty goal row reads as
+  // already-exhausted and ends the game immediately.
+  if (ctx.goalRow && ctx.hasGoals) {
+    const exhausted = ctx.goalRow.cards.length === 0 &&
+      ctx.goalRow.sourceDeck.drawPile.length === 0 &&
+      ctx.goalRow.sourceDeck.discardPile.length === 0
+    if (exhausted) {
+      ctx.state.gameStatus = 'lost'
+      ctx.log?.push('The goal deck is exhausted with no population win in sight — game over.')
+    }
+  }
+}
 
 export const DEFAULT_PHASES = [
   {
@@ -28,9 +81,33 @@ export const DEFAULT_PHASES = [
         })
       })
 
+      // Budget hard-resets to current production at the START of turn (not
+      // banked from end-of-turn revenue) - a deliberate departure from
+      // typical deckbuilder treasury accumulation. treasuryRolloverCap (0
+      // by default, raised by e.g. the City Bank goal) is the only escape
+      // valve: up to that much of last turn's leftover carries forward.
+      //
+      // ctx.baseRevenue is flat municipal income on top of building
+      // revenue - without it, turn 1 (zero buildings, zero revenue) resets
+      // straight to 0 before the player can ever afford a first Road, which
+      // a pure production-based reset can never recover from on its own.
+      const revenue = calcStatTotal(ctx.state, 'revenue') + (ctx.baseRevenue ?? 0)
+      const rollover = Math.min(ctx.state.treasury, ctx.state.treasuryRolloverCap ?? 0)
+      ctx.state.treasury = revenue + rollover
+      ctx.log?.push(
+        rollover > 0
+          ? `Budget reset: ${revenue} revenue + ${rollover} rollover = ${ctx.state.treasury}`
+          : `Budget reset: ${revenue} revenue`
+      )
+
       const handSize = ctx.handSize ?? 5
       const needed = Math.max(0, handSize - ctx.state.hand.length)
-      ctx.state.hand.push(...draw(ctx.state.deck, needed))
+      const drawnCards = draw(ctx.state.deck, needed)
+      // onDraw triggers resolve immediately as each card lands in hand -
+      // this is what makes a disaster card (see triggerDisaster above)
+      // actually bite instead of sitting inert once drawn.
+      drawnCards.forEach(card => resolveTrigger(card, 'onDraw', { state: ctx.state, catalog: ctx.catalog, log: ctx.log }))
+      ctx.state.hand.push(...drawnCards)
     }
   },
   {
@@ -43,25 +120,30 @@ export const DEFAULT_PHASES = [
   {
     name: 'acquire',
     run: () => {
-      // Gated phase: no automatic behavior. acquireFromRow() is only legal
-      // to call while this phase is current.
+      // Gated phase: no automatic behavior. acquireFromRow()/claimGoal()
+      // are only legal to call while this phase is current.
     }
   },
   {
     name: 'endOfTurn',
     run: (ctx) => {
-      const revenue = calcStatTotal(ctx.state, 'revenue')
-      addTreasury(ctx.state, revenue)
-      ctx.log?.push(`+${revenue} revenue`)
-
       if (ctx.cityRow) expireOldest(ctx.cityRow)
 
+      // "Every 4 turns" = after turns 4, 8, 12, ... turnManager.turnNumber
+      // is still this (about-to-complete) turn's number here - it only
+      // increments once the cycle wraps back to 'draw' (see
+      // turn/turnManager.js's advancePhase).
+      if (ctx.goalRow && (ctx.turnManager.turnNumber + 1) % 4 === 0) {
+        const expired = expireLowestValue(ctx.goalRow, card => card.tier ?? Infinity)
+        if (expired) ctx.log?.push(`Goal expired unclaimed: ${expired.name}`)
+      }
+
       if (tickDisasterTimer(ctx.state)) {
-        ctx.onDisasterDeadline?.(ctx.state)
+        triggerDisaster(ctx)
         resetDisasterTimer(ctx.state)
       }
 
-      ctx.checkGoals?.(ctx.state)
+      checkGameStatus(ctx)
     }
   },
   {

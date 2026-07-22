@@ -45,6 +45,32 @@ export function expireOldest (row) {
 }
 
 /**
+ * Expires whichever visible card has the lowest value under valueFn (sends
+ * it to the source deck's discard pile) and backfills the row. Ties resolve
+ * to whichever comes first in row.cards. Used for the goal row's "every 4
+ * turns, the lowest-tier unclaimed goal expires" rule (see
+ * turn/phases.js) - a value-based variant of expireOldest's
+ * always-the-oldest rule, kept generic here rather than goal-specific since
+ * the row itself has no idea what a "tier" is.
+ * @param {Object} row
+ * @param {(card: Object) => number} valueFn
+ * @returns {Object|undefined} the expired card, if any
+ */
+export function expireLowestValue (row, valueFn) {
+  if (!row.cards.length) return undefined
+
+  let lowestIndex = 0
+  for (let i = 1; i < row.cards.length; i++) {
+    if (valueFn(row.cards[i]) < valueFn(row.cards[lowestIndex])) lowestIndex = i
+  }
+
+  const [expired] = row.cards.splice(lowestIndex, 1)
+  discardCards(row.sourceDeck, [expired])
+  fillRow(row)
+  return expired
+}
+
+/**
  * Removes a card from the row by id (e.g. a player acquiring it). The
  * caller is responsible for putting the returned card wherever it belongs
  * (typically the acquiring player's deck discard pile). Backfills the row.

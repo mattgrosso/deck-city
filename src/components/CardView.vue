@@ -2,10 +2,12 @@
   <div class="card-view" :class="{ armed, selected, disabled }" @click="$emit('click')">
     <div class="card-header" :style="{ background: headerColor }">
       <span class="card-name">{{ card.name }}</span>
+      <span v-if="card.tier" class="card-tier">T{{ card.tier }}</span>
       <span class="card-cost">{{ card.cost ?? 0 }}</span>
     </div>
     <div class="card-body">
       <span class="card-icon">{{ icon }}</span>
+      <p v-if="conditionLine" class="card-condition">{{ conditionLine }}</p>
       <ul v-if="effectLines.length" class="card-effects">
         <li v-for="(line, index) in effectLines" :key="index">{{ line }}</li>
       </ul>
@@ -29,7 +31,27 @@ function describeEffect (effect) {
     case 'drawCards': return `draw ${amount}`
     case 'discardCards': return 'discard'
     case 'expandSlots': return `+${amount} slots`
+    case 'gainStatusPerAdjacent': return `+${effect.card}/adjacent ${effect.targetTag}`
+    case 'headOffDisaster': return 'heads off disaster'
+    case 'raiseTreasuryRolloverCap': return `rollover cap → ${effect.amount}`
     default: return effect.type
+  }
+}
+
+// Same generic, reads-off-the-descriptor approach as describeEffect, for
+// goal cards' condition (see game/core/conditions/coreConditions.js for the
+// vocabulary this mirrors).
+function describeCondition (condition) {
+  switch (condition.type) {
+    case 'populationAtLeast': return `Population ≥ ${condition.amount}`
+    case 'treasuryAtLeast': return `Treasury ≥ ${condition.amount}`
+    case 'buildingCountAtLeast': return `${condition.amount}+ ${condition.cardId}`
+    case 'statusCountAtMost': return `${condition.tag} ≤ ${condition.amount}`
+    case 'adjacentPair': return `${condition.tagA} next to ${condition.tagB}`
+    case 'adjacentChain': return `${condition.length} ${condition.tag} in a row`
+    case 'all': return condition.conditions.map(describeCondition).join(' AND ')
+    case 'any': return condition.conditions.map(describeCondition).join(' OR ')
+    default: return condition.type
   }
 }
 
@@ -45,6 +67,7 @@ export default {
   computed: {
     headerColor () { return colorForCardType(this.card.type) },
     icon () { return iconForCard(this.card) },
+    conditionLine () { return this.card.condition ? describeCondition(this.card.condition) : null },
     effectLines () {
       if (!this.card.effects) return []
       return Object.entries(this.card.effects).map(
@@ -104,6 +127,20 @@ export default {
   align-items: center;
   justify-content: center;
   font-size: 11px;
+}
+
+.card-tier {
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 3px;
+  padding: 1px 4px;
+  font-size: 10px;
+}
+
+.card-condition {
+  margin: 0;
+  font-size: 10px;
+  color: #c9a227;
+  text-align: center;
 }
 
 .card-body {

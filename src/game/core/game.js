@@ -1,7 +1,7 @@
 // The single entry point that wires the rest of core/ together: resolves a
-// card catalog, builds player state and the city row, and returns the
-// gated actions (playCard, acquireCard, advance) a future Vue HUD or
-// Phaser scene (or a test) drives the game with.
+// card catalog, builds player state, the city row, and the goal row,
+// returns the gated actions (playCard, acquireCard, claimGoal, advance) a
+// future Vue HUD or Phaser scene (or a test) drives the game with.
 
 import { CARD_TYPES, buildCardCatalog } from './cards/cardSchema'
 import { createPlayerState, buildStructure, placeRoad, spendTreasury } from './state/playerState'
@@ -10,7 +10,24 @@ import { createDeck, addToDiscardPile } from './piles/deck'
 import { createRow, acquireFromRow } from './piles/row'
 import { createTurnManager, advancePhase, assertPhase } from './turn/turnManager'
 import { resolveTrigger } from './effects/effectRegistry'
+import { evaluateCondition } from './conditions/conditionRegistry'
 import './effects/coreEffects' // registers the starter effect vocabulary as a side effect
+import './conditions/coreConditions' // registers the starter condition vocabulary as a side effect
+
+/**
+ * Throws if the game has already ended - the shared guard for every
+ * meaningful player action (build/acquire/claim). Phase advancement is
+ * deliberately NOT gated by this: letting the player keep clicking through
+ * phases after a win/loss is harmless, and not gating it means the UI
+ * doesn't need special-case logic just to avoid a stuck "Next phase"
+ * button.
+ * @param {Object} state
+ */
+function assertPlaying (state) {
+  if (state.gameStatus !== 'playing') {
+    throw new Error(`Game is already over (${state.gameStatus})`)
+  }
+}
 
 /**
  * @param {Object} options
@@ -18,8 +35,13 @@ import './effects/coreEffects' // registers the starter effect vocabulary as a s
  * @param {string[]} [options.startingDeckCardIds]
  * @param {string[]} [options.cityDeckCardIds]
  * @param {number} [options.cityRowSize]
+ * @param {string[]} [options.goalDeckCardIds]
+ * @param {number} [options.goalRowSize]
+ * @param {string[]} [options.disasterCardIds] - shuffled into the draw pile, one at random, whenever the disaster timer hits its deadline unheaded-off
  * @param {number} [options.handSize]
- * @param {number} [options.treasury]
+ * @param {number} [options.treasury] - starting treasury, before the first 'draw' phase's budget reset ever runs
+ * @param {number} [options.baseRevenue] - flat municipal income added to building revenue every budget reset; see turn/phases.js for why this can't be 0
+ * @param {number} [options.populationTarget] - win condition, checked every 'endOfTurn'
  * @param {() => number} [options.rng]
  */
 export function createGame ({
@@ -27,8 +49,13 @@ export function createGame ({
   startingDeckCardIds = [],
   cityDeckCardIds = [],
   cityRowSize = 4,
+  goalDeckCardIds = [],
+  goalRowSize = 3,
+  disasterCardIds = [],
   handSize = 5,
   treasury = 0,
+  baseRevenue = 4,
+  populationTarget = 20,
   rng
 } = {}) {
   const catalog = buildCardCatalog(cardCatalog)
@@ -48,11 +75,34 @@ export function createGame ({
   const cityDeck = createDeck({ id: 'city', cards: cityDeckCardIds.map(resolveCard), rng })
   const cityRow = createRow({ sourceDeck: cityDeck, size: cityRowSize })
 
+  const goalDeck = createDeck({ id: 'goal', cards: goalDeckCardIds.map(resolveCard), rng })
+  const goalRow = createRow({ sourceDeck: goalDeck, size: goalRowSize })
+
+  const disasterCards = disasterCardIds.map(resolveCard)
+
   const turnManager = createTurnManager({ state })
   const log = []
-  const context = { state, catalog, cityRow, log, handSize }
+  const context = {
+    state,
+    catalog,
+    cityRow,
+    goalRow,
+    // Distinguishes "the goal deck was configured and has genuinely run
+    // dry" (a real loss) from "no goal content was ever set up" (e.g. an
+    // engine test that only cares about the city row) - without this,
+    // checkGameStatus (turn/phases.js) would see an empty, unconfigured
+    // goal deck as already-exhausted and end the game on turn 1.
+    hasGoals: goalDeckCardIds.length > 0,
+    disasterCards,
+    log,
+    handSize,
+    turnManager,
+    baseRevenue,
+    populationTarget
+  }
 
   function playCard (cardId, position) {
+    assertPlaying(state)
     assertPhase(turnManager, 'build')
     const index = state.hand.findIndex(card => card.id === cardId)
     if (index === -1) throw new Error(`Card "${cardId}" is not in hand`)
@@ -62,9 +112,11 @@ export function createGame ({
     if (!position || !isCellEmpty(state.cityGrid, position.x, position.y)) {
       throw new Error(`Invalid or occupied cell: ${JSON.stringify(position)}`)
     }
-    // Road cards create road frontage, so they don't require it themselves —
-    // everything else can only be built on a cell with an adjacent road.
-    if (!card.placesRoad && !isBuildable(state.cityGrid, position.x, position.y)) {
+    // Road cards create road frontage, so they don't require it themselves;
+    // monuments (claimed goals) skip the requirement entirely (see
+    // cards/goalCards.js); everything else can only be built on a cell with
+    // an adjacent road.
+    if (!card.placesRoad && !card.skipsRoadRequirement && !isBuildable(state.cityGrid, position.x, position.y)) {
       throw new Error(`Cell (${position.x}, ${position.y}) has no road access`)
     }
 
@@ -78,6 +130,7 @@ export function createGame ({
   }
 
   function playCivicCard (cardId, discardCardIds = []) {
+    assertPlaying(state)
     assertPhase(turnManager, 'build')
     const index = state.hand.findIndex(card => card.id === cardId)
     if (index === -1) throw new Error(`Card "${cardId}" is not in hand`)
@@ -92,6 +145,7 @@ export function createGame ({
   }
 
   function acquireCard (cardId) {
+    assertPlaying(state)
     assertPhase(turnManager, 'acquire')
     const card = acquireFromRow(cityRow, cardId)
     if (!card) throw new Error(`Card "${cardId}" is not in the city row`)
@@ -101,6 +155,30 @@ export function createGame ({
     return card
   }
 
+  /**
+   * Claims a visible goal: free in treasury, priced instead by its
+   * condition (see conditions/coreConditions.js) actually being met right
+   * now. A claimed goal enters the discard pile just like an acquired
+   * city-row card, so it cycles into hand normally - see
+   * cards/goalCards.js, every goal card is also a zero-cost,
+   * skipsRoadRequirement building (a "monument") once claimed.
+   * @param {string} goalId
+   */
+  function claimGoal (goalId) {
+    assertPlaying(state)
+    assertPhase(turnManager, 'acquire')
+    const goal = goalRow.cards.find(card => card.id === goalId)
+    if (!goal) throw new Error(`Goal "${goalId}" is not in the goal row`)
+
+    if (!evaluateCondition(goal.condition, { state, catalog })) {
+      throw new Error(`Goal "${goal.name}" condition is not yet met`)
+    }
+
+    acquireFromRow(goalRow, goalId)
+    addToDiscardPile(state.deck, [goal])
+    return goal
+  }
+
   function advance () {
     return advancePhase(turnManager, context)
   }
@@ -108,9 +186,10 @@ export function createGame ({
   return {
     state,
     cityRow,
+    goalRow,
     turnManager,
     catalog,
     log,
-    actions: { playCard, playCivicCard, acquireCard, advance }
+    actions: { playCard, playCivicCard, acquireCard, claimGoal, advance }
   }
 }

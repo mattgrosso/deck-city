@@ -3,19 +3,26 @@
 // individual files, so the internal module layout can move around freely.
 
 import './effects/coreEffects' // registers the starter effect vocabulary as a side effect
+import './conditions/coreConditions' // registers the starter condition vocabulary as a side effect
 
 export { createGame } from './game'
 
 export { CARD_TYPES, validateCard, buildCardCatalog } from './cards/cardSchema'
 export * as exampleCards from './cards/exampleCards'
 export * as starterCards from './cards/starterCards'
+export * as facilityCards from './cards/facilityCards'
+export * as goalCards from './cards/goalCards'
+export * as disasterCards from './cards/disasterCards'
 
 export { registerEffect, hasEffect, resolveEffect, resolveEffects, resolveTrigger } from './effects/effectRegistry'
+export { registerCondition, hasCondition, evaluateCondition } from './conditions/conditionRegistry'
 
 export {
   createDeck, shuffle, draw, discardCards, addToDrawPile, addToDiscardPile
 } from './piles/deck'
-export { createRow, fillRow, expireOldest, acquireFromRow } from './piles/row'
+export {
+  createRow, fillRow, expireOldest, expireLowestValue, acquireFromRow
+} from './piles/row'
 
 export {
   createPlayerState,
@@ -33,7 +40,10 @@ export {
   addGoal,
   completeGoal,
   tickDisasterTimer,
-  resetDisasterTimer
+  resetDisasterTimer,
+  getAdjacentInstances,
+  headOffDisaster,
+  raiseTreasuryRolloverCap
 } from './state/playerState'
 export {
   DEFAULT_CITY_GRID_SIZE,

@@ -21,7 +21,9 @@ export const TAG_ICONS = Object.freeze({
   infrastructure: '🛣️',
   consumer: '⚕️',
   negative: '⚠️',
-  crime: '🚔'
+  crime: '🚔',
+  park: '🌳',
+  monument: '🏆'
 })
 
 export const DEFAULT_TAG_ICON = '🃏'

@@ -22,16 +22,24 @@ describe('createGame', () => {
     // starting deck's draw order is just its input array consumed from the
     // end — i.e. drawing 3 from ['road', 'residential', 'clinic'] yields
     // clinic, then residential, then road.
+    //
+    // baseRevenue: 10 (rather than the engine default of 4) keeps this
+    // test's numbers matching its original "start with 10" intent — budget
+    // resets to building revenue + baseRevenue every 'draw' phase (see
+    // turn/phases.js), overwriting the `treasury` option's initial value
+    // the moment the first 'draw' runs.
     const game = createGame({
       cardCatalog: EXAMPLE_CARDS,
       startingDeckCardIds: ['road', 'residential', 'clinic'],
-      treasury: 10,
+      baseRevenue: 10,
       handSize: 3
     })
 
-    // 'draw' phase runs and populates the hand; current phase becomes 'build'.
+    // 'draw' phase runs (budget resets to 10, hand is populated); current
+    // phase becomes 'build'.
     game.actions.advance()
     expect(game.state.hand.map(card => card.id)).toEqual(['clinic', 'residential', 'road'])
+    expect(game.state.treasury).toBe(10)
 
     // Legal because the current phase is 'build', and BUILDABLE_CELL already
     // has road frontage from the game's starting seed.
@@ -49,15 +57,21 @@ describe('createGame', () => {
     game.actions.advance()
     // 'acquire' (no-op, nothing in an empty city row) -> current phase becomes 'endOfTurn'.
     game.actions.advance()
-    // 'endOfTurn' tallies revenue and ticks the disaster timer -> current phase becomes 'cleanup'.
+    // 'endOfTurn' ticks the disaster timer; budget resets happen in 'draw',
+    // not here, so treasury is untouched -> current phase becomes 'cleanup'.
     game.actions.advance()
-    expect(game.state.treasury).toBe(10 - RESIDENTIAL.cost + RESIDENTIAL.stats.revenue)
+    expect(game.state.treasury).toBe(10 - RESIDENTIAL.cost)
     expect(game.state.disasterTimer.turnsUntilDeadline).toBe(3)
 
     // 'cleanup' discards the remaining hand -> wraps back to 'draw', turnNumber becomes 1.
     game.actions.advance()
     expect(game.state.hand).toEqual([])
     expect(game.turnManager.turnNumber).toBe(1)
+
+    // Turn 2's 'draw' phase now sees the Residential built last turn — the
+    // budget reset picks up its +1 revenue on top of baseRevenue.
+    game.actions.advance()
+    expect(game.state.treasury).toBe(10 + RESIDENTIAL.stats.revenue)
   })
 
   it('rejects playing a card outside the build phase', () => {
@@ -152,6 +166,121 @@ describe('createGame', () => {
     it('rejects playing a civic card outside the build phase', () => {
       const game = createGame({ cardCatalog: [CIVIC_CARD], startingDeckCardIds: ['test-civic'] })
       expect(() => game.actions.playCivicCard('test-civic', [])).toThrow(/requires phase "build"/)
+    })
+  })
+
+  describe('claimGoal', () => {
+    const EASY_GOAL = {
+      id: 'goal-easy', type: CARD_TYPES.GOAL, name: 'Easy Goal', tier: 1, cost: 0,
+      skipsRoadRequirement: true, stats: {}, condition: { type: 'treasuryAtLeast', amount: 0 }
+    }
+    const HARD_GOAL = {
+      id: 'goal-hard', type: CARD_TYPES.GOAL, name: 'Hard Goal', tier: 1, cost: 0,
+      skipsRoadRequirement: true, stats: {}, condition: { type: 'treasuryAtLeast', amount: 999 }
+    }
+
+    it('claims a goal whose condition is met, for free, moving it to the discard pile', () => {
+      const game = createGame({ cardCatalog: EXAMPLE_CARDS, goalDeckCardIds: ['road'] }) // unused catalog card just to exercise the row
+      game.goalRow.cards = [EASY_GOAL]
+      game.actions.advance() // draw -> build
+      game.actions.advance() // build -> acquire
+      const treasuryBefore = game.state.treasury
+
+      const claimed = game.actions.claimGoal('goal-easy')
+
+      expect(claimed).toBe(EASY_GOAL)
+      expect(game.state.treasury).toBe(treasuryBefore) // free — the condition is the price, not treasury
+      expect(game.goalRow.cards).not.toContain(EASY_GOAL)
+      expect(game.state.deck.discardPile).toContain(EASY_GOAL)
+    })
+
+    it('rejects claiming a goal whose condition is not yet met', () => {
+      const game = createGame({ cardCatalog: EXAMPLE_CARDS })
+      game.goalRow.cards = [HARD_GOAL]
+      game.actions.advance() // draw -> build
+      game.actions.advance() // build -> acquire
+
+      expect(() => game.actions.claimGoal('goal-hard')).toThrow(/condition is not yet met/)
+      expect(game.goalRow.cards).toContain(HARD_GOAL)
+    })
+
+    it('rejects claiming outside the acquire phase', () => {
+      const game = createGame({ cardCatalog: EXAMPLE_CARDS })
+      game.goalRow.cards = [EASY_GOAL]
+      expect(() => game.actions.claimGoal('goal-easy')).toThrow(/requires phase "acquire"/)
+    })
+
+    it('a claimed goal is buildable as a monument, skipping the road-frontage requirement', () => {
+      const game = createGame({ cardCatalog: EXAMPLE_CARDS })
+      game.goalRow.cards = [EASY_GOAL]
+      game.actions.advance() // runs draw -> now in 'build'
+      game.actions.advance() // runs build (no-op) -> now in 'acquire'
+      game.actions.claimGoal('goal-easy')
+      // Cycle all the way back around to 'build' before touching hand
+      // directly - 'cleanup' (run by the 3rd advance below) would discard
+      // anything pushed into hand before it runs.
+      game.actions.advance() // runs acquire (no-op) -> now in 'endOfTurn'
+      game.actions.advance() // runs endOfTurn -> now in 'cleanup'
+      game.actions.advance() // runs cleanup (empty hand, harmless) -> now in 'draw'
+      game.actions.advance() // runs draw (empty deck, harmless) -> now in 'build'
+      game.state.hand.push(EASY_GOAL) // simulate drawing the claimed monument
+
+      // (0, 0) deliberately has no road frontage.
+      const instance = game.actions.playCard('goal-easy', { x: 0, y: 0 })
+
+      expect(instance.card).toBe(EASY_GOAL)
+      expect(instance.position).toEqual({ x: 0, y: 0 })
+    })
+  })
+
+  describe('game-over guards', () => {
+    it('blocks playCard, playCivicCard, acquireCard, and claimGoal once the game has ended', () => {
+      const game = createGame({ cardCatalog: EXAMPLE_CARDS, startingDeckCardIds: ['road'] })
+      game.actions.advance() // draw -> build
+      game.state.gameStatus = 'won'
+
+      expect(() => game.actions.playCard('road', BUILDABLE_CELL)).toThrow(/already over/)
+      expect(() => game.actions.playCivicCard('road', [])).toThrow(/already over/)
+      expect(() => game.actions.acquireCard('road')).toThrow(/already over/)
+      expect(() => game.actions.claimGoal('road')).toThrow(/already over/)
+    })
+
+    it('does not block phase advancement once the game has ended', () => {
+      const game = createGame({ cardCatalog: EXAMPLE_CARDS })
+      game.state.gameStatus = 'lost'
+      expect(() => game.actions.advance()).not.toThrow()
+    })
+  })
+
+  describe('win/lose integration', () => {
+    it('wins once a built structure pushes population to the target', () => {
+      const POPULATION_CARD = { id: 'tower', type: CARD_TYPES.BUILDING, name: 'Tower', cost: 0, stats: { population: 20 } }
+      const game = createGame({
+        cardCatalog: [POPULATION_CARD], startingDeckCardIds: ['tower'], populationTarget: 20
+      })
+      game.actions.advance() // runs draw -> now in 'build'
+      game.actions.playCard('tower', BUILDABLE_CELL)
+      game.actions.advance() // runs build (no-op) -> now in 'acquire'
+      game.actions.advance() // runs acquire (no-op) -> now in 'endOfTurn'
+      game.actions.advance() // runs endOfTurn, which checks the win condition
+
+      expect(game.state.gameStatus).toBe('won')
+    })
+
+    it('loses once the goal deck and row are both exhausted with no win yet', () => {
+      const game = createGame({ cardCatalog: EXAMPLE_CARDS, goalDeckCardIds: ['road'], goalRowSize: 1 })
+      // Claim (well, just drain) the row by hand rather than playing out
+      // real turns — what matters here is the deck+row both ending empty.
+      game.goalRow.cards = []
+      game.goalRow.sourceDeck.drawPile = []
+      game.goalRow.sourceDeck.discardPile = []
+
+      game.actions.advance() // runs draw -> now in 'build'
+      game.actions.advance() // runs build (no-op) -> now in 'acquire'
+      game.actions.advance() // runs acquire (no-op) -> now in 'endOfTurn'
+      game.actions.advance() // runs endOfTurn, which checks the lose condition
+
+      expect(game.state.gameStatus).toBe('lost')
     })
   })
 })

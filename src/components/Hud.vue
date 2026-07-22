@@ -3,23 +3,51 @@
     <div class="hud-status">
       <span>Turn {{ turnNumber() }}</span>
       <span>Phase: {{ currentPhaseName() }}</span>
-      <span>Treasury: {{ treasury() }}</span>
-      <span>Disaster in {{ disasterTurnsRemaining() }} turns</span>
+      <span>Treasury: {{ treasury() }}{{ rolloverCap() > 0 ? ` (rollover up to ${rolloverCap()})` : '' }}</span>
+      <span>Population: {{ population() }} &middot; Jobs: {{ jobs() }}</span>
+      <span :class="{ 'disaster-headed-off': disasterHeadedOff() }">
+        {{ disasterHeadedOff() ? 'Disaster risk headed off' : `Disaster in ${disasterTurnsRemaining()} turns` }}
+      </span>
     </div>
 
-    <button class="advance" @click="$emit('advance')">Next phase &rarr;</button>
+    <button class="advance" :disabled="gameOver()" @click="$emit('advance')">Next phase &rarr;</button>
 
     <section>
       <h3>City row</h3>
       <div class="card-row">
+        <!--
+          Keyed by position, not card.id, same reasoning as HandBar's hand
+          cards (see its own comment) — the city row routinely holds 2+
+          simultaneous copies of the same facility (see
+          cards/facilityCards.js's CITY_DECK_CARDS), and a duplicate v-for
+          :key corrupts Vue's list diffing (cards visually "duplicating" or
+          going stale on backfill) rather than throwing anything obvious.
+        -->
         <CardView
-          v-for="card in cityRow()"
-          :key="card.id"
+          v-for="(card, index) in cityRow()"
+          :key="index"
           :card="card"
-          :disabled="currentPhaseName() !== 'acquire'"
+          :disabled="currentPhaseName() !== 'acquire' || card.cost > treasury()"
           @click="$emit('acquire', card.id)"
         />
         <div v-if="cityRow().length === 0" class="empty">— empty —</div>
+      </div>
+    </section>
+
+    <section>
+      <h3>Goals</h3>
+      <div class="card-row">
+        <div v-for="(goal, index) in goalRow()" :key="index" class="goal-card">
+          <CardView :card="goal" :disabled="currentPhaseName() !== 'acquire'" />
+          <button
+            class="claim"
+            :disabled="currentPhaseName() !== 'acquire' || !goalConditionMet(goal)"
+            @click="$emit('claim-goal', goal.id)"
+          >
+            Claim
+          </button>
+        </div>
+        <div v-if="goalRow().length === 0" class="empty">— empty —</div>
       </div>
     </section>
 
@@ -34,6 +62,7 @@
 
 <script>
 import CardView from './CardView.vue'
+import { evaluateCondition, calcStatTotal } from '@/game/core'
 
 export default {
   name: 'Hud',
@@ -45,7 +74,7 @@ export default {
     // Vue's reactivity, so something has to force a fresh read.
     renderTick: { type: Number, required: true }
   },
-  emits: ['advance', 'acquire'],
+  emits: ['advance', 'acquire', 'claim-goal'],
   methods: {
     // Read live values via methods (not computed/cached properties) so
     // they never go stale between forced re-renders.
@@ -55,8 +84,20 @@ export default {
       return phases[currentPhaseIndex].name
     },
     treasury () { return this.game.state.treasury },
+    rolloverCap () { return this.game.state.treasuryRolloverCap },
+    // calcStatTotal (not a plain reduce over builtStructures) so this
+    // reflects adjacency bonuses too, same source of truth the win
+    // condition itself uses (see turn/phases.js's checkGameStatus).
+    population () { return calcStatTotal(this.game.state, 'population') },
+    jobs () { return calcStatTotal(this.game.state, 'jobs') },
     disasterTurnsRemaining () { return this.game.state.disasterTimer.turnsUntilDeadline },
+    disasterHeadedOff () { return this.game.state.disasterTimer.headedOff },
     cityRow () { return this.game.cityRow.cards },
+    goalRow () { return this.game.goalRow.cards },
+    goalConditionMet (goal) {
+      return evaluateCondition(goal.condition, { state: this.game.state, catalog: this.game.catalog })
+    },
+    gameOver () { return this.game.state.gameStatus !== 'playing' },
     recentLog () { return this.game.log.slice(-8) }
   }
 }
@@ -97,6 +138,15 @@ export default {
   background: #4a7eb5;
 }
 
+.advance:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.disaster-headed-off {
+  color: #2f855a;
+}
+
 h3 {
   margin: 0 0 6px;
   font-size: 13px;
@@ -113,6 +163,35 @@ section {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.goal-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.claim {
+  padding: 4px;
+  font-size: 12px;
+  background: #c9a227;
+  color: #1b1f2a;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.claim:hover:not(:disabled) {
+  background: #ddb840;
+}
+
+.claim:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: #4a5568;
+  color: #e6e6e6;
 }
 
 .empty {

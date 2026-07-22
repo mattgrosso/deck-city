@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import '../effects/coreEffects'
+import '../conditions/coreConditions'
 import { DEFAULT_PHASES } from './phases'
+import { createTurnManager } from './turnManager'
 import { createPlayerState, buildStructure } from '../state/playerState'
 import { createDeck } from '../piles/deck'
 import { createRow } from '../piles/row'
@@ -28,33 +30,162 @@ describe('draw phase', () => {
     expect(state.deck.discardPile).toEqual([CLINIC])
     expect(state.hand).toHaveLength(2)
   })
+
+  it('resets treasury to building revenue + base revenue, ignoring whatever treasury was before', () => {
+    const state = createPlayerState({ treasury: 999 })
+    buildStructure(state, { id: 'shop', type: 'building', stats: { revenue: 3 } })
+
+    phase('draw').run({ state, catalog: {}, log: [], baseRevenue: 4 })
+
+    expect(state.treasury).toBe(3 + 4)
+  })
+
+  it('carries forward leftover treasury up to the rollover cap, on top of the reset', () => {
+    const state = createPlayerState({ treasury: 20 })
+    state.treasuryRolloverCap = 5
+
+    phase('draw').run({ state, catalog: {}, log: [], baseRevenue: 4 })
+
+    // min(20, 5) rollover + 0 revenue + 4 base
+    expect(state.treasury).toBe(5 + 4)
+  })
+
+  it('resolves onDraw effects on cards the moment they enter hand', () => {
+    const disaster = { id: 'flood', type: 'disaster', name: 'Flood', effects: { onDraw: [{ type: 'spendTreasury', amount: 3 }] } }
+    const state = createPlayerState({ startingDeckCards: [disaster] })
+
+    phase('draw').run({ state, catalog: {}, log: [], baseRevenue: 4, handSize: 1 })
+
+    expect(state.hand).toEqual([disaster])
+    expect(state.treasury).toBe(4 - 3)
+  })
 })
 
 describe('endOfTurn phase', () => {
-  it('tallies revenue, expires the oldest row card, and ticks the disaster timer', () => {
-    const state = createPlayerState({ treasury: 0 })
-    buildStructure(state, { id: 'shop', type: 'building', stats: { revenue: 3 } })
+  it('expires the oldest city row card and ticks the disaster timer, without touching treasury', () => {
+    const state = createPlayerState({ treasury: 7 })
     const sourceDeck = createDeck({ id: 'city', cards: [{ id: 'x1' }, { id: 'x2' }, { id: 'x3' }, { id: 'x4' }, { id: 'x5' }] })
     const cityRow = createRow({ sourceDeck, size: 4 })
     const oldest = cityRow.cards[0]
 
-    phase('endOfTurn').run({ state, cityRow, log: [] })
+    phase('endOfTurn').run({ state, cityRow, log: [], turnManager: createTurnManager({ state }) })
 
-    expect(state.treasury).toBe(3)
+    expect(state.treasury).toBe(7) // budget resets happen in 'draw', not here
     expect(cityRow.cards).not.toContain(oldest)
     expect(cityRow.cards).toHaveLength(4)
     expect(state.disasterTimer.turnsUntilDeadline).toBe(3)
   })
 
-  it('invokes onDisasterDeadline and resets the timer once the deadline hits', () => {
+  it('shuffles a random disaster card into the draw pile and resets the timer once the deadline hits, unless headed off', () => {
     const state = createPlayerState()
     state.disasterTimer.turnsUntilDeadline = 1
-    let deadlineHit = false
+    const flood = { id: 'flood', type: 'disaster', name: 'Flood' }
 
-    phase('endOfTurn').run({ state, onDisasterDeadline: () => { deadlineHit = true } })
+    phase('endOfTurn').run({
+      state, log: [], turnManager: createTurnManager({ state }), disasterCards: [flood]
+    })
 
-    expect(deadlineHit).toBe(true)
+    expect(state.deck.drawPile).toContain(flood)
     expect(state.disasterTimer).toEqual({ turnsUntilDeadline: 4, headedOff: false })
+  })
+
+  it('does not trigger a disaster once the timer has been headed off', () => {
+    const state = createPlayerState()
+    state.disasterTimer = { turnsUntilDeadline: 1, headedOff: true }
+    const flood = { id: 'flood', type: 'disaster', name: 'Flood' }
+
+    phase('endOfTurn').run({
+      state, log: [], turnManager: createTurnManager({ state }), disasterCards: [flood]
+    })
+
+    expect(state.deck.drawPile).not.toContain(flood)
+    expect(state.disasterTimer.headedOff).toBe(true)
+  })
+
+  it('expires the lowest-tier unclaimed goal every 4 turns, backfilling from the source deck', () => {
+    const state = createPlayerState()
+    const goalDeck = createDeck({ id: 'goal', cards: [] })
+    // Built by hand (not via createRow, which would draw from goalDeck
+    // immediately on creation) so the deck's draw pile is reserved purely
+    // for the post-expiry backfill, not partly consumed just seeding the
+    // row's initial 3 cards.
+    const goalRow = {
+      sourceDeck: goalDeck,
+      size: 3,
+      cards: [
+        { id: 'g-mid', tier: 2 },
+        { id: 'g-cheap', tier: 1 },
+        { id: 'g-expensive', tier: 3 }
+      ]
+    }
+    goalDeck.drawPile = [{ id: 'g-backfill', tier: 1 }]
+    const turnManager = createTurnManager({ state })
+    turnManager.turnNumber = 3 // (turnNumber + 1) % 4 === 0 -> this IS the 4th turn
+
+    phase('endOfTurn').run({ state, goalRow, log: [], turnManager })
+
+    // g-cheap (tier 1) is the lowest tier and comes before g-mid does not
+    // matter here - it's the ONLY tier-1 card, so it's unambiguously the one expired.
+    expect(goalRow.cards.map(card => card.id)).toEqual(expect.arrayContaining(['g-mid', 'g-expensive', 'g-backfill']))
+    expect(goalRow.cards.find(card => card.id === 'g-cheap')).toBeUndefined()
+    expect(goalRow.cards).toHaveLength(3)
+    expect(goalDeck.discardPile.map(card => card.id)).toEqual(['g-cheap'])
+  })
+
+  it('leaves the goal row untouched on turns that are not a multiple of 4', () => {
+    const state = createPlayerState()
+    const goalDeck = createDeck({ id: 'goal', cards: [] })
+    const goalRow = createRow({ sourceDeck: goalDeck, size: 3 })
+    goalRow.cards = [{ id: 'g1', tier: 1 }, { id: 'g2', tier: 2 }, { id: 'g3', tier: 3 }]
+    const turnManager = createTurnManager({ state })
+    turnManager.turnNumber = 1
+
+    phase('endOfTurn').run({ state, goalRow, log: [], turnManager })
+
+    expect(goalRow.cards.map(card => card.id)).toEqual(['g1', 'g2', 'g3'])
+  })
+
+  it('sets gameStatus to won once population reaches the target', () => {
+    const state = createPlayerState()
+    buildStructure(state, { id: 'tower', type: 'building', stats: { population: 25 } })
+
+    phase('endOfTurn').run({ state, log: [], turnManager: createTurnManager({ state }), populationTarget: 20 })
+
+    expect(state.gameStatus).toBe('won')
+  })
+
+  it('sets gameStatus to lost once the goal deck and row are both fully exhausted', () => {
+    const state = createPlayerState()
+    const goalDeck = createDeck({ id: 'goal', cards: [] })
+    const goalRow = createRow({ sourceDeck: goalDeck, size: 3 }) // empty deck -> empty row
+
+    phase('endOfTurn').run({
+      state, goalRow, hasGoals: true, log: [], turnManager: createTurnManager({ state }), populationTarget: 20
+    })
+
+    expect(state.gameStatus).toBe('lost')
+  })
+
+  it('does not treat an unconfigured (never-populated) goal deck as exhausted', () => {
+    const state = createPlayerState()
+    const goalDeck = createDeck({ id: 'goal', cards: [] })
+    const goalRow = createRow({ sourceDeck: goalDeck, size: 3 })
+
+    // hasGoals omitted, same as a game created with no goalDeckCardIds
+    phase('endOfTurn').run({ state, goalRow, log: [], turnManager: createTurnManager({ state }), populationTarget: 20 })
+
+    expect(state.gameStatus).toBe('playing')
+  })
+
+  it('does not overturn an already-decided game status', () => {
+    const state = createPlayerState()
+    state.gameStatus = 'won'
+    const goalDeck = createDeck({ id: 'goal', cards: [] })
+    const goalRow = createRow({ sourceDeck: goalDeck, size: 3 })
+
+    phase('endOfTurn').run({ state, goalRow, log: [], turnManager: createTurnManager({ state }), populationTarget: 20 })
+
+    expect(state.gameStatus).toBe('won')
   })
 })
 

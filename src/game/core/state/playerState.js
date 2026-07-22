@@ -6,7 +6,7 @@
 
 import { createDeck, addToDiscardPile } from '../piles/deck'
 import { resolveTrigger } from '../effects/effectRegistry'
-import { createCityGrid, placeInstance, addRoadsAroundCell, seedStartingRoads } from './cityGrid'
+import { createCityGrid, placeInstance, addRoadsAroundCell, seedStartingRoads, instanceAt } from './cityGrid'
 
 /**
  * @param {Object} options
@@ -20,6 +20,10 @@ export function createPlayerState ({ startingDeckCards = [], treasury = 0, rng }
 
   return {
     treasury,
+    // A permanent budget escape valve — see raiseTreasuryRolloverCap. Zero
+    // by default: the base rule is a hard reset to current production every
+    // turn (see turn/phases.js's 'draw' phase), no accumulation.
+    treasuryRolloverCap: 0,
     deck: createDeck({ id: 'player', cards: startingDeckCards, rng }),
     hand: [],
     builtStructures: [],
@@ -27,8 +31,38 @@ export function createPlayerState ({ startingDeckCards = [], treasury = 0, rng }
     cityGrid,
     goals: { active: [], completed: [] },
     disasterTimer: { turnsUntilDeadline: 4, headedOff: false },
-    turnNumber: 0
+    turnNumber: 0,
+    // 'playing' | 'won' | 'lost' — set by turn/phases.js's 'endOfTurn'
+    // phase. Player actions (build/acquire/claim) are gated on this once
+    // it leaves 'playing'; phase advancement itself is not, so a finished
+    // game doesn't get stuck mid-cycle.
+    gameStatus: 'playing'
   }
+}
+
+/**
+ * Raises the permanent treasury rollover cap — the "escape valve" for the
+ * hard-reset budget rule (see the 'draw' phase in turn/phases.js): up to
+ * this much of last turn's leftover treasury carries forward instead of
+ * being wiped. Earned via a goal's onComplete effect (see
+ * cards/goalCards.js's City Bank), never automatic. Clamped to only ever
+ * increase — completing a lesser version of the same goal twice (not
+ * currently possible, but cheap to guard) shouldn't lower it.
+ * @param {Object} state
+ * @param {number} amount
+ */
+export function raiseTreasuryRolloverCap (state, amount) {
+  state.treasuryRolloverCap = Math.max(state.treasuryRolloverCap, amount)
+}
+
+/**
+ * Permanently freezes the disaster timer (see tickDisasterTimer) — the
+ * counterplay a Fire Station buys. Unlike resetDisasterTimer, this doesn't
+ * refill turnsUntilDeadline; it just stops it ticking down at all.
+ * @param {Object} state
+ */
+export function headOffDisaster (state) {
+  state.disasterTimer.headedOff = true
 }
 
 export function addTreasury (state, amount) {
@@ -55,6 +89,28 @@ export function addStatusCard (state, card, amount = 1) {
 
 function findInstance (state, instanceId) {
   return state.builtStructures.find(instance => instance.instanceId === instanceId)
+}
+
+/**
+ * The (up to 4) built instances orthogonally adjacent to a given instance's
+ * grid cell — the basis for adjacency effects (see cards/facilityCards.js's
+ * Park: a revenue bonus to neighbors and status generation both key off
+ * this). Instances with no position (shouldn't happen for anything actually
+ * built via buildStructure, but cheap to guard) have no neighbors.
+ * @param {Object} state
+ * @param {string} instanceId
+ * @returns {Object[]}
+ */
+export function getAdjacentInstances (state, instanceId) {
+  const instance = findInstance(state, instanceId)
+  if (!instance?.position) return []
+
+  const { x, y } = instance.position
+  return [[0, -1], [0, 1], [-1, 0], [1, 0]]
+    .map(([dx, dy]) => instanceAt(state.cityGrid, x + dx, y + dy))
+    .filter(Boolean)
+    .map(neighborId => findInstance(state, neighborId))
+    .filter(Boolean)
 }
 
 /**
@@ -91,16 +147,32 @@ export function removeStatusCard (state, cardId, amount = 1, opts = {}) {
 }
 
 /**
- * Sums stats[statKey] across all built structures. Generic — adding a new
- * stat (e.g. "happiness") needs no changes here.
+ * Sums stats[statKey] across all built structures, plus any adjacency stat
+ * bonuses currently in effect (e.g. Park's "+1 revenue to adjacent
+ * Residential" - see cards/facilityCards.js). Generic — adding a new base
+ * stat needs no changes here; adding a new adjacency-granting card is just
+ * card data (card.adjacency.statBonus), not new engine code.
  * @param {Object} state
  * @param {string} statKey
  */
 export function calcStatTotal (state, statKey) {
-  return state.builtStructures.reduce(
+  const base = state.builtStructures.reduce(
     (total, instance) => total + (instance.card.stats?.[statKey] ?? 0),
     0
   )
+
+  const adjacencyBonus = state.builtStructures.reduce((total, instance) => {
+    const bonuses = instance.card.adjacency?.statBonus?.filter(bonus => bonus.stat === statKey)
+    if (!bonuses?.length) return total
+
+    const neighbors = getAdjacentInstances(state, instance.instanceId)
+    return total + bonuses.reduce((sum, bonus) => {
+      const matches = neighbors.filter(neighbor => neighbor.card.tags?.includes(bonus.targetTag)).length
+      return sum + matches * bonus.amount
+    }, 0)
+  }, 0)
+
+  return base + adjacencyBonus
 }
 
 /**

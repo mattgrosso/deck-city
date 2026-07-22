@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { createDeck } from './deck'
-import { createRow, fillRow, expireOldest, acquireFromRow } from './row'
+import { createRow, fillRow, expireOldest, expireLowestValue, acquireFromRow } from './row'
 
 const cards = (...ids) => ids.map(id => ({ id }))
 
@@ -33,6 +33,37 @@ describe('expireOldest', () => {
     expect(row.cards).toHaveLength(4)
     expect(row.cards).not.toContain(oldest)
     expect(sourceDeck.discardPile).toEqual([oldest])
+  })
+})
+
+describe('expireLowestValue', () => {
+  it('expires whichever visible card has the lowest value and backfills', () => {
+    const sourceDeck = createDeck({ id: 'goal', cards: cards('a') })
+    const row = { sourceDeck, size: 3, cards: [{ id: 'x', tier: 2 }, { id: 'y', tier: 1 }, { id: 'z', tier: 3 }] }
+
+    const expired = expireLowestValue(row, card => card.tier)
+
+    expect(expired.id).toBe('y')
+    expect(row.cards.map(card => card.id)).toEqual(expect.arrayContaining(['x', 'z', 'a']))
+    expect(row.cards).toHaveLength(3)
+    expect(sourceDeck.discardPile.map(card => card.id)).toEqual(['y'])
+  })
+
+  it('breaks ties by picking whichever comes first in the row', () => {
+    const sourceDeck = createDeck({ id: 'goal', cards: [] })
+    const row = { sourceDeck, size: 2, cards: [{ id: 'first', tier: 1 }, { id: 'second', tier: 1 }] }
+
+    const expired = expireLowestValue(row, card => card.tier)
+
+    expect(expired.id).toBe('first')
+  })
+
+  it('is a no-op on an empty row', () => {
+    const sourceDeck = createDeck({ id: 'goal', cards: [] })
+    const row = { sourceDeck, size: 3, cards: [] }
+
+    expect(expireLowestValue(row, card => card.tier)).toBeUndefined()
+    expect(row.cards).toEqual([])
   })
 })
 

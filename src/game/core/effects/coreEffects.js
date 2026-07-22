@@ -11,7 +11,10 @@ import {
   spendTreasury,
   addStatusCard,
   removeStatusCard,
-  expandSlots
+  expandSlots,
+  getAdjacentInstances,
+  headOffDisaster,
+  raiseTreasuryRolloverCap
 } from '../state/playerState'
 import { draw } from '../piles/deck'
 
@@ -81,4 +84,41 @@ registerEffect('discardCards', (effect, { state, cardIds = [] }) => {
  */
 registerEffect('expandSlots', (effect, { state }) => {
   expandSlots(state, effect.buildingId, effect.amount ?? 1)
+})
+
+/**
+ * effect: { type: 'gainStatusPerAdjacent', card: <status card id>,
+ *           targetTag }. Resolved on 'onTurnStart' with context.instanceId
+ * set to the triggering instance (same convention as consumeStatus's
+ * buildingId: 'self') - counts orthogonal neighbors tagged targetTag and
+ * grants that many copies of the status card. See cards/facilityCards.js's
+ * Park: "+1 Crime per adjacent Residential".
+ */
+registerEffect('gainStatusPerAdjacent', (effect, { state, catalog, log, instanceId }) => {
+  const neighbors = getAdjacentInstances(state, instanceId)
+  const count = neighbors.filter(neighbor => neighbor.card.tags?.includes(effect.targetTag)).length
+  if (count === 0) return 0
+
+  const card = catalog[effect.card]
+  addStatusCard(state, card, count)
+  log?.push(`+${count} ${card.name} (adjacency)`)
+  return count
+})
+
+/**
+ * effect: { type: 'headOffDisaster' } - see playerState.js's
+ * headOffDisaster. Used by Fire Station's onBuild.
+ */
+registerEffect('headOffDisaster', (effect, { state, log }) => {
+  headOffDisaster(state)
+  log?.push('Disaster risk headed off')
+})
+
+/**
+ * effect: { type: 'raiseTreasuryRolloverCap', amount } - see playerState.js's
+ * raiseTreasuryRolloverCap. Used by the City Bank goal's onComplete.
+ */
+registerEffect('raiseTreasuryRolloverCap', (effect, { state, log }) => {
+  raiseTreasuryRolloverCap(state, effect.amount)
+  log?.push(`Treasury rollover cap raised to ${effect.amount}`)
 })

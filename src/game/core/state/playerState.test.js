@@ -17,7 +17,10 @@ import {
   addGoal,
   completeGoal,
   tickDisasterTimer,
-  resetDisasterTimer
+  resetDisasterTimer,
+  getAdjacentInstances,
+  headOffDisaster,
+  raiseTreasuryRolloverCap
 } from './playerState'
 
 const BUILDING = { id: 'residential', type: 'building', name: 'Residential', stats: { population: 2, revenue: 1 } }
@@ -212,6 +215,78 @@ describe('goals', () => {
   it('completeGoal returns undefined for an unknown goal', () => {
     const state = createPlayerState()
     expect(completeGoal(state, 'no-such-goal')).toBeUndefined()
+  })
+})
+
+describe('getAdjacentInstances', () => {
+  it('returns only the orthogonal neighbors that are actually built', () => {
+    const state = createPlayerState()
+    const center = buildStructure(state, BUILDING, { position: { x: 2, y: 2 } })
+    const north = buildStructure(state, BUILDING, { position: { x: 2, y: 1 } })
+    const east = buildStructure(state, BUILDING, { position: { x: 3, y: 2 } })
+    // (2,3) south and (1,2) west are left empty.
+
+    const neighbors = getAdjacentInstances(state, center.instanceId)
+
+    expect(neighbors).toHaveLength(2)
+    expect(neighbors).toEqual(expect.arrayContaining([north, east]))
+  })
+
+  it('returns an empty array for an instance with no position', () => {
+    const state = createPlayerState()
+    const instance = buildStructure(state, BUILDING) // no context.position
+    expect(getAdjacentInstances(state, instance.instanceId)).toEqual([])
+  })
+})
+
+describe('calcStatTotal adjacency bonuses', () => {
+  const PARK = {
+    id: 'park', type: 'building', name: 'Park', stats: {},
+    adjacency: { statBonus: [{ stat: 'revenue', amount: 1, targetTag: 'residential' }] }
+  }
+  const RESIDENTIAL_TAGGED = { id: 'residential', type: 'building', name: 'Residential', tags: ['residential'], stats: { revenue: 1 } }
+
+  it("adds a neighbor's bonus per matching adjacent tag, on top of base stats", () => {
+    const state = createPlayerState()
+    buildStructure(state, PARK, { position: { x: 2, y: 2 } })
+    buildStructure(state, RESIDENTIAL_TAGGED, { position: { x: 2, y: 1 } }) // north of Park
+    buildStructure(state, RESIDENTIAL_TAGGED, { position: { x: 3, y: 2 } }) // east of Park
+
+    // base: 1 + 1 = 2, plus Park's +1 to each of its 2 adjacent Residential = +2
+    expect(calcStatTotal(state, 'revenue')).toBe(4)
+  })
+
+  it('grants nothing when no qualifying neighbor is adjacent', () => {
+    const state = createPlayerState()
+    buildStructure(state, PARK, { position: { x: 2, y: 2 } })
+    buildStructure(state, RESIDENTIAL_TAGGED, { position: { x: 0, y: 0 } }) // not adjacent
+
+    expect(calcStatTotal(state, 'revenue')).toBe(1) // just the Residential's own base stat
+  })
+})
+
+describe('treasury rollover cap', () => {
+  it('raiseTreasuryRolloverCap sets the cap', () => {
+    const state = createPlayerState()
+    raiseTreasuryRolloverCap(state, 10)
+    expect(state.treasuryRolloverCap).toBe(10)
+  })
+
+  it('never lowers an already-higher cap', () => {
+    const state = createPlayerState()
+    raiseTreasuryRolloverCap(state, 10)
+    raiseTreasuryRolloverCap(state, 3)
+    expect(state.treasuryRolloverCap).toBe(10)
+  })
+})
+
+describe('headOffDisaster', () => {
+  it('permanently freezes the disaster timer', () => {
+    const state = createPlayerState()
+    headOffDisaster(state)
+    expect(state.disasterTimer.headedOff).toBe(true)
+    expect(tickDisasterTimer(state)).toBe(false)
+    expect(state.disasterTimer.turnsUntilDeadline).toBe(4) // untouched, not just reset
   })
 })
 
