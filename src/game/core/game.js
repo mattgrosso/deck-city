@@ -6,7 +6,7 @@
 import { CARD_TYPES, buildCardCatalog } from './cards/cardSchema'
 import { createPlayerState, buildStructure, placeRoad, spendTreasury, seedStructure, clearStatusCard, effectiveCost } from './state/playerState'
 import { isCellEmpty, isBuildable, isEdgeInBounds, isEdgeConnected } from './state/cityGrid'
-import { createDeck, addToDiscardPile } from './piles/deck'
+import { createDeck, addToDiscardPile, shuffle } from './piles/deck'
 import { createRow, acquireFromRow } from './piles/row'
 import { createTurnManager, advancePhase, assertPhase } from './turn/turnManager'
 import { resolveTrigger } from './effects/effectRegistry'
@@ -63,6 +63,7 @@ export function createGame ({
   startingBuildings = [],
   buysPerTurn = 1,
   cityTiers = [],
+  shuffleMarkets = true,
   goalTimerFor = (card) => 3 + (card.tier ?? 1),
   rng
 } = {}) {
@@ -80,10 +81,14 @@ export function createGame ({
     rng
   })
 
+  // The market and the goals are shuffled at the start (they were not, so the
+  // city row dealt in list order and the same three goals opened every game).
   const cityDeck = createDeck({ id: 'city', cards: cityDeckCardIds.map(resolveCard), rng })
+  if (shuffleMarkets) shuffle(cityDeck)
   const cityRow = createRow({ sourceDeck: cityDeck, size: cityRowSize })
 
   const goalDeck = createDeck({ id: 'goal', cards: goalDeckCardIds.map(resolveCard), rng })
+  if (shuffleMarkets) shuffle(goalDeck)
   const goalRow = createRow({ sourceDeck: goalDeck, size: goalRowSize, timerFor: goalTimerFor })
 
   startingBuildings.forEach(({ cardId, x, y }) => seedStructure(state, resolveCard(cardId), { x, y }))
