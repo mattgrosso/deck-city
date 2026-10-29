@@ -16,6 +16,7 @@ export * as disasterCards from './cards/disasterCards'
 
 export { registerEffect, hasEffect, resolveEffect, resolveEffects, resolveTrigger } from './effects/effectRegistry'
 export { registerCondition, hasCondition, evaluateCondition } from './conditions/conditionRegistry'
+export { conditionProgress } from './conditions/coreConditions'
 
 export {
   createDeck, shuffle, draw, discardCards, addToDrawPile, addToDiscardPile

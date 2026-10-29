@@ -13,13 +13,13 @@
             :grid="game.state.cityGrid" :structures="game.state.builtStructures" :tick="tick"
             :targeting="mode === 'target' || mode === 'look'" :valid-cells="validCells" :cursor="cursorCell"
             :valid-edges="validEdges" :cursor-edge="cursorEdge" :planned-edges="pendingEdges" :preview-card="mode === 'target' ? selectedCard : null"
-            :width="1920" :height="1080" :rect="VIEW_RECT" :stage-scale="scale"
+            :width="1920" :height="1080" :rect="VIEW_RECT" :stage-scale="scale" :show-labels="mode === 'look'"
             @cell="onCellClick"
           />
         </div>
 
         <Market
-          :city-row="cityRow" :goal-row="goalRow" :goal-timers="goalTimers" :catalog="game.catalog" :treasury="treasury"
+          :city-row="cityRow" :goal-row="goalRow" :goal-timers="goalTimers" :catalog="game.catalog" :treasury="treasury" :state="game.state" :tick="tick"
           :active="mode === 'market'" :focus="market" :goal-met="goalMet" :goals-left="goalsLeft"
           @focus="onMarketFocus" @select="onMarketSelect"
         />

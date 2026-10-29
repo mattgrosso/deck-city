@@ -6,7 +6,7 @@
       <div v-for="lot in lots" :key="lot.id" class="flat-lot" :class="{ 'flat-lot--built': lot.instanceId, 'flat-lot--valid': validSet.has(`${lot.x},${lot.y}`), 'flat-lot--cursor': cursor && cursor.x === lot.x && cursor.y === lot.y }" @click="$emit('cell', { x: lot.x, y: lot.y })" />
     </div>
     <!-- Crisp HTML labels over the canvas: a chip under each building. -->
-    <div class="scene__labels">
+    <div v-if="showLabels" class="scene__labels">
       <div v-for="label in labels" :key="label.id" class="chip" :class="{ 'chip--monument': label.monument }" :style="{ left: `${label.x}px`, top: `${label.y}px` }">
         <span class="chip__name">{{ label.name }}</span><span v-if="label.stats" class="chip__stats">{{ label.stats }}</span>
       </div>
@@ -35,6 +35,9 @@ export default {
     cursorEdge: { type: String, default: null },
     plannedEdges: { type: Array, default: () => [] }, // segments already aimed by the Road card in hand
     previewCard: { type: Object, default: null },
+    // Building chips show only while inspecting the map (Matt: "those should
+    // only appear when I am inspecting").
+    showLabels: { type: Boolean, default: false },
     width: { type: Number, default: 1920 },
     height: { type: Number, default: 1080 },
     // Where on the canvas the city is framed (canvas pixels); the rest is grass under the UI.

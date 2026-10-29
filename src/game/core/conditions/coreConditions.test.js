@@ -119,3 +119,17 @@ describe('all / any', () => {
     expect(evaluateCondition(failing, { state })).toBe(false)
   })
 })
+
+describe('conditionProgress', () => {
+  it('measures each leaf of a condition, counting toward or down to its target', async () => {
+    const { conditionProgress } = await import('./coreConditions')
+    const { createPlayerState, seedStructure } = await import('../state/playerState')
+    const state = createPlayerState()
+    seedStructure(state, { id: 'residential', name: 'R', type: 'building', tags: ['residential'], stats: { population: 2 } }, { x: 0, y: 0 })
+    seedStructure(state, { id: 'residential', name: 'R', type: 'building', tags: ['residential'], stats: { population: 2 } }, { x: 1, y: 0 })
+    const parts = conditionProgress({ type: 'all', conditions: [{ type: 'populationAtLeast', amount: 10 }, { type: 'adjacentChain', tag: 'residential', length: 3 }] }, { state })
+    expect(parts.map(p => [p.current, p.target, p.met])).toEqual([[4, 10, false], [2, 3, false]])
+    const clean = conditionProgress({ type: 'statusCountAtMost', tag: 'trash', amount: 0 }, { state })[0]
+    expect(clean).toMatchObject({ current: 0, target: 0, atMost: true, met: true })
+  })
+})

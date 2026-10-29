@@ -102,3 +102,35 @@ registerCondition('all', ({ conditions }, context) => {
 registerCondition('any', ({ conditions }, context) => {
   return conditions.some(condition => evaluateCondition(condition, context))
 })
+
+// ---------------------------------------------------------------- progress
+// How far along a condition is, for a goal tile's progress bar (Matt: goals
+// "should make it clear what they require and show what progress we have
+// made towards them"). Each returns { current, target } for one condition;
+// 'all' returns every part. Mirrors the evaluators above, never mutates.
+
+const PROGRESS = {
+  populationAtLeast: ({ amount }, { state }) => ({ current: calcStatTotal(state, 'population'), target: amount }),
+  treasuryAtLeast: ({ amount }, { state }) => ({ current: state.treasury, target: amount }),
+  buildingCountAtLeast: ({ cardId, amount }, { state }) => ({ current: state.builtStructures.filter(i => i.card.id === cardId).length, target: amount }),
+  // "At most N": progress counts DOWN; current is how many you have, done at <= target.
+  statusCountAtMost: ({ tag, amount }, { state }) => ({ current: countCardsByTag(state, tag), target: amount, atMost: true }),
+  adjacentPair: (condition, context) => ({ current: evaluateCondition(condition, context) ? 1 : 0, target: 1 }),
+  adjacentChain: ({ tag, length }, { state }) => ({ current: Math.max(longestRun(state, tag, 1, 0), longestRun(state, tag, 0, 1)), target: length })
+}
+
+/**
+ * @returns {{ condition: Object, current: number, target: number, atMost?: boolean, met: boolean }[]}
+ *   one entry per leaf condition ('all'/'any' are flattened).
+ */
+export function conditionProgress (condition, context) {
+  if (!condition) return []
+  if (condition.type === 'all' || condition.type === 'any') {
+    return condition.conditions.flatMap(c => conditionProgress(c, context))
+  }
+  const fn = PROGRESS[condition.type]
+  if (!fn) return [{ condition, current: 0, target: 1, met: evaluateCondition(condition, context) }]
+  const p = fn(condition, context)
+  const met = p.atMost ? p.current <= p.target : p.current >= p.target
+  return [{ condition, ...p, met }]
+}

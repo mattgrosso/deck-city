@@ -3,22 +3,17 @@
     <div class="market__row market__row--goals">
       <div class="market__head">
         <span class="market__title market__title--gold">Goals <span class="market__sub">· claim one a turn · {{ goalsLeft }} more in the deck</span></span>
-        <span class="market__note">Lose when the deck runs out</span>
+        <span class="market__note">Run out of goals and the city stalls</span>
       </div>
       <div class="market__cards">
         <div
           v-for="(card, i) in goalRow"
-          :key="`g${i}`"
+          :key="`g${i}-${card.id}`"
           class="market__slot"
-          :class="{ 'market__slot--ready': goalMet(card) }"
           @mouseenter="$emit('focus', { row: 1, index: i })"
           @click="$emit('select', { row: 1, index: i })"
         >
-          <GameCard :card="card" :catalog="catalog" size="market" :cant="!goalMet(card)" :class="{ 'focus-ring': isFocused(1, i) }" />
-          <div class="market__timer" :class="{ 'market__timer--hot': (goalTimers[i] ?? 9) <= 1, 'market__timer--warm': (goalTimers[i] ?? 9) === 2 }">
-            {{ goalTimers[i] ?? '–' }} {{ goalTimers[i] === 1 ? 'turn' : 'turns' }} left
-          </div>
-          <div v-if="goalMet(card)" class="market__ready">READY</div>
+          <GoalTile :goal="card" :state="state" :catalog="catalog" :timer="goalTimers[i] ?? 0" :tick="tick" :focused="isFocused(1, i)" />
         </div>
         <div v-if="!goalRow.length" class="market__empty">No goals left</div>
       </div>
@@ -46,15 +41,17 @@
 
 <script>
 import GameCard from './GameCard.vue'
+import GoalTile from './GoalTile.vue'
 
 // The goals sit ABOVE the city row now, in gold, each with its own clock.
 // Matt: "I sort of accidentally fulfilled one of the goals... they just look
 // like other cards... it would be better if those were emphasized."
 export default {
   name: 'Market',
-  components: { GameCard },
+  components: { GameCard, GoalTile },
   props: {
     cityRow: Array, goalRow: Array, goalTimers: { type: Array, default: () => [] }, catalog: Object, treasury: Number,
+    state: Object, tick: { type: Number, default: 0 },
     active: Boolean, focus: Object, goalMet: Function, goalsLeft: Number
   },
   emits: ['focus', 'select'],
@@ -78,7 +75,8 @@ export default {
 .market__title--gold { color: #9a6508; }
 .market__note { font-size: 13px; color: var(--ink-3); font-weight: 600; }
 .market__sub { font-size: 12px; letter-spacing: 0; text-transform: none; color: #a8803a; font-weight: 600; }
-.market__cards { display: flex; gap: 12px; min-height: 222px; }
+.market__cards { display: flex; gap: 12px; min-height: 206px; }
+.market__row--goals .market__cards { gap: 10px; padding-top: 4px; }
 .market__slot { position: relative; transition: transform 160ms ease; }
 .market__slot:has(.focus-ring) { transform: scale(1.12); z-index: 2; }
 .market__timer { position: absolute; left: 50%; bottom: -11px; transform: translateX(-50%); background: #fff; border: 1.5px solid #e2c47a; color: #7a5407; font-weight: 800; font-size: 11px; letter-spacing: 0.06em; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }

@@ -189,6 +189,16 @@ Open design threads from this round, not changed: whether unemployment
 should have a tolerance; one buy a turn too; the city row's price
 gradient (Suburbia); what else placement should matter for.
 
+**Goals are objectives, not cards** (Matt: "they should make it clear what
+they require and show what progress we have made towards them"). The
+market draws each goal as a `GoalTile.vue`: name, its clock, one line per
+requirement with a progress bar and count (`conditionProgress` in
+coreConditions.js measures every condition type; 'all' is flattened),
+then what claiming it gives, ending with the Monument card that joins
+your deck. The goal deck and Monument cards are unchanged underneath.
+Building chips on the map show only in look mode (Matt: "only when I am
+inspecting the map").
+
 **Not done / next:** nobody has played a full game on the TV yet — that's
 the point of all this. Then: tune every number (all still first guesses),
 decide whether Build and Acquire should be one phase, sound, the road-chain
