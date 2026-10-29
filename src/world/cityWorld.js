@@ -160,7 +160,6 @@ export function createCityWorld (canvas, { reducedMotion = false } = {}) {
   const live = new Map()
   const dying = new Map()
   const ghosts = new Map()
-  const ghostRoad = null
   let framed = false
 
   const place = (group, p) => {
