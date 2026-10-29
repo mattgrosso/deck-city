@@ -13,7 +13,7 @@ import { keywordsFor } from '@/ui/cardText'
 export default {
   name: 'CardInfo',
   props: { card: Object, catalog: Object },
-  computed: { keywords () { return keywordsFor(this.card, this.catalog).slice(0, 2) } }
+  computed: { keywords () { return keywordsFor(this.card, this.catalog).slice(0, 1) } }
 }
 </script>
 
