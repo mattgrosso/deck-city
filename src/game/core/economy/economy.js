@@ -49,6 +49,22 @@ export const VALUE = {
   rollover: 2 * HORIZON * SPEND
 }
 
+/** Of a city-wide count ("+1 for every shop in the city"): how many there tend to be. */
+export const CITY_COUNT = 3
+
+/** How often a building sees something built next door over the horizon. */
+export const NEIGHBOUR_BUILDS = 1.5
+
+/** Plays a turn of cards carrying a given tag (for discounts). */
+export const TAGGED_PLAYS = 0.6
+
+/**
+ * What a hand slot is worth: playing a CIVIC card uses one of your five
+ * cards for an action instead of a building, so civic plays pay it on top
+ * of their cost. (Buildings are what a hand slot is for, so they don't.)
+ */
+export const CARD_SLOT = 1
+
 /** Of a "next door" bonus: how many matching neighbours a player gets on average. */
 export const NEIGHBOURS = { good: 1, bad: 0.5 } // players chase the good ones and dodge the bad
 
@@ -81,8 +97,8 @@ export function valueOfStats (stats = {}) {
   return round2(Object.entries(stats).reduce((n, [k, v]) => n + (typeof v === 'number' ? v * (VALUE[k] ?? 0) : 0), 0))
 }
 
-/** Budget for one effect descriptor, firing once. */
-export function valueOfEffect (effect) {
+/** Budget for one effect descriptor, firing once. `catalog` prices token cards. */
+export function valueOfEffect (effect, catalog = {}) {
   const amount = effect.amount ?? 1
   switch (effect.type) {
     case 'gainTreasury': return amount
@@ -91,11 +107,29 @@ export function valueOfEffect (effect) {
     case 'consumeStatus': return -amount * VALUE.status
     case 'gainStatusPerAdjacent': return NEIGHBOURS.good * VALUE.status
     case 'drawCards': return amount * VALUE.draw
-    case 'gainBuys': return amount * VALUE.buy
     case 'discardCards': return 2 * VALUE.discard
+    case 'gainBuys': return amount * VALUE.buy
     case 'raiseTreasuryRolloverCap': return VALUE.rollover * Math.min(1, amount / 10)
+    case 'gainTreasuryPerAdjacent': return amount * NEIGHBOURS.good
+    case 'gainTreasuryPerCount': return amount * CITY_COUNT / (effect.per ?? 1)
+    case 'gainTreasuryPerStatus': return amount * Math.min(effect.max ?? 3, 2)
+    case 'clearAnyStatus': return amount * -VALUE.status * (effect.disasters ? 2 : 1)
+    case 'gainCard': return amount * valueOfCardInDeck(catalog[effect.card], catalog)
+    case 'gainCardPerAdjacent': return NEIGHBOURS.good * valueOfCardInDeck(catalog[effect.card], catalog)
     default: return 0
   }
+}
+
+/**
+ * A card added to your deck: a token is played once (exhaust) for what its
+ * effects give; a status card is a dead draw; anything else comes round
+ * HORIZON / CYCLE times.
+ */
+export function valueOfCardInDeck (card, catalog = {}) {
+  if (!card) return 0
+  if (card.type === 'status' || card.type === 'disaster') return VALUE.status
+  const once = valueOfEffects(card.effects, catalog) - (card.cost ?? 0)
+  return round2(card.exhaust ? once : once * (HORIZON / CYCLE))
 }
 
 /** How many times a trigger fires over the horizon. */
@@ -104,17 +138,24 @@ export const TIMES = {
   onPlay: 1,
   onComplete: 1,
   onTurnStart: HORIZON,
-  onDraw: HORIZON / CYCLE
+  onDraw: HORIZON / CYCLE,
+  onNeighborBuilt: NEIGHBOUR_BUILDS,
+  onClear: 0.5 * HORIZON // CLEARS_PER_TURN x HORIZON
 }
 
 /** Budget for every effect on a card, counted by how often each trigger fires. */
-export function valueOfEffects (effects = {}) {
-  return round2(Object.entries(effects).reduce((n, [trigger, list]) => n + (TIMES[trigger] ?? 1) * list.reduce((m, e) => m + valueOfEffect(e), 0), 0))
+export function valueOfEffects (effects = {}, catalog = {}) {
+  return round2(Object.entries(effects).reduce((n, [trigger, list]) => n + (TIMES[trigger] ?? 1) * list.reduce((m, e) => m + valueOfEffect(e, catalog), 0), 0))
 }
 
 /** Budget for a card's "next door" rules, at the expected number of neighbours. */
 export function valueOfAdjacency (card) {
-  return round2((card.adjacency?.statBonus ?? []).reduce((n, b) => n + b.amount * (b.amount > 0 ? NEIGHBOURS.good : NEIGHBOURS.bad) * (VALUE[b.stat] ?? 0), 0))
+  return round2((card.adjacency?.statBonus ?? []).reduce((n, b) => {
+    const count = b.scope === 'city'
+      ? Math.min(b.max ?? 99, CITY_COUNT) / (b.per ?? 1)
+      : (b.amount > 0 ? NEIGHBOURS.good : NEIGHBOURS.bad)
+    return n + b.amount * count * (VALUE[b.stat] ?? 0)
+  }, 0))
 }
 
 /** How a gain compares with its cost: 1 is fair, above is a deal, below a loss. */

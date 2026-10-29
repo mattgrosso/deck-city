@@ -15,6 +15,13 @@ const KITS = {
 }
 const loader = new GLTFLoader()
 const load = (kit, name) => new Promise((res, rej) => loader.load(`/models/${kit}/${name}.glb`, g => res(g.scene), undefined, rej))
+window.__measureList = async (names) => {
+  const out = {}
+  for (const n of names) {
+    try { const s = await new Promise((res, rej) => loader.load(`/models/${n}.glb`, g => res(g.scene), undefined, rej)); const sz = new THREE.Box3().setFromObject(s).getSize(new THREE.Vector3()); out[n] = [+sz.x.toFixed(2), +sz.y.toFixed(2), +sz.z.toFixed(2)] } catch { /* skip */ }
+  }
+  return out
+}
 window.__measure = async () => {
   const out = {}
   for (const [kit, names] of Object.entries(KITS)) {

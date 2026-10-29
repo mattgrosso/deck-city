@@ -231,6 +231,46 @@ economy" and the generated `docs/ECONOMY.md`. The first audit moved:
 - City Bank +3 budget on claim (a tier-3 reward was below every tier-2).
 - Road and Civic Works are named bargains; everything else is fair.
 
+**One buy a turn** (Matt: "I can buy way too many cards"): `state.buys`
+resets to 1 every draw; `gainBuys` and `buysBonus` add more.
+
+**The city catalogue** (Matt: "a much larger base of buildings... tiered...
+much more interesting abilities... just go crazy"). `src/game/core/cards/
+cityCards.js`: 113 buildings and 12 civic cards across three tiers, plus
+four tokens (Tourist, Commuter, Volunteer, Investor) and a Debt status card.
+Families: residential, commercial, industrial, green, services, transit,
+leisure & culture, landmarks. The engine vocabulary they use:
+- triggers `onNeighborBuilt`, `onClear` beside onBuild/onTurnStart/onPlay;
+- effects `gainTreasuryPerAdjacent`, `gainTreasuryPerCount`,
+  `gainTreasuryPerStatus`, `clearAnyStatus`, `gainCard` (tokens),
+  `gainCardPerAdjacent`, `gainBuys`;
+- passives `handSizeBonus`, `buysBonus`, `discount: { tag, amount }`
+  (`effectiveCost`), `blocksDisasters: n`, `clears` lists, `unique`,
+  `exhaust` (tokens), and city-wide adjacency (`scope: 'city'`, `max`).
+Tier I is in the market from the start (with the five services); tier II
+joins at 12 people and tier III at 22 (`cityTiers` in createGame,
+`unlockTiers` in phases.js). The win is now 30 people. Six goals were
+added (Green City, Commuter Town, Industrial Heartland, School District,
+Tourist Trap, Full Service City) on a new `tagCountAtLeast` condition.
+
+**Every city card's cost is set by the economy**: write it with `null`
+and run `yarn reprice` (tools/reprice.mjs), which writes the cost that
+lands it on the line; `price` follows. Five cards could not land and were
+redesigned: Trailer Park (4 people), Coal and Chemical Plants (pollute
+once, not every turn), Casino (revenue 6), Playground (+pop beside
+schools too); Property Tax pays per home.
+
+**Looks**: `src/world/looks.js` draws every city card - hand-picked parts
+for the recognisable ones (airport, water tower, stadium, junkyard...),
+pooled by family and tier for the rest, scaled from each model's measured
+footprint (`footprints.json`). Every card has a picture (159 PNGs).
+
+**`yarn selfplay [n]`** (tools/selfplay.mjs) plays whole games with a
+greedy robot. With tiers at 12/22: ~75% won around turn 20, tier II about
+turn 4, tier III about turn 14, no losses (the goal deck never ran out),
+and decks bloat past 100 cards from status cards. Those are the next
+design questions.
+
 **Not done / next:** nobody has played a full game on the TV yet — that's
 the point of all this. Then: tune every number (all still first guesses),
 decide whether Build and Acquire should be one phase, sound, the road-chain

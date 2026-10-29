@@ -10,7 +10,7 @@
 // active. TurnManager.assertPhase() is what enforces that gating.
 
 import {
-  resetAllSlotUsage, calcStatTotal, tickDisasterTimer, resetDisasterTimer, countDisasterBlockers
+  resetAllSlotUsage, calcStatTotal, tickDisasterTimer, resetDisasterTimer, countDisasterBlockers, sumPassive
 } from '../state/playerState'
 import { resolveTrigger } from '../effects/effectRegistry'
 import { draw, discardCards, addToDrawPile, addToDiscardPile, shuffle } from '../piles/deck'
@@ -59,6 +59,25 @@ function unemployment (ctx) {
   if (population <= jobs || !crime) return
   addToDiscardPile(ctx.state.deck, [crime])
   ctx.log?.push(`Unemployment: ${population} people, ${jobs} jobs. +1 Crime card.`)
+}
+
+/**
+ * The city row grows with the city: when population reaches a tier's
+ * threshold, that tier's cards are shuffled into the city deck (Matt: "a
+ * much larger base of buildings, and probably they should be tiered").
+ * ctx.cityTiers = [{ tier: 2, at: 8, cards: [...] }, ...].
+ */
+function unlockTiers (ctx) {
+  if (!ctx.cityTiers?.length || !ctx.cityRow) return
+  const pop = calcStatTotal(ctx.state, 'population')
+  ctx.state.tiersUnlocked ??= [1]
+  for (const t of ctx.cityTiers) {
+    if (ctx.state.tiersUnlocked.includes(t.tier) || pop < t.at) continue
+    ctx.state.tiersUnlocked.push(t.tier)
+    addToDrawPile(ctx.cityRow.sourceDeck, t.cards)
+    shuffle(ctx.cityRow.sourceDeck)
+    ctx.log?.push(`The city reaches ${t.at} people: tier ${'I'.repeat(t.tier)} buildings come to market.`)
+  }
 }
 
 /**
@@ -123,13 +142,13 @@ export const DEFAULT_PHASES = [
       const rollover = Math.min(ctx.state.treasury, ctx.state.treasuryRolloverCap ?? 0)
       ctx.state.treasury = revenue + rollover
       ctx.state.goalsClaimedThisTurn = 0
-      ctx.state.buys = ctx.buysPerTurn ?? 1
+      ctx.state.buys = (ctx.buysPerTurn ?? 1) + sumPassive(ctx.state, 'buysBonus')
       const parts = [`${fromBuildings} from buildings`]
       if (base) parts.push(`${base} base income`)
       if (rollover > 0) parts.push(`${rollover} kept from last turn`)
       ctx.log?.push(`Budget this turn: ${ctx.state.treasury} (${parts.join(' + ')}).`)
 
-      const handSize = ctx.handSize ?? 5
+      const handSize = (ctx.handSize ?? 5) + sumPassive(ctx.state, 'handSizeBonus')
       const needed = Math.max(0, handSize - ctx.state.hand.length)
       const drawnCards = draw(ctx.state.deck, needed)
       // onDraw triggers resolve immediately as each card lands in hand -
@@ -169,6 +188,7 @@ export const DEFAULT_PHASES = [
       }
 
       unemployment(ctx)
+      unlockTiers(ctx)
 
       if (tickDisasterTimer(ctx.state)) {
         triggerDisaster(ctx)

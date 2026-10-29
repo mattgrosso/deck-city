@@ -6,9 +6,10 @@
 // Things it cannot price from their data say so (`note`) rather than guess.
 
 import {
-  VALUE, HORIZON, CYCLE, CLEARS_PER_TURN, STRIKE_EVERY, FAIR, BARGAINS,
+  VALUE, HORIZON, CYCLE, CLEARS_PER_TURN, STRIKE_EVERY, FAIR, BARGAINS, TAGGED_PLAYS, CARD_SLOT,
   valueOfStats, valueOfEffects, valueOfAdjacency, ratio
 } from './economy'
+import { CITY_CARDS, TOKEN_CATALOG } from '../cards/cityCards'
 import { STARTER_CARD_CATALOG, STARTER_DECK_CARDS } from '../cards/starterCards'
 import { FACILITY_CATALOG } from '../cards/facilityCards'
 import { GOAL_CATALOG } from '../cards/goalCards'
@@ -19,9 +20,15 @@ const flag = (key, r) => (BARGAINS[key] ? 'bargain' : (r < FAIR.low ? 'loss' : (
 
 /** What a disaster card does to you over the horizon: its bite every draw, and the dead draw. */
 export function valueOfDisaster (card) {
-  return round2(valueOfEffects(card.effects) + VALUE.status)
+  return round2(valueOfEffects(card.effects, CATALOG) + VALUE.status)
 }
 const AVERAGE_DISASTER = () => DISASTER_CATALOG.reduce((n, c) => n + valueOfDisaster(c), 0) / DISASTER_CATALOG.length
+
+/** Every card a price can refer to (token effects look cards up by id). */
+export const ALL_CARDS = [...STARTER_CARD_CATALOG, ...FACILITY_CATALOG, ...CITY_CARDS, ...TOKEN_CATALOG, ...GOAL_CATALOG, ...DISASTER_CATALOG]
+export const CATALOG = Object.fromEntries(ALL_CARDS.map(c => [c.id, c]))
+/** Every card that can turn up in the city row. */
+export const MARKET_CARDS = [...FACILITY_CATALOG, ...CITY_CARDS]
 
 /** What building a card once is worth, with the parts that add up to it. */
 export function valueOfBuild (card) {
@@ -29,22 +36,33 @@ export function valueOfBuild (card) {
   const add = (label, v) => { if (v) parts.push([label, round2(v)]) }
   add('stats', valueOfStats(card.stats))
   add('next door', valueOfAdjacency(card))
-  add('effects', valueOfEffects(card.effects))
-  if (card.clears) add(`clears ${card.clears}`, CLEARS_PER_TURN * HORIZON * -VALUE.status)
-  if (card.blocksDisasters) add('blocks disasters', (HORIZON / STRIKE_EVERY) * -AVERAGE_DISASTER())
+  add('effects', valueOfEffects(card.effects, CATALOG))
+  const kinds = Array.isArray(card.clears) ? card.clears : (card.clears ? [card.clears] : [])
+  if (kinds.length) {
+    const capacity = card.slots?.capacity ?? 1
+    const perTurn = Math.min(capacity, CLEARS_PER_TURN * kinds.length) + 0.1 * (capacity - 1)
+    add(`clears ${kinds.join('/')}`, perTurn * HORIZON * -VALUE.status)
+  }
+  if (card.blocksDisasters) add('blocks disasters', Number(card.blocksDisasters) * (HORIZON / STRIKE_EVERY) * -AVERAGE_DISASTER())
+  if (card.handSizeBonus) add('bigger hand', card.handSizeBonus * VALUE.draw * HORIZON)
+  if (card.buysBonus) add('more buys', card.buysBonus * VALUE.buy * HORIZON)
+  for (const d of (Array.isArray(card.discount) ? card.discount : (card.discount ? [card.discount] : []))) add(`${d.tag} cheaper`, d.amount * TAGGED_PLAYS * HORIZON)
   if (card.placesRoad) add('opens plots', (card.roadSegments ?? 1) * 2 * 0.5) // ~2 new plots a segment, a plot's access ~0.5
   return { value: round2(parts.reduce((n, [, v]) => n + v, 0)), parts }
 }
 
+/** What a card's play costs in budget: its cost, plus a hand slot for a civic action. */
+export const playCostOf = (card) => (card.cost ?? 0) + (card.type === 'civic' ? CARD_SLOT : 0)
+
 /** Every card you can PLAY: its cost against what one play gives. */
 export function pricePlays () {
-  const cards = [...STARTER_CARD_CATALOG, ...FACILITY_CATALOG].filter(c => c.type === 'building' || c.type === 'civic')
+  const cards = [...STARTER_CARD_CATALOG, ...MARKET_CARDS].filter(c => (c.type === 'building' || c.type === 'civic') && !c.token)
   return cards.map(card => {
     const key = `play:${card.id}`
     const { value, parts } = valueOfBuild(card)
-    const cost = card.cost ?? 0
+    const cost = playCostOf(card)
     const r = ratio(value, cost)
-    return { key, id: card.id, name: card.name, cost, gain: value, ratio: r, flag: flag(key, r), note: parts.map(([l, v]) => `${l} ${v}`).join(', ') }
+    return { key, id: card.id, name: card.name, tier: card.tier ?? 1, cost, gain: value, ratio: r, flag: flag(key, r), note: parts.map(([l, v]) => `${l} ${v}`).join(', ') }
   })
 }
 
@@ -56,11 +74,11 @@ export function pricePlays () {
  * facility cost double and the price list called every one a loss.
  */
 export function priceBuys () {
-  return FACILITY_CATALOG.map(card => {
+  return MARKET_CARDS.map(card => {
     const key = `buy:${card.id}`
     const { value } = valueOfBuild(card)
     const price = card.price ?? card.cost ?? 0
-    const total = price + (card.cost ?? 0)
+    const total = price + playCostOf(card)
     const gain = round2(value + 0.5)
     const r = ratio(gain, total)
     return { key, id: card.id, name: card.name, cost: price, play: card.cost ?? 0, gain, ratio: r, flag: flag(key, r), note: `buy ${price} + build ${card.cost ?? 0} for one build worth ${value}, and a spare` }
@@ -75,7 +93,7 @@ export function priceBuys () {
  */
 export function priceGoals () {
   const rows = GOAL_CATALOG.map(goal => {
-    const now = valueOfEffects(goal.effects)
+    const now = valueOfEffects(goal.effects, CATALOG)
     const monument = round2(valueOfStats(goal.stats) * (HORIZON / CYCLE))
     return { key: `goal:${goal.id}`, id: goal.id, name: goal.name, tier: goal.tier ?? 1, now, monument, gain: round2(now + monument) }
   })

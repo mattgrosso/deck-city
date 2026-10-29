@@ -12,14 +12,14 @@ describe('rulesFor', () => {
     expect(rulesFor(starterCards.RESIDENTIAL, catalog)).toEqual([
       '+2 population, +1 revenue',
       'Next door: +1 population per Residential, −1 population per Industrial.',
-      'When built: add 1 Crime to your deck.'
+      'When built: +1 Crime card.'
     ])
   })
 
   it('explains a road, a facility with slots, and an adjacency card', () => {
     expect(rulesFor(starterCards.ROAD, catalog)[0]).toMatch(/up to 2 street segments/)
     expect(rulesFor(facilityCards.POLICE_STATION, catalog)).toEqual([
-      'Play a Crime card from your hand into it: 2 slots a turn. The card is gone for good.'
+      'Play a Crime card from your hand into it: 2 slots a turn. Gone for good.'
     ])
     expect(rulesFor(facilityCards.PARK, catalog)).toEqual([
       'Next door: +1 revenue per Residential.'

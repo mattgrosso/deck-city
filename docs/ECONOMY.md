@@ -37,24 +37,274 @@ Nothing. Every card is fair or a named bargain.
 | Residential | 3 | 4.15 | 1.38 |  | stats 5.4, next door 0.75, effects -2 |
 | Commercial | 4 | 5 | 1.25 |  | stats 5.8, next door 1.2, effects -2 |
 | Industrial | 4 | 4.3 | 1.08 |  | stats 3.9, next door 2.4, effects -2 |
-| Civic Works | 0 | 3 | ∞ | ★ bargain | effects 3 |
-| Police Station | 4 | 4 | 1 |  | clears crime 4 |
-| Sanitation Center | 4 | 4 | 1 |  | clears trash 4 |
-| Clinic | 5 | 4 | 0.8 |  | clears pollution 4 |
+| Civic Works | 1 | 3 | 3 | ★ bargain | effects 3 |
+| Police Station | 4 | 4.8 | 1.2 |  | clears crime 4.8 |
+| Sanitation Center | 4 | 4.8 | 1.2 |  | clears trash 4.8 |
+| Clinic | 5 | 4.8 | 0.96 |  | clears pollution 4.8 |
 | Fire Station | 5 | 7 | 1.4 |  | blocks disasters 7 |
 | Park | 2 | 2.4 | 1.2 |  | next door 2.4 |
-| Trade Fair | 2 | 2.5 | 1.25 |  | effects 2.5 |
+| Trade Fair | 3 | 2.5 | 0.83 |  | effects 2.5 |
+| Cottage | 5 | 5.4 | 1.08 |  | stats 3.9, next door 1.5 |
+| Row House | 2 | 2.5 | 1.25 |  | stats 3, next door 1.5, effects -2 |
+| Bungalow | 4 | 4.65 | 1.16 |  | stats 5.4, next door -0.75 |
+| Trailer Park | 2 | 2 | 1 |  | stats 6, effects -4 |
+| Duplex | 4 | 4.9 | 1.23 |  | stats 6.9, effects -2 |
+| Garden Home | 6 | 6.9 | 1.15 |  | stats 3, next door 3.9 |
+| Farmhouse | 6 | 6.8 | 1.13 |  | stats 4.4, next door 2.4 |
+| Boarding House | 6 | 7 | 1.17 |  | stats 3, effects 4 |
+| Company Housing | 5 | 6 | 1.2 |  | stats 3, next door 3 |
+| Student Dorm | 3 | 3.4 | 1.13 |  | stats 3, next door 2.4, effects -2 |
+| Apartment Block | 7 | 7.9 | 1.13 |  | stats 8.4, next door 1.5, effects -2 |
+| Townhouses | 9 | 10.8 | 1.2 |  | stats 9.3, next door 1.5 |
+| Senior Living | 7 | 8 | 1.14 |  | stats 5, next door 3 |
+| Co-op Housing | 7 | 8 | 1.14 |  | stats 4.5, effects 3.5 |
+| Loft Conversions | 9 | 10.8 | 1.2 |  | stats 6.9, next door 3.9 |
+| Gated Community | 9 | 10.5 | 1.17 |  | stats 11.7, next door -1.2 |
+| Mixed-Use Tower | 6 | 6.8 | 1.13 |  | stats 8.8, effects -2 |
+| Housing Project | 4 | 5 | 1.25 |  | stats 9, effects -4 |
+| Brownstones | 10 | 11.7 | 1.17 |  | stats 9.3, next door 2.4 |
+| Cul-de-sac | 6 | 6.75 | 1.13 |  | stats 6, next door 0.75 |
+| High-Rise | 11 | 12.8 | 1.16 |  | stats 15.3, next door 1.5, effects -4 |
+| Penthouse Tower | 20 | 22.8 | 1.14 |  | stats 18, next door 4.8 |
+| Arcology | 13 | 14.8 | 1.14 |  | stats 18.8, effects -4 |
+| Garden City Estate | 9 | 10.5 | 1.17 |  | stats 7.5, next door 3 |
+| Luxury Condos | 17 | 19.5 | 1.15 |  | stats 12.3, next door 7.2 |
+| Corner Store | 5 | 5.3 | 1.06 |  | stats 2.9, next door 2.4 |
+| Diner | 6 | 7.4 | 1.23 |  | stats 3.4, effects 4 |
+| Barber Shop | 3 | 3.9 | 1.3 |  | stats 2.9, effects 1 |
+| Market Stall | 3 | 3.9 | 1.3 |  | stats 2.4, effects 1.5 |
+| Pawn Shop | 8 | 8.9 | 1.11 |  | stats 2.9, effects 6 |
+| Hardware Store | 5 | 5.3 | 1.06 |  | stats 2.9, infrastructure cheaper 2.4 |
+| Bakery | 7 | 8.2 | 1.17 |  | stats 3.4, next door 4.8 |
+| Laundromat | 4 | 4.9 | 1.23 |  | stats 2.9, effects 2 |
+| Gas Station | 5 | 5.7 | 1.14 |  | stats 5.3, next door 2.4, effects -2 |
+| Bookshop | 6 | 6.3 | 1.05 |  | stats 2.9, next door 2.4, effects 1 |
+| Shopping Arcade | 6 | 6.7 | 1.12 |  | stats 6.3, next door 2.4, effects -2 |
+| Department Store | 9 | 10.8 | 1.2 |  | stats 6.8, effects -2, more buys 6 |
+| Bank Branch | 11 | 12.52 | 1.14 |  | stats 5.8, effects 1.92, clears debt 4.8 |
+| Restaurant Row | 10 | 11.1 | 1.11 |  | stats 6.3, next door 4.8 |
+| Hotel | 12 | 14.3 | 1.19 |  | stats 6.3, effects 8 |
+| Farmers Market | 9 | 10.2 | 1.13 |  | stats 3.4, next door 4.8, effects 2 |
+| Nightclub | 8 | 8.6 | 1.08 |  | stats 8.2, next door 2.4, effects -2 |
+| Office Park | 8 | 9.7 | 1.21 |  | stats 7.3, next door 2.4 |
+| Car Dealership | 8 | 8.6 | 1.08 |  | stats 8.2, next door 2.4, effects -2 |
+| Pharmacy | 6 | 7.4 | 1.23 |  | stats 3.4, clears pollution 4 |
+| Mall | 15 | 17 | 1.13 |  | stats 12.6, next door 2.4, effects -4, more buys 6 |
+| Stock Exchange | 12 | 14 | 1.17 |  | stats 6.8, next door 7.2 |
+| Convention Center | 11 | 12.8 | 1.16 |  | stats 6.8, effects 6 |
+| Corporate HQ | 13 | 15.2 | 1.17 |  | stats 11.2, bigger hand 4 |
+| Luxury Boutiques | 13 | 15.4 | 1.18 |  | stats 10.6, next door 4.8 |
+| Workshop | 5 | 5.8 | 1.16 |  | stats 3.4, next door 2.4 |
+| Lumber Mill | 1 | 1.4 | 1.4 |  | stats 1, effects -2, residential cheaper 2.4 |
+| Brickworks | 2 | 1.9 | 0.95 |  | stats 1.5, effects -2, commercial cheaper 2.4 |
+| Warehouse | 6 | 7.24 | 1.21 |  | stats 3.4, next door 2.4, effects 1.44 |
+| Junkyard | 3 | 3.3 | 1.1 |  | stats 0.5, effects -2, clears trash 4.8 |
+| Quarry | 2 | 2.3 | 1.15 |  | stats 6.3, effects -4 |
+| Cannery | 6 | 6.3 | 1.05 |  | stats 3.9, next door 2.4 |
+| Textile Mill | 2 | 2.4 | 1.2 |  | stats 2, next door 2.4, effects -2 |
+| Factory Complex | 5 | 5.3 | 1.06 |  | stats 4.9, next door 2.4, effects -2 |
+| Steel Mill | 5 | 6.2 | 1.24 |  | stats 10.2, effects -4 |
+| Recycling Plant | 9 | 10.3 | 1.14 |  | stats 1.5, effects 4, clears trash 4.8 |
+| Coal Power Plant | 4 | 4.7 | 1.18 |  | stats 1.5, next door 7.2, effects -4 |
+| Chemical Plant | 5 | 5.6 | 1.12 |  | stats 11.6, effects -6 |
+| Distribution Center | 11 | 12.8 | 1.16 |  | stats 4.4, next door 2.4, more buys 6 |
+| Brewery | 8 | 8.7 | 1.09 |  | stats 6.3, next door 2.4 |
+| Auto Plant | 7 | 8.2 | 1.17 |  | stats 7.8, next door 2.4, effects -2 |
+| Tech Campus | 14 | 16.6 | 1.19 |  | stats 10.2, next door 2.4, bigger hand 4 |
+| Solar Farm | 7 | 8.2 | 1.17 |  | stats 1, next door 7.2 |
+| Robotics Factory | 10 | 12 | 1.2 |  | stats 14, effects -2 |
+| Freight Hub | 14 | 15.7 | 1.12 |  | stats 7.3, next door 2.4, more buys 6 |
+| Pocket Park | 4 | 4.4 | 1.1 |  | next door 2.4, effects 2 |
+| Community Garden | 5 | 5.5 | 1.1 |  | next door 1.5, clears pollution 4 |
+| Playground | 3 | 3 | 1 |  | next door 3 |
+| Tree-Lined Plaza | 2 | 2.4 | 1.2 |  | next door 2.4 |
+| Botanical Garden | 6 | 7.2 | 1.2 |  | stats 4.8, next door 2.4 |
+| City Park | 11 | 12.7 | 1.15 |  | stats 3.9, next door 4.8, clears pollution 4 |
+| Greenbelt | 6 | 6.3 | 1.05 |  | next door 1.5, clears pollution 4.8 |
+| Nature Reserve | 8 | 9.3 | 1.16 |  | stats 4.8, next door 4.5 |
+| School | 2 | 2.5 | 1.25 |  | stats 1, next door 1.5 |
+| Library | 4 | 4.5 | 1.13 |  | stats 0.5, bigger hand 4 |
+| Landfill | 3 | 3.6 | 1.2 |  | effects -2, clears trash 5.6 |
+| Water Tower | 4 | 4 | 1 |  | effects 4 |
+| Post Office | 4 | 4.5 | 1.13 |  | stats 0.5, effects 4 |
+| Community Center | 6 | 7 | 1.17 |  | stats 1.5, next door 1.5, clears crime 4 |
+| Police Precinct | 6 | 6.6 | 1.1 |  | stats 1, clears crime 5.6 |
+| Hospital | 8 | 9.1 | 1.14 |  | stats 2, next door 1.5, clears pollution 5.6 |
+| Fire Department | 13 | 15 | 1.15 |  | stats 1, blocks disasters 14 |
+| High School | 3 | 3.9 | 1.3 |  | stats 1.5, next door 2.4 |
+| Courthouse | 10 | 11.8 | 1.18 |  | stats 1, effects 2, clears crime/debt 8.8 |
+| City Hall | 11 | 12.3 | 1.12 |  | stats 6.3, more buys 6 |
+| University | 12 | 14.2 | 1.18 |  | stats 7.8, next door 2.4, bigger hand 4 |
+| Prison | 7 | 8.4 | 1.2 |  | stats 2, clears crime 6.4 |
+| Emergency Services | 20 | 24.3 | 1.22 |  | stats 1.5, clears crime/pollution 8.8, blocks disasters 14 |
+| Bus Stop | 4 | 5 | 1.25 |  | effects 5 |
+| Parking Garage | 4 | 4.8 | 1.2 |  | stats 2.4, next door 2.4 |
+| Bike Share | 4 | 4 | 1 |  | effects 4 |
+| Train Station | 10 | 11.4 | 1.14 |  | stats 3.4, effects 8 |
+| Tram Depot | 6 | 6.3 | 1.05 |  | stats 1.5, next door 2.4, infrastructure cheaper 2.4 |
+| Ferry Terminal | 9 | 9.8 | 1.09 |  | stats 5.8, effects 4 |
+| Airport | 19 | 22.2 | 1.17 |  | stats 10.2, effects 12 |
+| Metro Hub | 9 | 10.8 | 1.2 |  | stats 6.3, next door 4.5 |
+| Movie Theater | 5 | 5.8 | 1.16 |  | stats 3.4, next door 2.4 |
+| Bowling Alley | 6 | 6.8 | 1.13 |  | stats 5.3, effects 1.5 |
+| Art Gallery | 6 | 7.2 | 1.2 |  | stats 2.4, next door 4.8 |
+| Museum | 10 | 11.4 | 1.14 |  | stats 3.4, effects 8 |
+| Concert Hall | 7 | 8.2 | 1.17 |  | stats 5.8, next door 2.4 |
+| Casino | 3 | 3.9 | 1.3 |  | stats 15.9, effects -12 |
+| Zoo | 10 | 11.4 | 1.14 |  | stats 3.4, effects 8 |
+| Stadium | 18 | 21.2 | 1.18 |  | stats 9.2, effects 12 |
+| Cathedral | 10 | 11 | 1.1 |  | stats 3, effects 8 |
+| Monument Plaza | 4 | 4.5 | 1.13 |  | next door 4.5 |
+| Theme Park | 17 | 19.3 | 1.14 |  | stats 7.3, effects 12 |
+| Observation Tower | 12 | 14 | 1.17 |  | stats 4.8, next door 7.2, effects 2 |
+| Grant | 2 | 2 | 1 |  | effects 2 |
+| Bond Issue | 3 | 3 | 1 |  | effects 3 |
+| Census | 2 | 2 | 1 |  | effects 2 |
+| Cleanup Drive | 4 | 4 | 1 |  | effects 4 |
+| Urban Planning | 2 | 2.5 | 1.25 |  | effects 2.5 |
+| Tax Audit | 3 | 3 | 1 |  | effects 3 |
+| Festival | 4 | 4 | 1 |  | effects 4 |
+| Volunteer Day | 4 | 4 | 1 |  | effects 4 |
+| Investor Summit | 4 | 5 | 1.25 |  | effects 5 |
+| Insurance Policy | 4 | 5 | 1.25 |  | effects 5 |
+| Property Tax | 3 | 3 | 1 |  | effects 3 |
+| Job Fair | 3 | 3 | 1 |  | effects 3 |
 
 ## Buying from the city row (price + build cost against one build and a spare)
 
 | card | price | build | gives | ratio |  |
 |---|---|---|---|---|---|
-| Police Station | 1 | 4 | 4.5 | 0.9 |  |
-| Sanitation Center | 1 | 4 | 4.5 | 0.9 |  |
-| Clinic | 1 | 5 | 4.5 | 0.75 |  |
+| Police Station | 1 | 4 | 5.3 | 1.06 |  |
+| Sanitation Center | 1 | 4 | 5.3 | 1.06 |  |
+| Clinic | 1 | 5 | 5.3 | 0.88 |  |
 | Fire Station | 2 | 5 | 7.5 | 1.07 |  |
 | Park | 1 | 2 | 2.9 | 0.97 |  |
-| Trade Fair | 1 | 2 | 3 | 1 |  |
+| Trade Fair | 1 | 2 | 3 | 0.75 |  |
+| Cottage | 2 | 5 | 5.9 | 0.84 |  |
+| Row House | 1 | 2 | 3 | 1 |  |
+| Bungalow | 1 | 4 | 5.15 | 1.03 |  |
+| Trailer Park | 1 | 2 | 2.5 | 0.83 |  |
+| Duplex | 1 | 4 | 5.4 | 1.08 |  |
+| Garden Home | 2 | 6 | 7.4 | 0.93 |  |
+| Farmhouse | 2 | 6 | 7.3 | 0.91 |  |
+| Boarding House | 2 | 6 | 7.5 | 0.94 |  |
+| Company Housing | 2 | 5 | 6.5 | 0.93 |  |
+| Student Dorm | 1 | 3 | 3.9 | 0.98 |  |
+| Apartment Block | 2 | 7 | 8.4 | 0.93 |  |
+| Townhouses | 3 | 9 | 11.3 | 0.94 |  |
+| Senior Living | 2 | 7 | 8.5 | 0.94 |  |
+| Co-op Housing | 2 | 7 | 8.5 | 0.94 |  |
+| Loft Conversions | 3 | 9 | 11.3 | 0.94 |  |
+| Gated Community | 3 | 9 | 11 | 0.92 |  |
+| Mixed-Use Tower | 2 | 6 | 7.3 | 0.91 |  |
+| Housing Project | 1 | 4 | 5.5 | 1.1 |  |
+| Brownstones | 4 | 10 | 12.2 | 0.87 |  |
+| Cul-de-sac | 2 | 6 | 7.25 | 0.91 |  |
+| High-Rise | 4 | 11 | 13.3 | 0.89 |  |
+| Penthouse Tower | 7 | 20 | 23.3 | 0.86 |  |
+| Arcology | 5 | 13 | 15.3 | 0.85 |  |
+| Garden City Estate | 3 | 9 | 11 | 0.92 |  |
+| Luxury Condos | 6 | 17 | 20 | 0.87 |  |
+| Corner Store | 2 | 5 | 5.8 | 0.83 |  |
+| Diner | 2 | 6 | 7.9 | 0.99 |  |
+| Barber Shop | 1 | 3 | 4.4 | 1.1 |  |
+| Market Stall | 1 | 3 | 4.4 | 1.1 |  |
+| Pawn Shop | 3 | 8 | 9.4 | 0.85 |  |
+| Hardware Store | 2 | 5 | 5.8 | 0.83 |  |
+| Bakery | 2 | 7 | 8.7 | 0.97 |  |
+| Laundromat | 1 | 4 | 5.4 | 1.08 |  |
+| Gas Station | 2 | 5 | 6.2 | 0.89 |  |
+| Bookshop | 2 | 6 | 6.8 | 0.85 |  |
+| Shopping Arcade | 2 | 6 | 7.2 | 0.9 |  |
+| Department Store | 3 | 9 | 11.3 | 0.94 |  |
+| Bank Branch | 4 | 11 | 13.02 | 0.87 |  |
+| Restaurant Row | 4 | 10 | 11.6 | 0.83 |  |
+| Hotel | 4 | 12 | 14.8 | 0.93 |  |
+| Farmers Market | 3 | 9 | 10.7 | 0.89 |  |
+| Nightclub | 3 | 8 | 9.1 | 0.83 |  |
+| Office Park | 3 | 8 | 10.2 | 0.93 |  |
+| Car Dealership | 3 | 8 | 9.1 | 0.83 |  |
+| Pharmacy | 2 | 6 | 7.9 | 0.99 |  |
+| Mall | 5 | 15 | 17.5 | 0.88 |  |
+| Stock Exchange | 4 | 12 | 14.5 | 0.91 |  |
+| Convention Center | 4 | 11 | 13.3 | 0.89 |  |
+| Corporate HQ | 5 | 13 | 15.7 | 0.87 |  |
+| Luxury Boutiques | 5 | 13 | 15.9 | 0.88 |  |
+| Workshop | 2 | 5 | 6.3 | 0.9 |  |
+| Lumber Mill | 1 | 1 | 1.9 | 0.95 |  |
+| Brickworks | 1 | 2 | 2.4 | 0.8 |  |
+| Warehouse | 2 | 6 | 7.74 | 0.97 |  |
+| Junkyard | 1 | 3 | 3.8 | 0.95 |  |
+| Quarry | 1 | 2 | 2.8 | 0.93 |  |
+| Cannery | 2 | 6 | 6.8 | 0.85 |  |
+| Textile Mill | 1 | 2 | 2.9 | 0.97 |  |
+| Factory Complex | 2 | 5 | 5.8 | 0.83 |  |
+| Steel Mill | 2 | 5 | 6.7 | 0.96 |  |
+| Recycling Plant | 3 | 9 | 10.8 | 0.9 |  |
+| Coal Power Plant | 1 | 4 | 5.2 | 1.04 |  |
+| Chemical Plant | 2 | 5 | 6.1 | 0.87 |  |
+| Distribution Center | 4 | 11 | 13.3 | 0.89 |  |
+| Brewery | 3 | 8 | 9.2 | 0.84 |  |
+| Auto Plant | 2 | 7 | 8.7 | 0.97 |  |
+| Tech Campus | 5 | 14 | 17.1 | 0.9 |  |
+| Solar Farm | 2 | 7 | 8.7 | 0.97 |  |
+| Robotics Factory | 4 | 10 | 12.5 | 0.89 |  |
+| Freight Hub | 5 | 14 | 16.2 | 0.85 |  |
+| Pocket Park | 1 | 4 | 4.9 | 0.98 |  |
+| Community Garden | 2 | 5 | 6 | 0.86 |  |
+| Playground | 1 | 3 | 3.5 | 0.88 |  |
+| Tree-Lined Plaza | 1 | 2 | 2.9 | 0.97 |  |
+| Botanical Garden | 2 | 6 | 7.7 | 0.96 |  |
+| City Park | 4 | 11 | 13.2 | 0.88 |  |
+| Greenbelt | 2 | 6 | 6.8 | 0.85 |  |
+| Nature Reserve | 3 | 8 | 9.8 | 0.89 |  |
+| School | 1 | 2 | 3 | 1 |  |
+| Library | 1 | 4 | 5 | 1 |  |
+| Landfill | 1 | 3 | 4.1 | 1.02 |  |
+| Water Tower | 1 | 4 | 4.5 | 0.9 |  |
+| Post Office | 1 | 4 | 5 | 1 |  |
+| Community Center | 2 | 6 | 7.5 | 0.94 |  |
+| Police Precinct | 2 | 6 | 7.1 | 0.89 |  |
+| Hospital | 3 | 8 | 9.6 | 0.87 |  |
+| Fire Department | 5 | 13 | 15.5 | 0.86 |  |
+| High School | 1 | 3 | 4.4 | 1.1 |  |
+| Courthouse | 4 | 10 | 12.3 | 0.88 |  |
+| City Hall | 4 | 11 | 12.8 | 0.85 |  |
+| University | 4 | 12 | 14.7 | 0.92 |  |
+| Prison | 2 | 7 | 8.9 | 0.99 |  |
+| Emergency Services | 7 | 20 | 24.8 | 0.92 |  |
+| Bus Stop | 1 | 4 | 5.5 | 1.1 |  |
+| Parking Garage | 1 | 4 | 5.3 | 1.06 |  |
+| Bike Share | 1 | 4 | 4.5 | 0.9 |  |
+| Train Station | 4 | 10 | 11.9 | 0.85 |  |
+| Tram Depot | 2 | 6 | 6.8 | 0.85 |  |
+| Ferry Terminal | 3 | 9 | 10.3 | 0.86 |  |
+| Airport | 7 | 19 | 22.7 | 0.87 |  |
+| Metro Hub | 3 | 9 | 11.3 | 0.94 |  |
+| Movie Theater | 2 | 5 | 6.3 | 0.9 |  |
+| Bowling Alley | 2 | 6 | 7.3 | 0.91 |  |
+| Art Gallery | 2 | 6 | 7.7 | 0.96 |  |
+| Museum | 4 | 10 | 11.9 | 0.85 |  |
+| Concert Hall | 2 | 7 | 8.7 | 0.97 |  |
+| Casino | 1 | 3 | 4.4 | 1.1 |  |
+| Zoo | 4 | 10 | 11.9 | 0.85 |  |
+| Stadium | 6 | 18 | 21.7 | 0.9 |  |
+| Cathedral | 4 | 10 | 11.5 | 0.82 |  |
+| Monument Plaza | 1 | 4 | 5 | 1 |  |
+| Theme Park | 6 | 17 | 19.8 | 0.86 |  |
+| Observation Tower | 4 | 12 | 14.5 | 0.91 |  |
+| Grant | 1 | 1 | 2.5 | 0.83 |  |
+| Bond Issue | 1 | 2 | 3.5 | 0.88 |  |
+| Census | 1 | 1 | 2.5 | 0.83 |  |
+| Cleanup Drive | 1 | 3 | 4.5 | 0.9 |  |
+| Urban Planning | 1 | 1 | 3 | 1 |  |
+| Tax Audit | 1 | 2 | 3.5 | 0.88 |  |
+| Festival | 1 | 3 | 4.5 | 0.9 |  |
+| Volunteer Day | 1 | 3 | 4.5 | 0.9 |  |
+| Investor Summit | 1 | 3 | 5.5 | 1.1 |  |
+| Insurance Policy | 1 | 3 | 5.5 | 1.1 |  |
+| Property Tax | 1 | 2 | 3.5 | 0.88 |  |
+| Job Fair | 1 | 2 | 3.5 | 0.88 |  |
 
 ## Goals (free; the reward now plus the Monument card over the horizon)
 
@@ -62,11 +312,17 @@ Nothing. Every card is fair or a named bargain.
 |---|---|---|---|---|---|---|
 | Grand Opening | 1 | 5 | 7.8 | 12.8 | 12.8 |  |
 | Full Employment | 1 | 5 | 7.8 | 12.8 | 12.8 |  |
-| Clean Streets | 2 | 6 | 7.8 | 13.8 | 14.13 |  |
-| Park District | 2 | 6 | 7.8 | 13.8 | 14.13 |  |
-| Neighborhood Watch | 2 | 7 | 7.8 | 14.8 | 14.13 |  |
-| City Bank | 3 | 7.8 | 7.8 | 15.6 | 15.7 |  |
-| Housing Row | 3 | 8 | 7.8 | 15.8 | 15.7 |  |
+| Clean Streets | 2 | 6 | 7.8 | 13.8 | 13.97 |  |
+| Park District | 2 | 6 | 7.8 | 13.8 | 13.97 |  |
+| Neighborhood Watch | 2 | 7 | 7.8 | 14.8 | 13.97 |  |
+| City Bank | 3 | 7.8 | 7.8 | 15.6 | 16.25 |  |
+| Housing Row | 3 | 8 | 7.8 | 15.8 | 16.25 |  |
+| Green City | 1 | 5 | 7.8 | 12.8 | 12.8 |  |
+| Commuter Town | 2 | 6 | 7.8 | 13.8 | 13.97 |  |
+| Industrial Heartland | 2 | 6 | 7.8 | 13.8 | 13.97 |  |
+| School District | 2 | 6 | 7.8 | 13.8 | 13.97 |  |
+| Tourist Trap | 3 | 9 | 7.8 | 16.8 | 16.25 |  |
+| Full Service City | 3 | 9 | 7.8 | 16.8 | 16.25 |  |
 
 ## What the game does to you
 

@@ -7,9 +7,9 @@
     <!-- The frame: card stock, a coloured band for the name, a window for
          the picture, the rules below. Cost sits as a coin on the band. -->
     <div class="card__band">
-      <div v-if="showCost" class="card__cost" :class="{ 'card__cost--free': !card.cost }">{{ card.cost ?? 0 }}</div>
+      <div v-if="showCost" class="card__cost" :class="{ 'card__cost--free': !shownCost, 'card__cost--off': shownCost < (card.cost ?? 0) }">{{ shownCost }}</div>
       <div class="card__name">{{ card.name }}</div>
-      <div v-if="card.tier" class="card__tier">{{ 'I'.repeat(card.tier) }}</div>
+      <div v-if="card.tier" class="card__tier">{{ ['', 'I', 'II', 'III'][card.tier] ?? card.tier }}</div>
     </div>
     <div class="card__window">
       <img v-if="hasArt" class="card__pic" :src="`/art/${card.id}.png`" alt="" draggable="false">
@@ -37,13 +37,16 @@ export default {
     focused: Boolean,
     dim: Boolean,
     picked: Boolean,
-    cant: Boolean
+    cant: Boolean,
+    // What it costs right now, after discounts (defaults to the printed cost).
+    cost: { type: Number, default: null }
   },
   computed: {
     family () { return familyOf(this.card) },
     colors () { return FAMILIES[this.family] },
     isDark () { return this.family === 'status' || this.family === 'disaster' },
     showCost () { return !this.isDark && this.card.type !== 'goal' },
+    shownCost () { return this.cost ?? this.card.cost ?? 0 },
     iconPath () { return ICONS[iconFor(this.card, this.family)] },
     hasArt () { return ART_IDS.includes(this.card.id) },
     typeLabel () {
@@ -93,6 +96,7 @@ export default {
   box-shadow: 0 1px 0 #fff inset, 0 2px 4px rgba(0,0,0,0.25);
 }
 .card__cost--free { background: #f1f1f1; color: #555; }
+.card__cost--off { background: radial-gradient(circle at 35% 30%, #c6f7d8, #2fb36a 60%, #1d7a47); color: #fff; }
 .card__name { flex: 1; font-size: 18px; font-weight: 800; line-height: 1.02; letter-spacing: -0.01em; }
 .card__tier { font-size: 13px; font-weight: 800; letter-spacing: 0.1em; color: color-mix(in srgb, var(--c) 70%, #000); }
 
@@ -117,7 +121,7 @@ export default {
 }
 .card__rules {
   margin: 3px 2px 0;
-  font-size: 14.5px; line-height: 1.22; font-weight: 500;
+  font-size: 13.5px; line-height: 1.22; font-weight: 500;
   color: var(--ink-2);
   overflow: hidden;
 }
@@ -136,7 +140,7 @@ export default {
 .card--market .card__window { height: 78px; margin-top: 4px; }
 .card--market .card__window svg { width: 40px; height: 40px; }
 .card--market .card__type { font-size: 9.5px; margin-top: 4px; }
-.card--market .card__rules { font-size: 11px; line-height: 1.18; margin-top: 2px; }
+.card--market .card__rules { font-size: 10.5px; line-height: 1.15; margin-top: 2px; }
 .card--market .card__tier { font-size: 11px; }
 
 .card--pile { width: 180px; height: 262px; }

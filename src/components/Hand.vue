@@ -15,6 +15,7 @@
           :focused="i === focusedIndex"
           :picked="picks.includes(i)"
           :cant="!canPlay(entry.card, i)"
+          :cost="costOf(entry.card)"
           :class="{ 'focus-ring': i === focusedIndex && !dim }"
         />
       </div>
@@ -37,7 +38,8 @@ export default {
     focusedIndex: { type: Number, default: null },
     picks: { type: Array, default: () => [] },
     dim: Boolean,
-    canPlay: { type: Function, default: () => true }
+    canPlay: { type: Function, default: () => true },
+    costOf: { type: Function, default: (c) => c.cost ?? 0 }
   },
   emits: ['focus', 'select'],
   computed: {

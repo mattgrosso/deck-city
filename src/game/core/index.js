@@ -13,6 +13,7 @@ export * as starterCards from './cards/starterCards'
 export * as facilityCards from './cards/facilityCards'
 export * as goalCards from './cards/goalCards'
 export * as disasterCards from './cards/disasterCards'
+export * as cityCards from './cards/cityCards'
 
 export { registerEffect, hasEffect, resolveEffect, resolveEffects, resolveTrigger } from './effects/effectRegistry'
 export { registerCondition, hasCondition, evaluateCondition } from './conditions/conditionRegistry'
@@ -49,7 +50,10 @@ export {
   raiseTreasuryRolloverCap,
   seedStructure,
   countDisasterBlockers,
-  clearStatusCard
+  clearStatusCard,
+  effectiveCost,
+  clearsOf,
+  sumPassive
 } from './state/playerState'
 export {
   DEFAULT_CITY_GRID_SIZE,

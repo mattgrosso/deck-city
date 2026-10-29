@@ -174,10 +174,14 @@ export function instanceStats (state, instance) {
   if (rules.length) {
     const neighbors = getAdjacentInstances(state, instance.instanceId)
     for (const rule of rules) {
-      const count = neighbors.filter(n => n.card.tags?.includes(rule.targetTag)).length
+      // scope 'city': every matching building anywhere (not this one), not just next door.
+      const pool = rule.scope === 'city' ? state.builtStructures.filter(o => o !== instance) : neighbors
+      let count = pool.filter(n => n.card.tags?.includes(rule.targetTag)).length
+      if (rule.per) count = Math.floor(count / rule.per)
+      if (rule.max) count = Math.min(count, rule.max)
       if (!count) continue
       bonus[rule.stat] = (bonus[rule.stat] ?? 0) + count * rule.amount
-      reasons.push({ stat: rule.stat, amount: count * rule.amount, tag: rule.targetTag, count })
+      reasons.push({ stat: rule.stat, amount: count * rule.amount, tag: rule.targetTag, count, scope: rule.scope ?? 'near' })
     }
   }
   const total = {}
@@ -286,10 +290,41 @@ export function buildStructure (state, card, context = {}) {
     placeInstance(state.cityGrid, context.position.x, context.position.y, instance.instanceId)
   }
 
-  resolveTrigger(card, 'onBuild', { ...context, state })
+  resolveTrigger(card, 'onBuild', { ...context, state, instanceId: instance.instanceId })
+  // Neighbours react to what was built beside them (card.effects.onNeighborBuilt).
+  if (context.position) {
+    for (const neighbor of getAdjacentInstances(state, instance.instanceId)) {
+      resolveTrigger(neighbor.card, 'onNeighborBuilt', { ...context, state, instanceId: neighbor.instanceId, neighbor: instance })
+    }
+  }
   addToDiscardPile(state.deck, [card])
 
   return instance
+}
+
+/** Sum of a numeric passive property across every standing building. */
+export function sumPassive (state, key) {
+  return state.builtStructures.reduce((n, i) => n + (typeof i.card[key] === 'number' ? i.card[key] : (i.card[key] ? 1 : 0)), 0)
+}
+
+/**
+ * What a card costs to play right now: its cost, less every standing
+ * building's discount that matches one of its tags (`discount: { tag,
+ * amount }` or a list of them), never below zero.
+ */
+export function effectiveCost (state, card) {
+  const base = card.cost ?? 0
+  let off = 0
+  for (const inst of state.builtStructures) {
+    const list = Array.isArray(inst.card.discount) ? inst.card.discount : (inst.card.discount ? [inst.card.discount] : [])
+    for (const d of list) if (card.tags?.includes(d.tag)) off += d.amount
+  }
+  return Math.max(0, base - off)
+}
+
+/** Status kinds a facility clears: `clears` is one tag or a list. */
+export function clearsOf (card) {
+  return Array.isArray(card.clears) ? card.clears : (card.clears ? [card.clears] : [])
 }
 
 /**
@@ -313,7 +348,7 @@ export function seedStructure (state, card, position) {
 
 /** How many standing buildings block disasters (Fire Stations). */
 export function countDisasterBlockers (state) {
-  return state.builtStructures.filter(i => i.card.blocksDisasters).length
+  return sumPassive(state, 'blocksDisasters')
 }
 
 /**
@@ -329,7 +364,7 @@ export function clearStatusCard (state, cardId) {
   const card = state.hand[index]
   if (card.type !== 'status') throw new Error(`${card.name} is not a status card`)
   const tag = card.id
-  const instance = state.builtStructures.find(i => i.card.clears === tag && i.slots && i.slots.used < i.slots.capacity)
+  const instance = state.builtStructures.find(i => clearsOf(i.card).includes(tag) && i.slots && i.slots.used < i.slots.capacity)
   if (!instance) throw new Error(`No free slot for ${card.name}`)
   state.hand.splice(index, 1)
   instance.slots.used += 1

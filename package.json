@@ -16,7 +16,9 @@
     "deploy": "node scripts/writeVersion.mjs && yarn lint && yarn test:run && vite build && aws s3 sync dist/ s3://aroundtableround-deck-city --profile personal --delete --exclude index.html --exclude version.json --cache-control 'public,max-age=31536000,immutable' && aws s3 cp dist/index.html s3://aroundtableround-deck-city/index.html --profile personal --cache-control 'no-cache' && aws s3 cp dist/version.json s3://aroundtableround-deck-city/version.json --profile personal --cache-control 'no-cache' && aws cloudfront create-invalidation --distribution-id EEMSOM4VGCYG5 --paths '/*' --profile personal",
     "fetch-bug-reports": "node --env-file=.env.local scripts/fetch-bug-reports.mjs",
     "resolve-bug-report": "node --env-file=.env.local scripts/resolve-bug-report.mjs",
-    "price": "vite-node tools/price.mjs"
+    "price": "vite-node tools/price.mjs",
+    "reprice": "vite-node tools/reprice.mjs",
+    "selfplay": "vite-node tools/selfplay.mjs"
   },
   "dependencies": {
     "@sentry/vue": "^10",

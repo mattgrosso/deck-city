@@ -23,7 +23,7 @@ export const PAGES = [
     title: 'Build a city of 20 people.',
     lines: [
       'You start with a house, a shop, a factory and a street. Every turn you get a budget, draw five cards, and build.',
-      'Reach a population of 20 and the city is finished. You win.',
+      'Reach a population of 30 and the city is finished. You win.',
       'Run the goal deck dry before that and the city stalls. You lose.'
     ]
   },
@@ -57,6 +57,14 @@ export const PAGES = [
       'After building, buy one card from the City Row with what budget is left: the tag under it is its price, the coin on it what it costs to build. A Trade Fair gives an extra buy.',
       'Goals are free, one a turn. Meet the condition and claim it: it becomes a Monument to build.',
       'Each goal has a clock and expires when it runs out. Every four turns a disaster strikes, harder each time; each Fire Station blocks one card.'
+    ]
+  },
+  {
+    title: 'The city grows its own market.',
+    lines: [
+      'Over a hundred buildings come to the City Row in three tiers: tier II at 12 people, tier III at 22.',
+      'Some draw you extra cards, make others cheaper, or add Tourists and Commuters to your deck.',
+      'Look for combinations: a Hotel beside a landmark, a Recycling Plant fed with Trash, a Coal Plant among factories.'
     ]
   },
   {

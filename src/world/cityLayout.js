@@ -11,6 +11,7 @@
 
 import { cellEdgeKeys, parseEdgeKey } from '@/game/core'
 import { familyOf } from '@/ui/cardText'
+import { lookFor, lookModels } from './looks'
 
 export const LOT = 1.0
 export const GAP = 0.48 // the road's width, in world units
@@ -93,10 +94,14 @@ export const RECIPES = {
 
 /** The recipe for a built instance: by card id, else goals are monuments, else by family. */
 export function recipeFor (card, seq = 0) {
-  const key = RECIPES[card.id] ? card.id : card.type === 'goal' ? 'monument' : familyOf(card)
-  const recipe = RECIPES[key] ?? RECIPES.commercial
-  const variant = recipe.variants[seq % recipe.variants.length]
-  return { key, ...variant }
+  if (RECIPES[card.id] || card.type === 'goal' || !card.tier) {
+    const key = RECIPES[card.id] ? card.id : card.type === 'goal' ? 'monument' : familyOf(card)
+    const recipe = RECIPES[key] ?? RECIPES.commercial
+    const variant = recipe.variants[seq % recipe.variants.length]
+    return { key, ...variant }
+  }
+  // The city catalogue (cityCards.js): looks.js draws each card its own way.
+  return { key: card.id, ...lookFor(card) }
 }
 
 /** A small, fixed scatter of trees for an empty cell (0-2 of them). */
@@ -196,5 +201,6 @@ export function layoutCity (grid, structures) {
 export function allModels () {
   const out = new Set(['suburban/tree-large', 'suburban/tree-small'])
   Object.values(RECIPES).forEach(r => r.variants.forEach(v => v.parts.forEach(p => out.add(p.model))))
+  lookModels().forEach(m => out.add(m))
   return [...out]
 }

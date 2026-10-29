@@ -9,15 +9,35 @@ const TRIGGERS = {
   onTurnStart: 'Each turn',
   onPlay: 'When played',
   onDraw: 'When drawn',
-  onComplete: 'When claimed'
+  onComplete: 'When claimed',
+  onNeighborBuilt: 'When anything is built next door',
+  onClear: 'For each card it takes'
 }
+
+// Tags that are not card names, in words.
+const TAG_WORDS = {
+  green: ['green space', 'green spaces'], transit: ['transit stop', 'transit stops'], landmark: ['landmark', 'landmarks'],
+  education: ['school', 'schools'], culture: ['cultural building', 'cultural buildings'], leisure: ['venue', 'venues'],
+  health: ['health building', 'health buildings'], rural: ['farm', 'farms'], arts: ['arts building', 'arts buildings'],
+  luxury: ['luxury building', 'luxury buildings'], utility: ['utility', 'utilities'], safety: ['safety building', 'safety buildings'],
+  food: ['food business', 'food businesses'], tourism: ['attraction', 'attractions'], office: ['office', 'offices'],
+  dense: ['dense block', 'dense blocks'], finance: ['bank', 'banks'], service: ['service', 'services'],
+  infrastructure: ['road', 'roads'], residential: ['home', 'homes'], commercial: ['shop', 'shops'], industrial: ['factory', 'factories'],
+  crime: ['Crime', 'Crime'], trash: ['Trash', 'Trash'], pollution: ['Pollution', 'Pollution'], debt: ['Debt', 'Debt']
+}
+const tagWord = (tag, n = 1, catalog = {}) => TAG_WORDS[tag]?.[n === 1 ? 0 : 1] ?? catalog[tag]?.name ?? tag
 
 export const FAMILIES = {
   road: { label: 'Road', color: '#7d8597', soft: '#e7eaf0', ink: '#111' },
+  green: { label: 'Green', color: '#2f9a55', soft: '#d9f0e0', ink: '#06261a' },
+  transit: { label: 'Transit', color: '#5b6b8c', soft: '#e2e7f1', ink: '#111' },
+  leisure: { label: 'Leisure & Culture', color: '#d6478f', soft: '#fbe0ee', ink: '#330a1f' },
+  landmark: { label: 'Landmark', color: '#c2871a', soft: '#f8ebcf', ink: '#2e2000' },
+  token: { label: 'Token', color: '#0ea5b7', soft: '#d8f3f6', ink: '#042a33' },
   residential: { label: 'Residential', color: '#2fb36a', soft: '#dcf3e5', ink: '#06261a' },
   commercial: { label: 'Commercial', color: '#3b82f6', soft: '#dde9fd', ink: '#06182e' },
   industrial: { label: 'Industrial', color: '#f08a24', soft: '#fde8d3', ink: '#2e1a00' },
-  facility: { label: 'Facility', color: '#8b5cf6', soft: '#e9e0fd', ink: '#1b0a33' },
+  facility: { label: 'Service', color: '#8b5cf6', soft: '#e9e0fd', ink: '#1b0a33' },
   civic: { label: 'Civic', color: '#0ea5b7', soft: '#d8f3f6', ink: '#042a33' },
   status: { label: 'Status', color: '#e0434b', soft: '#f9d9db', ink: '#fff' },
   goal: { label: 'Goal', color: '#d99a1a', soft: '#fbeccb', ink: '#2e2000' },
@@ -31,10 +51,14 @@ export function familyOf (card) {
   if (card.type === 'status') return 'status'
   if (card.type === 'disaster') return 'disaster'
   if (card.type === 'goal') return 'goal'
+  if (card.token) return 'token'
   if (card.type === 'civic') return 'civic'
   if (card.placesRoad) return 'road'
   const tags = card.tags ?? []
-  for (const tag of ['residential', 'commercial', 'industrial']) if (tags.includes(tag)) return tag
+  if (tags.includes('landmark') && !tags.includes('residential') && !tags.includes('commercial')) return 'landmark'
+  for (const tag of ['residential', 'commercial', 'industrial', 'transit']) if (tags.includes(tag)) return tag
+  if (tags.includes('green') || tags.includes('park')) return 'green'
+  if (tags.includes('leisure') || tags.includes('culture') || tags.includes('tourism')) return 'leisure'
   return 'facility'
 }
 
@@ -47,13 +71,19 @@ export function effectText (effect, catalog) {
   switch (effect.type) {
     case 'gainTreasury': return `+${amount} budget`
     case 'spendTreasury': return `lose ${amount} budget`
-    case 'gainStatus': return `add ${plural(amount, nameOf(effect.card, catalog))} to your deck`
+    case 'gainStatus': return `+${plural(amount, `${nameOf(effect.card, catalog)} card`)}`
     case 'consumeStatus':
       return effect.requiresSlot
         ? `remove ${nameOf(effect.card, catalog)} from your deck, one per free slot`
         : `remove ${plural(amount, nameOf(effect.card, catalog))} from your deck`
-    case 'gainStatusPerAdjacent': return `add 1 ${nameOf(effect.card, catalog)} per neighbouring ${nameOf(effect.targetTag, catalog)}`
+    case 'gainStatusPerAdjacent': return `add 1 ${nameOf(effect.card, catalog)} per neighbouring ${tagWord(effect.targetTag, 1, catalog)}`
     case 'drawCards': return `draw ${plural(amount, 'card')}`
+    case 'gainTreasuryPerAdjacent': return `+${amount} budget per neighbouring ${tagWord(effect.targetTag, 1, catalog)}`
+    case 'gainTreasuryPerCount': return (effect.per ?? 1) > 1 ? `+${amount} budget per ${effect.per} ${tagWord(effect.tag, 2, catalog)} in the city` : `+${amount} budget per ${tagWord(effect.tag, 1, catalog)} in the city`
+    case 'gainTreasuryPerStatus': return `+${amount} budget per ${tagWord(effect.tag, 1, catalog)} card in your deck (up to ${effect.max ?? 3})`
+    case 'clearAnyStatus': return `remove ${plural(amount, effect.disasters ? 'bad or disaster card' : 'bad card')} from your deck`
+    case 'gainCard': return `add ${amount === 1 ? 'a' : amount} ${catalog[effect.card]?.name ?? effect.card} card${amount === 1 ? '' : 's'} to your deck`
+    case 'gainCardPerAdjacent': return `add a ${catalog[effect.card]?.name ?? effect.card} card per neighbouring ${tagWord(effect.targetTag, 1, catalog)}`
     case 'gainBuys': return `+${amount} buy at the city row this turn`
     case 'discardCards': return 'discard 2 cards'
     case 'expandSlots': return `+${amount} slot`
@@ -70,6 +100,7 @@ export function conditionText (condition, catalog) {
     case 'populationAtLeast': return `population ${condition.amount} or more`
     case 'treasuryAtLeast': return `${condition.amount} budget unspent at once`
     case 'buildingCountAtLeast': return `${plural(condition.amount, nameOf(condition.cardId, catalog))} built`
+    case 'tagCountAtLeast': return `${condition.amount} ${tagWord(condition.tag, condition.amount, catalog)} built`
     case 'statusCountAtMost':
       return condition.amount === 0
         ? `no ${nameOf(condition.tag, catalog)} in your deck`
@@ -98,12 +129,21 @@ export function rulesFor (card, catalog = {}) {
   const stats = Object.entries(card.stats ?? {}).filter(([, v]) => v)
   if (stats.length) lines.push(stats.map(([k, v]) => `+${v} ${k}`).join(', '))
 
-  if (card.clears) lines.push(`Play a ${nameOf(card.clears, catalog)} card from your hand into it: ${plural(card.slots?.capacity ?? 1, 'slot')} a turn. The card is gone for good.`)
-  else if (card.slots) lines.push(`${plural(card.slots.capacity, 'slot')}${card.slots.expandable ? ', expandable' : ''}`)
-  if (card.blocksDisasters) lines.push('While it stands, blocks one disaster card every strike.')
+  if (card.clears) {
+    const kinds = (Array.isArray(card.clears) ? card.clears : [card.clears]).map(k => tagWord(k, 1, catalog)).join(' or ')
+    lines.push(`Play a ${kinds} card from your hand into it: ${plural(card.slots?.capacity ?? 1, 'slot')} a turn. Gone for good.`)
+  } else if (card.slots) lines.push(`${plural(card.slots.capacity, 'slot')}${card.slots.expandable ? ', expandable' : ''}`)
+  if (card.blocksDisasters) lines.push(`While it stands, blocks ${Number(card.blocksDisasters) === 1 ? 'one disaster card' : `${Number(card.blocksDisasters)} disaster cards`} every strike.`)
 
-  const near = (card.adjacency?.statBonus ?? []).map(b => `${b.amount > 0 ? '+' : '−'}${Math.abs(b.amount)} ${b.stat} per ${nameOf(b.targetTag, catalog)}`)
+  const sign = (b) => `${b.amount > 0 ? '+' : '−'}${Math.abs(b.amount)} ${b.stat}`
+  const near = (card.adjacency?.statBonus ?? []).filter(b => b.scope !== 'city').map(b => `${sign(b)} per ${nameOf(b.targetTag, catalog)}`)
   if (near.length) lines.push(`Next door: ${near.join(', ')}.`)
+  for (const b of (card.adjacency?.statBonus ?? []).filter(b => b.scope === 'city')) {
+    lines.push(`${sign(b)} for every ${tagWord(b.targetTag, 1, catalog)} in the city${b.max ? ` (up to ${b.max})` : ''}.`)
+  }
+  if (card.handSizeBonus) lines.push(`Draw ${plural(card.handSizeBonus, 'extra card')} every turn.`)
+  if (card.buysBonus) lines.push(`+${card.buysBonus} buy every turn.`)
+  for (const d of (Array.isArray(card.discount) ? card.discount : (card.discount ? [card.discount] : []))) lines.push(`${tagWord(d.tag, 2, catalog).replace(/^./, c => c.toUpperCase())} cost ${d.amount} less to build.`)
 
   if (card.type === 'goal' && card.condition) lines.push(`Needs ${conditionText(card.condition, catalog)}.`)
 
@@ -113,12 +153,17 @@ export function rulesFor (card, catalog = {}) {
     lines.push(`${when}: ${what}.`)
   }
 
-  if (card.type === 'status') lines.push(`Dead weight in your hand. Play it into a ${{ crime: 'Police Station', trash: 'Sanitation Center', pollution: 'Clinic' }[card.id] ?? 'facility'} with a free slot to be rid of it.`)
+  if (card.unique) lines.push('Only one in the city.')
+  if (card.exhaust) lines.push('Play it once, free; then it is gone.')
+  if (card.type === 'status') lines.push(`Dead weight in your hand. Play it into a ${{ crime: 'Police Station', trash: 'Sanitation Center', pollution: 'Clinic', debt: 'Bank Branch or Courthouse' }[card.id] ?? 'facility'} with a free slot to be rid of it.`)
   return lines.map(cap)
 }
 
 export const KEYWORDS = {
   buy: 'One purchase at the city row a turn. Some cards give you more.',
+  token: 'Tourists, Commuters, Volunteers and Investors are made by buildings and civic cards. Play one free; it is gone afterwards.',
+  debt: 'A dead card from borrowing. A Bank Branch or Courthouse takes it.',
+  unique: 'Landmarks marked “only one” can stand once in a city.',
   budget: 'Your budget each turn is the revenue of every building you have. Unspent budget is lost unless a card says otherwise.',
   road: 'A building can only go on a plot that touches a street. A Road card lays up to two segments, each joined to a street you already have.',
   slot: 'Play a status card from your hand into a facility with a free slot and the card leaves the game. Slots refill every turn.',
@@ -138,6 +183,8 @@ export function keywordsFor (card, catalog = {}) {
     if (needles.some(n => text.includes(n))) hits.push([key, KEYWORDS[key]])
   }
   want('buy', 'buy at the city row')
+  want('token', 'tourist', 'commuter', 'volunteer', 'investor')
+  want('debt', 'debt')
   want('budget', 'budget')
   want('road', 'road')
   want('slot', 'slot')

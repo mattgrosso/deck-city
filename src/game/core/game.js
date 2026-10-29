@@ -4,7 +4,7 @@
 // future Vue HUD or Phaser scene (or a test) drives the game with.
 
 import { CARD_TYPES, buildCardCatalog } from './cards/cardSchema'
-import { createPlayerState, buildStructure, placeRoad, spendTreasury, seedStructure, clearStatusCard } from './state/playerState'
+import { createPlayerState, buildStructure, placeRoad, spendTreasury, seedStructure, clearStatusCard, effectiveCost } from './state/playerState'
 import { isCellEmpty, isBuildable, isEdgeInBounds, isEdgeConnected } from './state/cityGrid'
 import { createDeck, addToDiscardPile } from './piles/deck'
 import { createRow, acquireFromRow } from './piles/row'
@@ -43,6 +43,7 @@ function assertPlaying (state) {
  * @param {number} [options.baseRevenue] - flat municipal income added to building revenue every budget reset; see turn/phases.js for why this can't be 0
  * @param {number} [options.populationTarget] - win condition, checked every 'endOfTurn'
  * @param {{cardId: string, x: number, y: number}[]} [options.startingBuildings] - stood in the city before turn one, no effects, no cards
+ * @param {{tier: number, at: number, cardIds: string[]}[]} [options.cityTiers] - shuffled into the city deck when population reaches `at`
  * @param {number} [options.buysPerTurn] - city-row purchases a turn before any gainBuys
  * @param {(card: Object) => number} [options.goalTimerFor] - turns a goal stays on offer; default 3 + tier
  * @param {() => number} [options.rng]
@@ -61,6 +62,7 @@ export function createGame ({
   populationTarget = 20,
   startingBuildings = [],
   buysPerTurn = 1,
+  cityTiers = [],
   goalTimerFor = (card) => 3 + (card.tier ?? 1),
   rng
 } = {}) {
@@ -107,7 +109,8 @@ export function createGame ({
     turnManager,
     baseRevenue,
     populationTarget,
-    buysPerTurn
+    buysPerTurn,
+    cityTiers: cityTiers.map(t => ({ tier: t.tier, at: t.at, cards: t.cardIds.map(resolveCard) }))
   }
 
   function playCard (cardId, position) {
@@ -134,13 +137,16 @@ export function createGame ({
         laid.push(edge)
       }
       state.hand.splice(index, 1)
-      spendTreasury(state, card.cost ?? 0)
+      spendTreasury(state, effectiveCost(state, card))
       edges.forEach((edge, i) => placeRoad(state, i === 0 ? card : { ...card, effects: {} }, { ...context, edge, intoDeck: i === 0 }))
       return edges
     }
 
     if (!position || !isCellEmpty(state.cityGrid, position.x, position.y)) {
       throw new Error(`Invalid or occupied cell: ${JSON.stringify(position)}`)
+    }
+    if (card.unique && state.builtStructures.some(i => i.card.id === card.id)) {
+      throw new Error(`There can only be one ${card.name}`)
     }
     // Monuments (claimed goals) skip the requirement entirely (see
     // cards/goalCards.js); everything else can only be built on a cell with
@@ -150,7 +156,7 @@ export function createGame ({
     }
 
     state.hand.splice(index, 1)
-    spendTreasury(state, card.cost ?? 0)
+    spendTreasury(state, effectiveCost(state, card))
     return buildStructure(state, card, { ...context, position })
   }
 
@@ -164,9 +170,10 @@ export function createGame ({
     if (card.type !== CARD_TYPES.CIVIC) throw new Error(`Card "${cardId}" is not a civic card`)
 
     state.hand.splice(index, 1)
-    spendTreasury(state, card.cost ?? 0)
+    spendTreasury(state, effectiveCost(state, card))
     resolveTrigger(card, 'onPlay', { ...context, cardIds: discardCardIds })
-    addToDiscardPile(state.deck, [card])
+    // `exhaust` cards (Tourists, Commuters...) are spent: gone after one play.
+    if (!card.exhaust) addToDiscardPile(state.deck, [card])
     return card
   }
 
@@ -217,6 +224,7 @@ export function createGame ({
     assertPhase(turnManager, 'build')
     const instance = clearStatusCard(state, cardId)
     log.push(`${instance.card.name} took a ${catalog[cardId]?.name ?? cardId} card out of your deck.`)
+    resolveTrigger(instance.card, 'onClear', { ...context, instanceId: instance.instanceId })
     return instance
   }
 

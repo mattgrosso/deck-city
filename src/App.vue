@@ -60,7 +60,7 @@
 
         <Hand
           :hand="game.state.hand" :keys="handKeys" :catalog="game.catalog"
-          :focused-index="handActive ? handIndex : null" :picks="picks" :dim="!handActive" :can-play="canPlay"
+          :focused-index="handActive ? handIndex : null" :picks="picks" :dim="!handActive" :can-play="canPlay" :cost-of="costOf"
           @focus="onHandFocus" @select="onHandSelect"
         />
 
@@ -76,7 +76,7 @@
         <HowTo v-if="mode === 'howto'" :page="howtoPage" :glyphs="glyphs" />
       </template>
 
-      <Overlay v-if="screen === 'title'" kind="title" eyebrow="A deck-building city builder" title="Deck City" :lines="['Build a city of 20 people before the goals run out.', 'Press Enter or click to start full screen.']" hint="Start" :glyph="glyphs.select" @click="act('select', 'click')" />
+      <Overlay v-if="screen === 'title'" kind="title" eyebrow="A deck-building city builder" title="Deck City" :lines="[`Build a city of ${POPULATION_TARGET} people before the goals run out.`, 'Press Enter or click to start full screen.']" hint="Start" :glyph="glyphs.select" @click="act('select', 'click')" />
 
       <ButtonLegend :items="legend" :pad="pad" />
       <p class="build-stamp" role="button" tabindex="0" title="Tap to reload" @click="stampTap">{{ refreshing ? 'reloading…' : stamp }}</p>
@@ -101,7 +101,7 @@ import HowTo, { PAGES as HOWTO_PAGES } from '@/components/HowTo.vue'
 import BugReportButton from '@/components/shared/BugReportButton.vue'
 import BugResolutionNotice from '@/components/shared/BugResolutionNotice.vue'
 import {
-  createGame, starterCards, facilityCards, goalCards, disasterCards,
+  createGame, starterCards, facilityCards, goalCards, disasterCards, cityCards, effectiveCost, clearsOf,
   calcStatTotal, countCardsByTag, evaluateCondition, isCellEmpty, isBuildable, listConnectedEdges,
   previewPlacement, instanceStats
 } from '@/game/core'
@@ -126,7 +126,10 @@ const STARTING_BUILDINGS = [
 const VIEW_RECT = { x: 40, y: 90, w: 1130, h: 690 }
 const BASE_REVENUE = 0
 const SHORT = { population: 'pop', revenue: 'rev', jobs: 'jobs' }
-const POPULATION_TARGET = 20
+// 30 (was 20) now that tiers II and III exist: II reaches the market at 12
+// people, III at 22 (Matt: "a much larger base of buildings... tiered").
+const POPULATION_TARGET = 30
+const TIER_AT = { 2: 12, 3: 22 } // tuned by yarn selfplay: II ~turn 4, III ~turn 14, a win ~turn 20
 const MENU_ITEMS = ['Resume', 'How to play', 'New game']
 const HOWTO_SEEN = 'deck-city:howto-seen'
 
@@ -342,10 +345,12 @@ export default {
       this.game = createGame({
         cardCatalog: [
           ...starterCards.STARTER_CARD_CATALOG, ...facilityCards.FACILITY_CATALOG,
-          ...goalCards.GOAL_CATALOG, ...disasterCards.DISASTER_CATALOG
+          ...goalCards.GOAL_CATALOG, ...disasterCards.DISASTER_CATALOG, ...cityCards.CITY_CATALOG
         ],
         startingDeckCardIds: starterCards.STARTER_DECK_CARDS,
-        cityDeckCardIds: facilityCards.CITY_DECK_CARDS,
+        // Tier I: the five services (two of each) and every tier-I city card.
+        cityDeckCardIds: [...facilityCards.CITY_DECK_CARDS, ...cityCards.cityCardsOfTier(1)],
+        cityTiers: [2, 3].map(tier => ({ tier, at: TIER_AT[tier], cardIds: cityCards.cityCardsOfTier(tier) })),
         goalDeckCardIds: goalCards.GOAL_DECK_CARDS,
         disasterCardIds: disasterCards.DISASTER_CARDS,
         baseRevenue: BASE_REVENUE,
@@ -517,19 +522,20 @@ export default {
     onMarketSelect (f) { if (this.mode === 'market') { this.market = f; this.buyOrClaim() } },
 
     // ----- play ------------------------------------------------------
+    costOf (card) { void this.tick; return effectiveCost(this.game.state, card) },
     canPlay (card) {
       if (this.phaseName !== 'build') return false
       if (card.type === 'status') return !!this.slotFor(card)
       if (card.type === 'disaster') return false
-      return (card.cost ?? 0) <= this.treasury
+      return this.costOf(card) <= this.treasury
     },
     /** The built facility that could take this status card right now, if any. */
     slotFor (card) {
       void this.tick
-      return this.game.state.builtStructures.find(i => i.card.clears === card.id && i.slots && i.slots.used < i.slots.capacity) ?? null
+      return this.game.state.builtStructures.find(i => clearsOf(i.card).includes(card.id) && i.slots && i.slots.used < i.slots.capacity) ?? null
     },
     clearerName (card) {
-      return { crime: 'Police Station', trash: 'Sanitation Center', pollution: 'Clinic' }[card.id] ?? 'facility'
+      return { crime: 'Police Station', trash: 'Sanitation Center', pollution: 'Clinic', debt: 'Bank Branch or Courthouse' }[card.id] ?? 'facility'
     },
     tryPlay (index) {
       const card = this.game.state.hand[index]
@@ -544,11 +550,10 @@ export default {
         this.refresh()
         return
       }
-      if ((card.cost ?? 0) > this.treasury) return this.refuse(`${card.name} costs ${card.cost}. You have ${this.treasury}.`, 'orb')
+      if (this.costOf(card) > this.treasury) return this.refuse(`${card.name} costs ${this.costOf(card)}. You have ${this.treasury}.`, 'orb')
       if (card.type === 'civic' && !(card.effects?.onPlay ?? []).some(e => e.type === 'discardCards')) {
         // A civic card with nothing to choose plays straight away.
         try { this.game.actions.playCivicCard(card.id) } catch (err) { return this.refuse(err.message) }
-        if (card.cost) this.pop(`-${card.cost}`, 'orb')
         this.say(`${card.name}: ${this.game.log.slice(-2).join(' ')}`, 'good')
         this.handIndex = Math.min(this.handIndex, Math.max(0, this.game.state.hand.length - 1))
         this.refresh()
@@ -621,7 +626,7 @@ export default {
       this.afterPlay(card, edges.length === 1 ? 'One street segment laid.' : 'Two street segments laid.')
     },
     afterPlay (card, message) {
-      if (card.cost) this.pop(`-${card.cost}`, 'orb')
+      if (card.cost) this.pop(`-${card.cost}`, 'orb') // printed cost; the orb itself shows what was spent
       if (card.stats?.population) this.pop(`+${card.stats.population} pop`, 'board', 'var(--green)')
       this.say(message)
       this.mode = 'hand'

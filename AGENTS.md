@@ -109,7 +109,10 @@ prices everything in shifts). Three files:
   the line without a named bargain, when a card uses an effect with no
   value, or when goal rewards stop rising with tier.
 
-`yarn price` writes `docs/ECONOMY.md`. **Changing a card or adding one:**
+`yarn price` writes `docs/ECONOMY.md`; `yarn reprice` sets every
+`null` cost in cityCards.js from the economy (`--all` re-prices every
+city card); `yarn selfplay [n]` plays whole games with a robot for
+pacing. **Changing a card or adding one:**
 price it (run `yarn price`), move it onto the line, or add a BARGAIN with
 its reason. A new effect type gets a value in `valueOfEffect`; a new
 card property that is worth something (like `clears`, `blocksDisasters`)

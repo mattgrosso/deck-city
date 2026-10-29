@@ -113,10 +113,25 @@ export const GOAL_HOUSING_ROW = {
   effects: { onComplete: [{ type: 'gainTreasury', amount: 8 }] }
 }
 
+const goal = (id, name, tier, condition, onComplete) => ({
+  id, type: CARD_TYPES.GOAL, name, tier, cost: 0, tags: ['monument'], stats: MONUMENT_STATS, condition, effects: { onComplete }
+})
+const tagged = (tag, amount) => ({ type: 'tagCountAtLeast', tag, amount })
+
+// Goals for the wider city (2026-10-29): each one pulls toward a theme the
+// tiered buildings make possible. Rewards rise with tier (economy.test.js).
+export const GOAL_GREEN_CITY = goal('goal-green-city', 'Green City', 1, tagged('green', 3), [{ type: 'gainTreasury', amount: 5 }])
+export const GOAL_COMMUTER_TOWN = goal('goal-commuter-town', 'Commuter Town', 2, tagged('transit', 3), [{ type: 'gainTreasury', amount: 4 }, { type: 'drawCards', amount: 2 }])
+export const GOAL_INDUSTRIAL_HEARTLAND = goal('goal-industrial-heartland', 'Industrial Heartland', 2, tagged('industrial', 5), [{ type: 'gainTreasury', amount: 6 }])
+export const GOAL_SCHOOL_DISTRICT = goal('goal-school-district', 'School District', 2, tagged('education', 2), [{ type: 'gainTreasury', amount: 6 }])
+export const GOAL_TOURIST_TRAP = goal('goal-tourist-trap', 'Tourist Trap', 3, tagged('landmark', 2), [{ type: 'gainTreasury', amount: 5 }, { type: 'gainCard', card: 'tourist', amount: 2 }])
+export const GOAL_FULL_SERVICE = goal('goal-full-service', 'Full Service City', 3, { type: 'all', conditions: [tagged('safety', 1), tagged('health', 1), tagged('utility', 1)] }, [{ type: 'gainTreasury', amount: 9 }])
+
 /** Every unique goal card, for merging into a game's cardCatalog. */
 export const GOAL_CATALOG = [
   GOAL_GRAND_OPENING, GOAL_FULL_EMPLOYMENT, GOAL_CLEAN_STREETS, GOAL_PARK_DISTRICT,
-  GOAL_NEIGHBORHOOD_WATCH, GOAL_CITY_BANK, GOAL_HOUSING_ROW
+  GOAL_NEIGHBORHOOD_WATCH, GOAL_CITY_BANK, GOAL_HOUSING_ROW,
+  GOAL_GREEN_CITY, GOAL_COMMUTER_TOWN, GOAL_INDUSTRIAL_HEARTLAND, GOAL_SCHOOL_DISTRICT, GOAL_TOURIST_TRAP, GOAL_FULL_SERVICE
 ]
 
 /** The goal deck: one copy of each goal, revealed 3 at a time. */

@@ -1,10 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { priceList, offTheLine, valueOfBuild } from './priceList'
+import { priceList, offTheLine, valueOfBuild, CATALOG, ALL_CARDS } from './priceList'
 import { BARGAINS, VALUE, HORIZON, SPEND, valueOfEffect } from './economy'
-import { STARTER_CARD_CATALOG } from '../cards/starterCards'
 import { FACILITY_CATALOG } from '../cards/facilityCards'
-import { GOAL_CATALOG } from '../cards/goalCards'
-import { DISASTER_CATALOG } from '../cards/disasterCards'
+import { CITY_CARDS } from '../cards/cityCards'
 import '../effects/coreEffects'
 import { hasEffect } from '../effects/effectRegistry'
 
@@ -32,19 +30,25 @@ describe('the economy', () => {
   })
 
   it('every effect any card uses has a value (a new effect must be priced)', () => {
-    const all = [...STARTER_CARD_CATALOG, ...FACILITY_CATALOG, ...GOAL_CATALOG, ...DISASTER_CATALOG]
-    for (const card of all) {
+    for (const card of ALL_CARDS) {
       for (const list of Object.values(card.effects ?? {})) {
         for (const e of list) {
           expect(hasEffect(e.type), `${card.id}: ${e.type}`).toBe(true)
-          expect(valueOfEffect(e), `${card.id}: ${e.type} is unpriced`).not.toBe(0)
+          expect(valueOfEffect(e, CATALOG), `${card.id}: ${e.type} is unpriced`).not.toBe(0)
         }
       }
     }
   })
 
   it('every market card has its own price, separate from what it costs to build', () => {
-    FACILITY_CATALOG.forEach(c => expect(c.price, c.id).toBeDefined())
+    ;[...FACILITY_CATALOG, ...CITY_CARDS].forEach(c => expect(c.price, c.id).toBeGreaterThan(0))
+  })
+
+  it('every city card has a cost the economy set, and higher tiers cost more on average', () => {
+    CITY_CARDS.forEach(c => expect(c.cost, c.id).not.toBeNull())
+    const avg = (t) => { const xs = CITY_CARDS.filter(c => c.type === 'building' && c.tier === t).map(c => c.cost); return xs.reduce((a, b) => a + b, 0) / xs.length }
+    expect(avg(2)).toBeGreaterThan(avg(1))
+    expect(avg(3)).toBeGreaterThan(avg(2))
   })
 
   it('the unit holds: a point of revenue is SPEND budget a turn for HORIZON turns', () => {

@@ -14,9 +14,10 @@ import {
   expandSlots,
   getAdjacentInstances,
   headOffDisaster,
-  raiseTreasuryRolloverCap
+  raiseTreasuryRolloverCap,
+  countCardsByTag
 } from '../state/playerState'
-import { draw } from '../piles/deck'
+import { draw, addToDiscardPile } from '../piles/deck'
 
 registerEffect('gainTreasury', (effect, { state, log }) => {
   addTreasury(state, effect.amount)
@@ -127,4 +128,59 @@ registerEffect('raiseTreasuryRolloverCap', (effect, { state, log }) => {
 registerEffect('gainBuys', (effect, { state, log }) => {
   state.buys = (state.buys ?? 0) + (effect.amount ?? 1)
   log?.push(`+${effect.amount ?? 1} buy this turn.`)
+})
+
+// ---- the city-builder vocabulary (2026-10-29: "much more interesting
+// building and card abilities so that we can find combinations")
+
+const neighborsOf = (state, instanceId) => (instanceId ? getAdjacentInstances(state, instanceId) : [])
+const hasTag = (inst, tag) => inst.card.tags?.includes(tag)
+
+/** +amount budget per neighbour tagged targetTag. */
+registerEffect('gainTreasuryPerAdjacent', (effect, { state, log, instanceId }) => {
+  const n = neighborsOf(state, instanceId).filter(i => hasTag(i, effect.targetTag)).length * (effect.amount ?? 1)
+  if (n) { state.treasury += n; log?.push(`+${n} budget from neighbours.`) }
+})
+
+/** +amount budget per `per` buildings tagged `tag` anywhere in the city. */
+registerEffect('gainTreasuryPerCount', (effect, { state, log }) => {
+  const count = state.builtStructures.filter(i => hasTag(i, effect.tag)).length
+  const n = Math.floor(count / (effect.per ?? 1)) * (effect.amount ?? 1)
+  if (n) { state.treasury += n; log?.push(`+${n} budget (${count} ${effect.tag}).`) }
+})
+
+/** +amount budget per status card of a kind in your deck, up to max. */
+registerEffect('gainTreasuryPerStatus', (effect, { state, log }) => {
+  const n = Math.min(countCardsByTag(state, effect.tag), effect.max ?? 99) * (effect.amount ?? 1)
+  if (n) { state.treasury += n; log?.push(`+${n} budget from ${effect.tag}.`) }
+})
+
+/** Removes up to `amount` status cards of any kind (discard pile first, then draw pile). */
+registerEffect('clearAnyStatus', (effect, { state, log }) => {
+  let left = effect.amount ?? 1
+  let removed = 0
+  for (const pile of [state.deck.discardPile, state.deck.drawPile]) {
+    for (let i = pile.length - 1; i >= 0 && left > 0; i--) {
+      if (pile[i].type === 'status' || (effect.disasters && pile[i].type === 'disaster')) { pile.splice(i, 1); left--; removed++ }
+    }
+  }
+  if (removed) log?.push(`${removed} bad card${removed === 1 ? '' : 's'} cleared from your deck.`)
+})
+
+/** Puts `amount` copies of a card (a token: Tourist, Commuter...) into your discard pile. */
+registerEffect('gainCard', (effect, { state, catalog, log }) => {
+  const card = catalog?.[effect.card]
+  if (!card) return
+  const n = effect.amount ?? 1
+  addToDiscardPile(state.deck, Array(n).fill(card))
+  log?.push(`+${n} ${card.name} card${n === 1 ? '' : 's'} in your deck.`)
+})
+
+/** One copy of a card per neighbour tagged targetTag. */
+registerEffect('gainCardPerAdjacent', (effect, { state, catalog, log, instanceId }) => {
+  const card = catalog?.[effect.card]
+  const n = neighborsOf(state, instanceId).filter(i => hasTag(i, effect.targetTag)).length
+  if (!card || !n) return
+  addToDiscardPile(state.deck, Array(n).fill(card))
+  log?.push(`+${n} ${card.name} card${n === 1 ? '' : 's'} in your deck.`)
 })

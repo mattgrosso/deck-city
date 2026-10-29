@@ -5,6 +5,8 @@
 // what you'll get; the rest are small dioramas of what the card means.
 
 import { RECIPES } from './cityLayout'
+import { lookFor } from './looks'
+import { CITY_CARDS, TOKEN_CATALOG } from '@/game/core/cards/cityCards'
 
 const scene = (parts, extra = {}) => ({ parts, ...extra })
 const part = (model, o = {}) => ({ model, scale: 1, dx: 0, dz: 0, yaw: 0, ...o })
@@ -35,6 +37,41 @@ export const CARD_ART = {
   'goal-city-bank': scene([part('commercial/building-l', { scale: 0.62, tint: 0xffe6b0 })], { ground: 'plaza' }),
   'goal-housing-row': scene([part('suburban/building-type-k', { scale: 0.8, dx: -0.75 }), part('suburban/building-type-l', { scale: 0.8 }), part('suburban/building-type-r', { scale: 0.8, dx: 0.75 })], { ground: 'none', zoom: 0.85 })
 }
+
+// The rest of the city catalogue (cityCards.js): a building's card shows its
+// board look; civic cards and tokens get a small scene of props; the newer
+// goals get one each.
+const CIVIC_SCENES = [
+  [part('roads/construction-barrier', { scale: 2.2, dx: -0.3 }), part('roads/construction-cone', { scale: 2.2, dx: 0.35, dz: 0.3 }), part('roads/road-sign-warning', { scale: 1.6, dx: 0.1, dz: -0.5 })],
+  [part('commercial/detail-awning-wide', { scale: 1.6 }), part('commercial/detail-parasol-a', { scale: 1.8, dx: -0.5, dz: 0.4 }), part('suburban/planter', { scale: 1.6, dx: 0.5, dz: 0.4 })],
+  [part('roads/light-square', { scale: 1.6, dx: -0.3 }), part('suburban/planter', { scale: 1.8, dx: 0.3, dz: 0.2 }), part('roads/road-sign-empty', { scale: 1.6, dx: 0.1, dz: -0.4 })],
+  [part('commercial/building-l', { scale: 0.45, tint: 0xfff1c9 }), part('suburban/planter', { scale: 1.6, dx: 0.5, dz: 0.5 })]
+]
+const SPECIAL = {
+  tourist: scene([part('commercial/detail-parasol-a', { scale: 2, dx: -0.3 }), part('commercial/detail-parasol-b', { scale: 2, dx: 0.35, dz: 0.2 }), part('suburban/planter', { scale: 1.6, dx: 0.1, dz: -0.5 })], { ground: 'plaza' }),
+  commuter: scene([part('roads/traffic-light', { scale: 2, dx: -0.3 }), { street: 'edge', axis: 'x', length: 2.0, dz: 0.3 }, part('roads/light-curved', { scale: 1.4, dx: 0.5, dz: -0.3 })], { ground: 'field' }),
+  volunteer: scene([part('roads/dumpster', { scale: 1.8, dx: -0.3 }), part('suburban/planter', { scale: 1.6, dx: 0.35, dz: 0.2 }), part('suburban/tree-small', { scale: 1.5, dx: 0.1, dz: -0.45 })], { ground: 'park' }),
+  investor: scene([part('commercial/building-skyscraper-b', { scale: 0.3, tint: 0xfff1c9 })], { ground: 'plaza' }),
+  debt: scene([part('commercial/building-l', { scale: 0.5, tint: 0x9aa0b0 }), part('roads/construction-barrier', { scale: 2, dx: 0.5, dz: 0.4 })], { mood: 'dark' }),
+  'goal-green-city': scene([part('suburban/tree-large', { scale: 1.6, dx: -0.4 }), part('suburban/tree-large', { scale: 1.4, dx: 0.4, dz: -0.2 }), part('suburban/tree-small', { scale: 1.5, dx: 0, dz: 0.45 })], { ground: 'park' }),
+  'goal-commuter-town': scene([{ street: 'edge', axis: 'x', length: 2.2 }, part('roads/traffic-light', { scale: 1.6, dx: -0.4, dz: -0.4 }), part('commercial/building-k', { scale: 0.4, dx: 0.4, dz: -0.6, tint: 0xf1dfc0 })], { ground: 'field' }),
+  'goal-industrial-heartland': scene([part('industrial/building-l', { scale: 0.5 }), part('industrial/chimney-large', { scale: 0.6, dx: 0.6, dz: -0.4 })], { ground: 'built' }),
+  'goal-school-district': scene([part('commercial/building-c', { scale: 0.9, tint: 0xffd2b8 }), part('suburban/tree-small', { scale: 1.5, dx: 0.6, dz: 0.4 })], { ground: 'plaza' }),
+  'goal-tourist-trap': scene([part('commercial/building-skyscraper-d', { scale: 0.35, tint: 0xffe6b0 }), part('commercial/detail-parasol-a', { scale: 1.6, dx: 0.6, dz: 0.4 })], { ground: 'plaza' }),
+  'goal-full-service': scene([part('commercial/building-b', { scale: 0.8, tint: 0xbfd0ff }), part('roads/light-square', { scale: 1.2, dx: 0.5, dz: 0.5 })], { ground: 'plaza' })
+}
+const hash = (s) => { let h = 2166136261; for (const ch of s) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) } return h >>> 0 }
+for (const card of [...CITY_CARDS, ...TOKEN_CATALOG]) {
+  if (CARD_ART[card.id]) continue
+  if (SPECIAL[card.id]) { CARD_ART[card.id] = SPECIAL[card.id]; continue }
+  if (card.type === 'building') {
+    const look = lookFor(card)
+    CARD_ART[card.id] = scene(look.parts.map(p => ({ ...p })), { ground: look.ground === 'park' ? 'park' : look.ground === 'plaza' ? 'plaza' : 'built' })
+  } else {
+    CARD_ART[card.id] = scene(CIVIC_SCENES[hash(card.id) % CIVIC_SCENES.length])
+  }
+}
+for (const [id, sc] of Object.entries(SPECIAL)) if (!CARD_ART[id]) CARD_ART[id] = sc
 
 /** Card ids that have a rendered picture. */
 export const ART_IDS = Object.keys(CARD_ART)
