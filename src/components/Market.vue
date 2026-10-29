@@ -20,7 +20,7 @@
     </div>
     <div class="market__row">
       <div class="market__head">
-        <span class="market__title">City row</span>
+        <span class="market__title">City row <span class="market__buys" :class="{ 'market__buys--none': buys < 1 }">{{ buys }} {{ buys === 1 ? 'buy' : 'buys' }} left</span></span>
         <span class="market__note">The coin builds it; the tag buys it</span>
       </div>
       <div class="market__cards">
@@ -31,7 +31,7 @@
           @mouseenter="$emit('focus', { row: 0, index: i })"
           @click="$emit('select', { row: 0, index: i })"
         >
-          <GameCard :card="card" :catalog="catalog" size="market" :cant="active && (card.price ?? card.cost) > treasury" :class="{ 'focus-ring': isFocused(0, i) }" />
+          <GameCard :card="card" :catalog="catalog" size="market" :cant="active && (buys < 1 || (card.price ?? card.cost) > treasury)" :class="{ 'focus-ring': isFocused(0, i) }" />
           <div class="market__price">Buy {{ card.price ?? card.cost }}</div>
         </div>
         <div v-if="!cityRow.length" class="market__empty">Sold out</div>
@@ -52,7 +52,7 @@ export default {
   components: { GameCard, GoalTile },
   props: {
     cityRow: Array, goalRow: Array, goalTimers: { type: Array, default: () => [] }, catalog: Object, treasury: Number,
-    state: Object, tick: { type: Number, default: 0 },
+    state: Object, tick: { type: Number, default: 0 }, buys: { type: Number, default: 1 },
     active: Boolean, focus: Object, goalMet: Function, goalsLeft: Number
   },
   emits: ['focus', 'select'],
@@ -84,6 +84,8 @@ export default {
 .market__timer--warm { border-color: #f0a33a; color: #a35e05; }
 .market__timer--hot { background: var(--red); border-color: var(--red); color: #fff; }
 .market__ready { position: absolute; left: 50%; top: -10px; transform: translateX(-50%); background: var(--green); color: #fff; font-weight: 800; font-size: 11px; letter-spacing: 0.12em; padding: 3px 10px; border-radius: 999px; }
+.market__buys { margin-left: 8px; font-size: 12px; letter-spacing: 0.04em; text-transform: none; background: var(--gold); color: #2e2000; padding: 2px 9px; border-radius: 999px; vertical-align: 2px; }
+.market__buys--none { background: #dfe5ee; color: var(--ink-3); }
 .market__price { position: absolute; left: 50%; bottom: -11px; transform: translateX(-50%); background: var(--gold); color: #2e2000; border: 1.5px solid #c98a12; font-weight: 800; font-size: 12px; padding: 2px 10px; border-radius: 999px; white-space: nowrap; }
 .market__empty { color: var(--ink-3); font-size: 20px; align-self: center; padding-left: 10px; }
 </style>

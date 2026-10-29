@@ -174,6 +174,24 @@ describe('createGame', () => {
     })
   })
 
+  describe('buys', () => {
+    it('allows one buy a turn; a gainBuys card adds another; the count resets at the draw', () => {
+      const SHOP = { id: 'shop', type: CARD_TYPES.BUILDING, name: 'Shop', cost: 3, price: 1 }
+      const FAIR = { id: 'fair', type: CARD_TYPES.CIVIC, name: 'Fair', cost: 0, effects: { onPlay: [{ type: 'gainBuys', amount: 1 }] } }
+      const game = createGame({ cardCatalog: [SHOP, FAIR], startingDeckCardIds: ['fair'], cityDeckCardIds: ['shop', 'shop', 'shop', 'shop', 'shop'], treasury: 9 })
+      game.actions.advance() // draw -> build
+      game.state.treasury = 9
+      game.actions.playCivicCard('fair')
+      game.actions.advance() // build -> acquire
+      game.actions.acquireCard('shop')
+      game.actions.acquireCard('shop')
+      expect(() => game.actions.acquireCard('shop')).toThrow(/No buys left/)
+      expect(game.state.treasury).toBe(7) // the price, not the build cost
+      for (let i = 0; i < 4; i++) game.actions.advance() // round to the next build
+      expect(game.state.buys).toBe(1)
+    })
+  })
+
   describe('claimGoal', () => {
     const EASY_GOAL = {
       id: 'goal-easy', type: CARD_TYPES.GOAL, name: 'Easy Goal', tier: 1, cost: 0,

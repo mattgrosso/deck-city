@@ -81,8 +81,22 @@ export const PARK = {
   }
 }
 
+// A civic card from the city row: an extra buy this turn, and a card.
+// Played in the build phase, spent in the market. Priced in docs/ECONOMY.md.
+export const TRADE_FAIR = {
+  id: 'trade-fair',
+  type: CARD_TYPES.CIVIC,
+  name: 'Trade Fair',
+  cost: 2,
+  price: 1,
+  tags: ['civic'],
+  effects: {
+    onPlay: [{ type: 'gainBuys', amount: 1 }, { type: 'drawCards', amount: 1 }]
+  }
+}
+
 /** Every unique facility card, for merging into a game's cardCatalog. */
-export const FACILITY_CATALOG = [POLICE_STATION, SANITATION_CENTER, CLINIC, FIRE_STATION, PARK]
+export const FACILITY_CATALOG = [POLICE_STATION, SANITATION_CENTER, CLINIC, FIRE_STATION, PARK, TRADE_FAIR]
 
 /** The city-row deck: 2 copies of each facility (10 cards), revealed 4 at a time. */
 export const CITY_DECK_CARDS = FACILITY_CATALOG.flatMap(card => [card.id, card.id])

@@ -54,6 +54,7 @@ export function effectText (effect, catalog) {
         : `remove ${plural(amount, nameOf(effect.card, catalog))} from your deck`
     case 'gainStatusPerAdjacent': return `add 1 ${nameOf(effect.card, catalog)} per neighbouring ${nameOf(effect.targetTag, catalog)}`
     case 'drawCards': return `draw ${plural(amount, 'card')}`
+    case 'gainBuys': return `+${amount} buy at the city row this turn`
     case 'discardCards': return 'discard 2 cards'
     case 'expandSlots': return `+${amount} slot`
     case 'headOffDisaster': return 'the disaster clock stops for good'
@@ -117,6 +118,7 @@ export function rulesFor (card, catalog = {}) {
 }
 
 export const KEYWORDS = {
+  buy: 'One purchase at the city row a turn. Some cards give you more.',
   budget: 'Your budget each turn is the revenue of every building you have. Unspent budget is lost unless a card says otherwise.',
   road: 'A building can only go on a plot that touches a street. A Road card lays up to two segments, each joined to a street you already have.',
   slot: 'Play a status card from your hand into a facility with a free slot and the card leaves the game. Slots refill every turn.',
@@ -135,6 +137,7 @@ export function keywordsFor (card, catalog = {}) {
   const want = (key, ...needles) => {
     if (needles.some(n => text.includes(n))) hits.push([key, KEYWORDS[key]])
   }
+  want('buy', 'buy at the city row')
   want('budget', 'budget')
   want('road', 'road')
   want('slot', 'slot')

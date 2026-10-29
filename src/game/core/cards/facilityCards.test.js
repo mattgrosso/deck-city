@@ -35,7 +35,7 @@ describe('FACILITY_CATALOG', () => {
 })
 
 describe('CITY_DECK_CARDS', () => {
-  it('is 2 copies of every facility', () => {
+  it('is 2 copies of every city-row card', () => {
     expect(CITY_DECK_CARDS).toHaveLength(FACILITY_CATALOG.length * 2)
   })
 

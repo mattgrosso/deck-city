@@ -42,6 +42,9 @@ export const VALUE = {
   draw: 1,
   // Choosing a card to discard: thinning a bad draw.
   discard: 0.5,
+  // One more purchase at the city row this turn: the surplus of a fair buy
+  // (about a spare copy's worth) plus getting the card a turn sooner.
+  buy: 1.5,
   // Keeping up to N budget between turns: about 2 a turn kept, for HORIZON turns, at SPEND.
   rollover: 2 * HORIZON * SPEND
 }
@@ -88,6 +91,7 @@ export function valueOfEffect (effect) {
     case 'consumeStatus': return -amount * VALUE.status
     case 'gainStatusPerAdjacent': return NEIGHBOURS.good * VALUE.status
     case 'drawCards': return amount * VALUE.draw
+    case 'gainBuys': return amount * VALUE.buy
     case 'discardCards': return 2 * VALUE.discard
     case 'raiseTreasuryRolloverCap': return VALUE.rollover * Math.min(1, amount / 10)
     default: return 0

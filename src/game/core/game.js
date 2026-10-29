@@ -43,6 +43,7 @@ function assertPlaying (state) {
  * @param {number} [options.baseRevenue] - flat municipal income added to building revenue every budget reset; see turn/phases.js for why this can't be 0
  * @param {number} [options.populationTarget] - win condition, checked every 'endOfTurn'
  * @param {{cardId: string, x: number, y: number}[]} [options.startingBuildings] - stood in the city before turn one, no effects, no cards
+ * @param {number} [options.buysPerTurn] - city-row purchases a turn before any gainBuys
  * @param {(card: Object) => number} [options.goalTimerFor] - turns a goal stays on offer; default 3 + tier
  * @param {() => number} [options.rng]
  */
@@ -59,6 +60,7 @@ export function createGame ({
   baseRevenue = 4,
   populationTarget = 20,
   startingBuildings = [],
+  buysPerTurn = 1,
   goalTimerFor = (card) => 3 + (card.tier ?? 1),
   rng
 } = {}) {
@@ -104,7 +106,8 @@ export function createGame ({
     handSize,
     turnManager,
     baseRevenue,
-    populationTarget
+    populationTarget,
+    buysPerTurn
   }
 
   function playCard (cardId, position) {
@@ -161,6 +164,7 @@ export function createGame ({
     if (card.type !== CARD_TYPES.CIVIC) throw new Error(`Card "${cardId}" is not a civic card`)
 
     state.hand.splice(index, 1)
+    spendTreasury(state, card.cost ?? 0)
     resolveTrigger(card, 'onPlay', { ...context, cardIds: discardCardIds })
     addToDiscardPile(state.deck, [card])
     return card
@@ -171,9 +175,11 @@ export function createGame ({
     assertPhase(turnManager, 'acquire')
     const card = cityRow.cards.find(c => c.id === cardId)
     if (!card) throw new Error(`Card "${cardId}" is not in the city row`)
+    if ((state.buys ?? 0) < 1) throw new Error('No buys left this turn')
     // The market charges a card's PRICE; its cost is paid again to build it.
     spendTreasury(state, card.price ?? card.cost ?? 0)
     acquireFromRow(cityRow, cardId)
+    state.buys -= 1
     addToDiscardPile(state.deck, [card])
     return card
   }

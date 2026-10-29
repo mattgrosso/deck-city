@@ -27,6 +27,7 @@ const WHY = {
   status: `a dead draw about every ${CYCLE} turns until cleared`,
   draw: 'one more choice this turn',
   discard: 'thinning a bad draw',
+  buy: 'one more purchase at the city row this turn: a fair buy\'s surplus, a turn sooner',
   rollover: `about 2 kept a turn, for ${HORIZON} turns, at ${SPEND}`
 }
 Object.entries(VALUE).forEach(([k, v]) => p(`| ${k} | ${Math.round(v * 100) / 100} | ${WHY[k] ?? ''} |`))

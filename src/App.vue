@@ -19,7 +19,7 @@
         </div>
 
         <Market
-          :city-row="cityRow" :goal-row="goalRow" :goal-timers="goalTimers" :catalog="game.catalog" :treasury="treasury" :state="game.state" :tick="tick"
+          :city-row="cityRow" :goal-row="goalRow" :goal-timers="goalTimers" :catalog="game.catalog" :treasury="treasury" :state="game.state" :tick="tick" :buys="buys"
           :active="mode === 'market'" :focus="market" :goal-met="goalMet" :goals-left="goalsLeft"
           @focus="onMarketFocus" @select="onMarketSelect"
         />
@@ -233,6 +233,7 @@ export default {
     goalRow () { void this.tick; return this.game.goalRow.cards },
     goalsLeft () { void this.tick; return this.game.goalRow.sourceDeck.drawPile.length },
     goalTimers () { void this.tick; return [...this.game.goalRow.timers] },
+    buys () { void this.tick; return this.game.state.buys ?? 0 },
     handKeys () {
       void this.tick
       const seen = {}
@@ -544,6 +545,15 @@ export default {
         return
       }
       if ((card.cost ?? 0) > this.treasury) return this.refuse(`${card.name} costs ${card.cost}. You have ${this.treasury}.`, 'orb')
+      if (card.type === 'civic' && !(card.effects?.onPlay ?? []).some(e => e.type === 'discardCards')) {
+        // A civic card with nothing to choose plays straight away.
+        try { this.game.actions.playCivicCard(card.id) } catch (err) { return this.refuse(err.message) }
+        if (card.cost) this.pop(`-${card.cost}`, 'orb')
+        this.say(`${card.name}: ${this.game.log.slice(-2).join(' ')}`, 'good')
+        this.handIndex = Math.min(this.handIndex, Math.max(0, this.game.state.hand.length - 1))
+        this.refresh()
+        return
+      }
       if (card.type === 'civic') {
         if (this.game.state.hand.length < 2) return this.refuse('Nothing else in hand to discard.')
         this.selectedIndex = index
@@ -658,6 +668,7 @@ export default {
         const card = this.cityRow[index]
         if (!card) return
         const price = card.price ?? card.cost ?? 0
+        if ((this.game.state.buys ?? 0) < 1) return this.refuse('No buys left this turn. A Trade Fair gives another.')
         if (price > this.treasury) return this.refuse(`${card.name} sells for ${price}. You have ${this.treasury}.`, 'orb')
         try { this.game.actions.acquireCard(card.id) } catch (err) { return this.refuse(err.message) }
         if (price) this.pop(`-${price}`, 'orb')

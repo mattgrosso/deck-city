@@ -123,6 +123,7 @@ export const DEFAULT_PHASES = [
       const rollover = Math.min(ctx.state.treasury, ctx.state.treasuryRolloverCap ?? 0)
       ctx.state.treasury = revenue + rollover
       ctx.state.goalsClaimedThisTurn = 0
+      ctx.state.buys = ctx.buysPerTurn ?? 1
       const parts = [`${fromBuildings} from buildings`]
       if (base) parts.push(`${base} base income`)
       if (rollover > 0) parts.push(`${rollover} kept from last turn`)

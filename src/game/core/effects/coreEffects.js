@@ -122,3 +122,9 @@ registerEffect('raiseTreasuryRolloverCap', (effect, { state, log }) => {
   raiseTreasuryRolloverCap(state, effect.amount)
   log?.push(`You may now keep up to ${effect.amount} unspent budget between turns.`)
 })
+
+/** More city-row purchases this turn (state.buys resets to buysPerTurn every draw). */
+registerEffect('gainBuys', (effect, { state, log }) => {
+  state.buys = (state.buys ?? 0) + (effect.amount ?? 1)
+  log?.push(`+${effect.amount ?? 1} buy this turn.`)
+})

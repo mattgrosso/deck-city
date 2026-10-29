@@ -54,7 +54,7 @@ export const PAGES = [
   {
     title: 'The market, then the clock.',
     lines: [
-      'After building, buy a card from the City Row with what budget is left. The tag under it is its price; the coin on it is what it costs to build.',
+      'After building, buy one card from the City Row with what budget is left: the tag under it is its price, the coin on it what it costs to build. A Trade Fair gives an extra buy.',
       'Goals are free, one a turn. Meet the condition and claim it: it becomes a Monument to build.',
       'Each goal has a clock and expires when it runs out. Every four turns a disaster strikes, harder each time; each Fire Station blocks one card.'
     ]

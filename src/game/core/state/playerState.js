@@ -36,6 +36,11 @@ export function createPlayerState ({ startingDeckCards = [], treasury = 0, rng }
     disasterTimer: { turnsUntilDeadline: 4, headedOff: false, strikes: 0 },
     // One goal may be claimed a turn (Matt: "I was able to buy like 5 of the goals").
     goalsClaimedThisTurn: 0,
+    // Buys left this turn at the city row. Reset to the game's buysPerTurn
+    // (1) every draw; cards with gainBuys add more. Matt: "I can buy way
+    // too many cards in a turn... a limit of one buy and then cards that
+    // give additional buys."
+    buys: 1,
     turnNumber: 0,
     // 'playing' | 'won' | 'lost' — set by turn/phases.js's 'endOfTurn'
     // phase. Player actions (build/acquire/claim) are gated on this once
