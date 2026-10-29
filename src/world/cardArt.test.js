@@ -15,6 +15,6 @@ describe('card art', () => {
   })
 
   it('only asks for parts the kits have', () => {
-    Object.values(CARD_ART).forEach(scene => scene.parts.forEach(p => expect(p.model).toMatch(/^(suburban|commercial|industrial|roads)\//)))
+    Object.values(CARD_ART).forEach(scene => scene.parts.forEach(p => { if (!p.street) expect(p.model).toMatch(/^(suburban|commercial|industrial|roads)\//) }))
   })
 })

@@ -7,6 +7,7 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { CARD_ART } from '/src/world/cardArt.js'
+import { makeStreetEdge, makeStreetNode } from '/src/world/streets.js'
 const q = new URLSearchParams(location.search)
 const id = q.get('card') || 'residential'
 const art = CARD_ART[id]
@@ -20,17 +21,17 @@ scene.add(new THREE.HemisphereLight(0xeaf2ff, 0x8a7a5a, art.mood === 'dark' ? 0.
 const sun = new THREE.DirectionalLight(art.mood === 'dark' ? 0xcfd8ff : 0xfff1d8, art.mood === 'dark' ? 1.6 : 2.4); sun.position.set(4, 8, 3); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048)
 sun.shadow.camera.left = -4; sun.shadow.camera.right = 4; sun.shadow.camera.top = 4; sun.shadow.camera.bottom = -4; sun.shadow.bias = -0.0005; scene.add(sun)
 scene.add(new THREE.AmbientLight(0xffffff, 0.3))
-const GROUND = { park: 0x8ccf7a, plaza: 0xeadfc1, built: 0xdfe3ea }
+const GROUND = { park: 0x8ccf7a, field: 0x8ccf7a, plaza: 0xeadfc1, built: 0xdfe3ea }
 if (art.ground !== 'none') {
   const g = new THREE.Mesh(new THREE.CylinderGeometry(1.35, 1.35, 0.12, 48), new THREE.MeshStandardMaterial({ color: GROUND[art.ground] ?? GROUND.built, roughness: 0.95 }))
   g.position.y = -0.06; g.receiveShadow = true; scene.add(g)
 }
 const loader = new GLTFLoader()
 const group = new THREE.Group(); scene.add(group)
-await Promise.all(art.parts.map(p => new Promise((res) => loader.load(`/models/${p.model}.glb`, (gltf) => {
+await Promise.all(art.parts.map(p => new Promise((res) => { if (p.street) { const m = p.street === 'edge' ? makeStreetEdge({ axis: p.axis, length: p.length }) : makeStreetNode({ arms: p.arms }); m.position.set(p.dx || 0, 0, p.dz || 0); group.add(m); res(); return } loader.load(`/models/${p.model}.glb`, (gltf) => {
   const m = gltf.scene; m.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; if (p.tint != null) { o.material = o.material.clone(); o.material.color.set(p.tint); if (p.model === 'roads/tile-low') { o.material.transparent = true; o.material.opacity = 0.75 } } } })
   m.position.set(p.dx || 0, p.dy || 0, p.dz || 0); m.rotation.y = p.yaw || 0; m.scale.setScalar(p.scale || 1); group.add(m); res()
-}, undefined, () => res()))))
+}, undefined, () => res()) })))
 const box = new THREE.Box3().setFromObject(group); const size = box.getSize(new THREE.Vector3()); const centre = box.getCenter(new THREE.Vector3())
 const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100)
 const az = Math.PI / 4, el = 0.58

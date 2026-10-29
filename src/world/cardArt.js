@@ -10,7 +10,8 @@ const scene = (parts, extra = {}) => ({ parts, ...extra })
 const part = (model, o = {}) => ({ model, scale: 1, dx: 0, dz: 0, yaw: 0, ...o })
 
 export const CARD_ART = {
-  road: scene([part('roads/road-crossroad', { scale: 1.1 }), part('roads/road-straight', { dx: 1.1, scale: 1.1, yaw: Math.PI / 2 }), part('roads/road-straight', { dx: -1.1, scale: 1.1, yaw: Math.PI / 2 }), part('roads/light-curved', { dx: 0.5, dz: 0.5, scale: 1.1 })], { ground: 'none', zoom: 0.9 }),
+  // `street` parts are built from src/world/streets.js, the same geometry the board uses.
+  road: scene([{ street: 'edge', axis: 'x', length: 2.2, dx: 0, dz: 0 }, { street: 'node', arms: ['e'], dx: -1.34, dz: 0 }, { street: 'node', arms: ['w'], dx: 1.34, dz: 0 }, part('roads/light-curved', { dx: 0.4, dz: 0.42, scale: 1.0 }), part('suburban/tree-small', { dx: -0.7, dz: -0.5, scale: 1.1 })], { ground: 'field', zoom: 0.95 }),
   residential: scene(RECIPES.residential.variants[0].parts.map(p => part(p.model, { scale: 1 }))),
   commercial: scene(RECIPES.commercial.variants[0].parts.map(p => part(p.model, { scale: 1 }))),
   industrial: scene(RECIPES.industrial.variants[0].parts.map(p => part(p.model, { scale: 1 }))),
@@ -27,7 +28,7 @@ export const CARD_ART = {
   blackout: scene([part('roads/electricity-pole', { scale: 2.0, dx: -0.3 }), part('roads/light-curved', { scale: 1.8, dx: 0.5, dz: 0.3 }), part('suburban/building-type-h', { scale: 0.8, dx: 0.1, dz: -0.7, tint: 0x6b7280 })], { mood: 'dark' }),
   'goal-grand-opening': scene([part('commercial/building-f', { scale: 0.95 }), part('commercial/detail-parasol-a', { scale: 1.6, dx: 0.6, dz: 0.5 })], { ground: 'plaza' }),
   'goal-full-employment': scene([part('commercial/building-j', { scale: 0.75 })], { ground: 'plaza' }),
-  'goal-clean-streets': scene([part('roads/road-straight', { scale: 1.4, yaw: Math.PI / 2 }), part('suburban/planter', { scale: 1.6, dx: -0.4, dz: 0.6 }), part('suburban/tree-small', { scale: 1.6, dx: 0.5, dz: 0.6 })], { ground: 'none' }),
+  'goal-clean-streets': scene([{ street: 'edge', axis: 'x', length: 2.0, dx: 0, dz: -0.1 }, part('suburban/planter', { scale: 1.5, dx: -0.5, dz: 0.5 }), part('suburban/tree-small', { scale: 1.5, dx: 0.5, dz: 0.5 }), part('roads/light-square', { scale: 1.2, dx: 0.1, dz: -0.6 })], { ground: 'field' }),
   'goal-park-district': scene([part('suburban/tree-large', { scale: 1.6, dx: -0.5 }), part('suburban/building-type-c', { scale: 0.85, dx: 0.45, dz: 0.1 }), part('suburban/tree-small', { scale: 1.5, dx: -0.2, dz: 0.6 })], { ground: 'park' }),
   'goal-neighborhood-watch': scene([part('commercial/building-c', { scale: 0.95, tint: 0x6f8fe8 }), part('roads/light-square', { scale: 1.4, dx: 0.6, dz: 0.5 })], { ground: 'plaza' }),
   'goal-city-bank': scene([part('commercial/building-l', { scale: 0.62, tint: 0xffe6b0 })], { ground: 'plaza' }),

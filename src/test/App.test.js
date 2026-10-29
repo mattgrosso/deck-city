@@ -17,32 +17,50 @@ describe('App', () => {
   const vm = () => wrapper.vm
   const press = async (...actions) => { for (const a of actions) { vm().act(a); await wrapper.vm.$nextTick() } }
 
-  it('starts on the title screen and A begins a game on the build phase with a hand', async () => {
+  it('starts on the title screen; A begins a game, shows the rules once, then the build phase with a hand', async () => {
     expect(wrapper.text()).toContain('Deck City')
     await press('select')
     expect(vm().screen).toBe('game')
+    expect(vm().mode).toBe('howto')
+    await press('back')
+    expect(vm().mode).toBe('hand')
     expect(vm().phaseName).toBe('build')
     expect(vm().game.state.hand.length).toBe(5)
     expect(vm().treasury).toBe(4)
   })
 
-  it('plays a Road from the hand onto the grid with A, the d-pad, and A', async () => {
-    await press('select')
+  it('plays a Road from the hand onto an edge with A, the d-pad, and A', async () => {
+    await press('select', 'back')
     const hand = vm().game.state.hand
     const roadAt = hand.findIndex(c => c.placesRoad)
     if (roadAt === -1) return // the shuffle dealt no Road; the engine tests cover placement itself
     vm().handIndex = roadAt
     await press('select')
     expect(vm().mode).toBe('target')
-    expect(vm().validCells.length).toBeGreaterThan(0)
+    expect(vm().validEdges.length).toBeGreaterThan(0)
+    const roadsBefore = vm().game.state.cityGrid.roads.size
     await press('right', 'select')
     expect(vm().mode).toBe('hand')
     expect(vm().game.state.hand.length).toBe(4)
     expect(vm().treasury).toBe(3)
+    expect(vm().game.state.cityGrid.roads.size).toBe(roadsBefore + 1)
+  })
+
+  it('Up from the hand looks at the city, Up again reaches the top bar, B comes back', async () => {
+    await press('select', 'back', 'up')
+    expect(vm().mode).toBe('look')
+    expect(vm().targets.length).toBe(24)
+    for (let i = 0; i < 6; i++) await press('up')
+    expect(vm().mode).toBe('stats')
+    await press('right')
+    expect(vm().statIndex).toBe(1)
+    expect(vm().statInfo.title).toBe('Jobs')
+    await press('back')
+    expect(vm().mode).toBe('hand')
   })
 
   it('refuses a status card and a card it cannot afford, with a message', async () => {
-    await press('select')
+    await press('select', 'back')
     vm().game.state.hand.push({ id: 'crime', type: 'status', name: 'Crime', tags: ['negative', 'crime'] })
     vm().refresh()
     vm().handIndex = vm().game.state.hand.length - 1
@@ -57,7 +75,7 @@ describe('App', () => {
   })
 
   it('Y moves to the market, Y again ends the turn and deals a new hand', async () => {
-    await press('select', 'confirm')
+    await press('select', 'back', 'confirm')
     expect(vm().mode).toBe('market')
     expect(vm().phaseName).toBe('acquire')
     await press('confirm')
@@ -70,7 +88,7 @@ describe('App', () => {
   })
 
   it('Y never ends a phase while a card is selected (the accidental-end-turn lesson)', async () => {
-    await press('select')
+    await press('select', 'back')
     const roadAt = vm().game.state.hand.findIndex(c => c.placesRoad)
     if (roadAt === -1) return
     vm().handIndex = roadAt
@@ -84,7 +102,7 @@ describe('App', () => {
   })
 
   it('X opens the deck view, bumpers switch tabs, B closes it', async () => {
-    await press('select', 'deck')
+    await press('select', 'back', 'deck')
     expect(vm().mode).toBe('pile')
     expect(vm().pileTab).toBe(0)
     await press('nextPile')

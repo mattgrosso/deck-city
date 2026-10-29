@@ -105,10 +105,13 @@ describe('createGame', () => {
     expect(() => game.actions.playCard('road', { x: 0, y: 0 })).toThrow(/no road access/)
   })
 
-  it('lets a road card be placed on any empty cell, ignoring the frontage rule', () => {
+  it('lets a road card be placed on any unroaded edge, never on a cell', () => {
     const game = createGame({ cardCatalog: [ROAD_CARD], startingDeckCardIds: ['test-road'], treasury: 5 })
     game.actions.advance() // draw -> build
-    game.actions.playCard('test-road', { x: 0, y: 0 })
+    expect(() => game.actions.playCard('test-road', { x: 0, y: 0 })).toThrow(/Invalid edge/)
+    expect(() => game.actions.playCard('test-road', { edge: 'h:2,2' })).toThrow(/already has a road/)
+    game.actions.playCard('test-road', { edge: 'h:0,0' })
+    expect(game.state.cityGrid.roads.has('h:0,0')).toBe(true)
     expect(game.state.builtStructures).toEqual([]) // never occupies a cell
     expect(game.state.deck.discardPile.map(card => card.id)).toContain('test-road')
   })
@@ -126,7 +129,7 @@ describe('createGame', () => {
     // a road there, its neighbor (1,0) has no frontage either.
     expect(() => game.actions.playCard('test-building', { x: 1, y: 0 })).toThrow(/no road access/)
 
-    game.actions.playCard('test-road', { x: 0, y: 0 })
+    game.actions.playCard('test-road', { edge: 'v:1,0' }) // the edge between (0,0) and (1,0)
     game.actions.playCard('test-building', { x: 1, y: 0 })
 
     expect(game.state.builtStructures).toHaveLength(1)

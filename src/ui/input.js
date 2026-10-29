@@ -49,6 +49,32 @@ const KEYS = {
 export const DIRECTIONS = ['up', 'down', 'left', 'right']
 
 /**
+ * Which family of controller this is, from the Gamepad API's id string, so
+ * the legend can show the letters that are actually printed on it (Matt:
+ * "the labels for the buttons don't match the buttons on my controller").
+ * Buttons are mapped by POSITION (standard layout: bottom = select,
+ * right = back, left = deck, top = confirm); only the labels change.
+ */
+export function padKind (id = '') {
+  const s = String(id).toLowerCase()
+  // Xbox first: its id is "Xbox Wireless Controller", which also contains
+  // Sony's bare "Wireless Controller".
+  if (/xbox|xinput|045e|microsoft/.test(s)) return 'xbox'
+  if (/pro controller|joy-con|nintendo|057e/.test(s)) return 'switch'
+  if (/dualsense|dualshock|playstation|wireless controller|054c/.test(s)) return 'playstation'
+  return 'generic'
+}
+
+/** The label for each action on each controller family. */
+export const GLYPHS = {
+  xbox: { up: '↑', down: '↓', left: '←', right: '→', select: 'A', back: 'B', deck: 'X', confirm: 'Y', prevPile: 'LB', nextPile: 'RB', menu: '☰', dpad: '✥', lr: '↔' },
+  playstation: { up: '↑', down: '↓', left: '←', right: '→', select: '✕', back: '○', deck: '□', confirm: '△', prevPile: 'L1', nextPile: 'R1', menu: '☰', dpad: '✥', lr: '↔' },
+  switch: { up: '↑', down: '↓', left: '←', right: '→', select: 'B', back: 'A', deck: 'Y', confirm: 'X', prevPile: 'L', nextPile: 'R', menu: '+', dpad: '✥', lr: '↔' },
+  generic: { up: '↑', down: '↓', left: '←', right: '→', select: 'A', back: 'B', deck: 'X', confirm: 'Y', prevPile: 'LB', nextPile: 'RB', menu: '☰', dpad: '✥', lr: '↔' },
+  keyboard: { up: '↑', down: '↓', left: '←', right: '→', select: '⏎', back: 'Esc', deck: 'Tab', confirm: 'E', prevPile: 'Q', nextPile: 'R', menu: 'M', dpad: '✥', lr: '↔' }
+}
+
+/**
  * The set of actions a gamepad is asking for right now, from its raw
  * buttons and axes. Pure: tested without a browser.
  * @param {{buttons: {pressed: boolean}[], axes: number[]}} pad
@@ -122,7 +148,7 @@ export function attachInput ({ onAction, onPadChange = () => {}, raf = window.re
     if (!running) return
     const pads = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean) : []
     const hasPad = pads.length > 0
-    if (hasPad !== hadPad) { hadPad = hasPad; onPadChange(hasPad) }
+    if (hasPad !== hadPad) { hadPad = hasPad; onPadChange(hasPad ? padKind(pads[0].id) : null) }
     const held = new Set()
     pads.forEach(pad => actionsFromGamepad(pad).forEach(action => held.add(action)))
     repeater.tick(held, performance.now()).forEach(action => onAction(action, 'pad'))

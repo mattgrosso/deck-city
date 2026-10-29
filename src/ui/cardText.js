@@ -92,7 +92,7 @@ export function rulesFor (card, catalog = {}) {
   const lines = []
   if (!card) return lines
 
-  if (card.placesRoad) lines.push('Paves the four edges of a cell. Buildings need a road on one edge.')
+  if (card.placesRoad) lines.push('Lays one street between two plots. A building needs a street on one side.')
 
   const stats = Object.entries(card.stats ?? {}).filter(([, v]) => v)
   if (stats.length) lines.push(stats.map(([k, v]) => `+${v} ${k}`).join(', '))
@@ -117,7 +117,7 @@ export function rulesFor (card, catalog = {}) {
 
 export const KEYWORDS = {
   budget: 'Budget resets every turn to what your city earns. Unspent budget is lost unless a card says otherwise.',
-  road: 'A building can only go on a cell with a road on at least one edge. Roads pave all four edges of a cell.',
+  road: 'A building can only go on a plot that touches a street. A Road card lays one street segment between two plots.',
   slot: 'A facility removes one status card per free slot each turn. Slots refill every turn.',
   status: 'Crime, Trash and Pollution are dead cards. They sit in your hand and do nothing until a facility removes them.',
   monument: 'A claimed goal. Costs nothing, needs no road, and gives +1 population and +1 revenue.',

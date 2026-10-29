@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { actionsFromGamepad, actionFromKey, createRepeater, REPEAT_DELAY_MS, REPEAT_RATE_MS } from './input'
+import { actionsFromGamepad, actionFromKey, createRepeater, padKind, GLYPHS, REPEAT_DELAY_MS, REPEAT_RATE_MS } from './input'
 
 const pad = (pressed = [], axes = [0, 0]) => ({
   buttons: Array.from({ length: 17 }, (_, i) => ({ pressed: pressed.includes(i) })),
@@ -55,5 +55,21 @@ describe('createRepeater', () => {
     expect(r.tick(new Set(['right']), REPEAT_DELAY_MS)).toEqual(['right'])
     expect(r.tick(new Set(['right']), REPEAT_DELAY_MS + REPEAT_RATE_MS - 1)).toEqual([])
     expect(r.tick(new Set(['right']), REPEAT_DELAY_MS + REPEAT_RATE_MS)).toEqual(['right'])
+  })
+})
+
+describe('padKind and GLYPHS', () => {
+  it('recognises the three families by the Gamepad API id string', () => {
+    expect(padKind('Xbox Wireless Controller (STANDARD GAMEPAD Vendor: 045e Product: 0b13)')).toBe('xbox')
+    expect(padKind('DualSense Wireless Controller (STANDARD GAMEPAD Vendor: 054c Product: 0ce6)')).toBe('playstation')
+    expect(padKind('Pro Controller (STANDARD GAMEPAD Vendor: 057e Product: 2009)')).toBe('switch')
+    expect(padKind('Some Pad')).toBe('generic')
+  })
+
+  it('labels the same positions with each family\'s letters', () => {
+    expect(GLYPHS.xbox.select).toBe('A')
+    expect(GLYPHS.playstation.select).toBe('✕')
+    expect(GLYPHS.switch.select).toBe('B')
+    expect(GLYPHS.switch.confirm).toBe('X')
   })
 })

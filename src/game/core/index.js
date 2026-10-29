@@ -48,6 +48,12 @@ export {
 export {
   DEFAULT_CITY_GRID_SIZE,
   DEFAULT_STARTING_ROAD_CELLS,
+  DEFAULT_STARTING_ROAD_EDGES,
+  edgeKey,
+  parseEdgeKey,
+  isEdgeInBounds,
+  addRoadEdge,
+  listAllEdges,
   createCityGrid,
   isInBounds,
   isCellEmpty,

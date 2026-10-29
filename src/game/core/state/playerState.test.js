@@ -145,12 +145,13 @@ describe('buildStructure', () => {
 describe('placeRoad', () => {
   const ROAD = { id: 'road', type: 'building', name: 'Road', placesRoad: true }
 
-  it('roads the target cell without occupying it, and returns the card to discard', () => {
+  it('roads one edge without occupying a cell, and returns the card to discard', () => {
     const state = createPlayerState()
-    placeRoad(state, ROAD, { position: { x: 0, y: 0 } })
+    placeRoad(state, ROAD, { edge: 'h:0,0' })
 
     expect(isCellEmpty(state.cityGrid, 0, 0)).toBe(true)
     expect(isBuildable(state.cityGrid, 0, 0)).toBe(true)
+    expect(isBuildable(state.cityGrid, 1, 0)).toBe(false)
     expect(state.builtStructures).toEqual([])
     expect(state.deck.discardPile).toEqual([ROAD])
   })
@@ -161,7 +162,7 @@ describe('placeRoad', () => {
     const roadWithEffect = { ...ROAD, effects: { onBuild: [{ type: 'test.onRoadBuild' }] } }
     const state = createPlayerState()
 
-    placeRoad(state, roadWithEffect, { position: { x: 1, y: 1 } })
+    placeRoad(state, roadWithEffect, { edge: 'v:1,1' })
 
     expect(calls).toEqual(['called'])
   })

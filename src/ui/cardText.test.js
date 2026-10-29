@@ -16,7 +16,7 @@ describe('rulesFor', () => {
   })
 
   it('explains a road, a facility with slots, and an adjacency card', () => {
-    expect(rulesFor(starterCards.ROAD, catalog)[0]).toMatch(/Paves the four edges/)
+    expect(rulesFor(starterCards.ROAD, catalog)[0]).toMatch(/one street between two plots/)
     expect(rulesFor(facilityCards.POLICE_STATION, catalog)).toEqual([
       '2 slots, expandable',
       'Each turn: remove Crime from your deck, one per free slot.'

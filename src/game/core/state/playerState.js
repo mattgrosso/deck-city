@@ -6,7 +6,7 @@
 
 import { createDeck, addToDiscardPile } from '../piles/deck'
 import { resolveTrigger } from '../effects/effectRegistry'
-import { createCityGrid, placeInstance, addRoadsAroundCell, seedStartingRoads, instanceAt } from './cityGrid'
+import { createCityGrid, placeInstance, addRoadEdge, seedStartingRoads, instanceAt } from './cityGrid'
 
 /**
  * @param {Object} options
@@ -222,19 +222,19 @@ export function buildStructure (state, card, context = {}) {
 }
 
 /**
- * Places a road card: paints the 4 edges of context.position onto the
- * city grid (see cityGrid.js), resolves the card's onBuild effects (if
+ * Places a road card: paints ONE edge (context.edge, an edge key - see
+ * cityGrid.js) onto the city grid, resolves the card's onBuild effects (if
  * any), then returns the card itself to the discard pile. Unlike
- * buildStructure(), this never creates a builtStructures instance — a
- * road never occupies its cell. Does not remove the card from hand or
- * charge its cost — callers are responsible for that.
+ * buildStructure(), this never creates a builtStructures instance - a
+ * road never occupies a cell. Does not remove the card from hand or
+ * charge its cost - callers are responsible for that.
  * @param {Object} state
  * @param {Object} card
  * @param {Object} [context] - passed through to onBuild effect resolution
- * @param {{x: number, y: number}} context.position
+ * @param {string} context.edge
  */
 export function placeRoad (state, card, context = {}) {
-  addRoadsAroundCell(state.cityGrid, context.position.x, context.position.y)
+  addRoadEdge(state.cityGrid, context.edge)
   resolveTrigger(card, 'onBuild', { ...context, state })
   addToDiscardPile(state.deck, [card])
 }

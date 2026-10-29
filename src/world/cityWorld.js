@@ -12,7 +12,8 @@
 
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
-import { PITCH, LOT, GAP, allModels, recipeFor, cornerPoint } from './cityLayout'
+import { PITCH, LOT, GAP, allModels, recipeFor, cornerPoint, edgeCentre } from './cityLayout'
+import { makeStreetEdge, makeStreetNode } from './streets'
 
 const MODEL_PATH = `${process.env.BASE_URL || '/'}models/`
 
@@ -23,9 +24,6 @@ const PALETTE = {
   plate: 0xdfe3ea, // pavement under a building
   park: 0x5fbf6a,
   plaza: 0xeadfc1,
-  asphalt: 0x5a6070,
-  dash: 0xf2f3f6,
-  kerb: 0xd6dae3, // the pavements along a street
   valid: 0xfff5b8, // a lot you may build on
   cursor: 0xffffff
 }
@@ -150,50 +148,19 @@ export function createCityWorld (canvas, { reducedMotion = false } = {}) {
   // --------------------------------------------------------- the roads
   const roads = new THREE.Group(); world.add(roads)
   const roadMeshes = new Map()
-  const asphaltMat = mat(PALETTE.asphalt, { roughness: 0.9 })
-  const kerbMat = mat(PALETTE.kerb)
-  const dashMat = mat(PALETTE.dash, { emissive: PALETTE.dash, emissiveIntensity: 0.15 })
-  const KERB = 0.07
-  const ROAD_Y = 0.02
-  const streetEdge = (e) => {
-    const g = new THREE.Group()
-    const along = e.axis === 'x'
-    const len = LOT
-    const bed = new THREE.Mesh(new THREE.BoxGeometry(along ? len : GAP, 0.04, along ? GAP : len), asphaltMat)
-    bed.position.y = ROAD_Y; bed.receiveShadow = true; g.add(bed)
-    for (const side of [-1, 1]) {
-      const kerb = new THREE.Mesh(new THREE.BoxGeometry(along ? len : KERB, 0.06, along ? KERB : len), kerbMat)
-      kerb.position.set(along ? 0 : side * (GAP / 2 - KERB / 2), ROAD_Y + 0.012, along ? side * (GAP / 2 - KERB / 2) : 0)
-      kerb.receiveShadow = true; g.add(kerb)
-    }
-    for (const k of [-0.3, 0, 0.3]) {
-      const dash = new THREE.Mesh(new THREE.BoxGeometry(along ? 0.16 : 0.025, 0.012, along ? 0.025 : 0.16), dashMat)
-      dash.position.set(along ? k : 0, ROAD_Y + 0.026, along ? 0 : k); g.add(dash)
-    }
-    g.position.set(e.x, 0, e.z)
-    return g
-  }
-  const streetNode = (n) => {
-    const g = new THREE.Group()
-    const bed = new THREE.Mesh(new THREE.BoxGeometry(GAP, 0.04, GAP), asphaltMat)
-    bed.position.y = ROAD_Y; bed.receiveShadow = true; g.add(bed)
-    // A pavement across every side with no street leading off it.
-    const sides = { n: [0, -1], s: [0, 1], e: [1, 0], w: [-1, 0] }
-    for (const [d, [dx, dz]] of Object.entries(sides)) {
-      if (n.arms.includes(d)) continue
-      const across = dx === 0
-      const kerb = new THREE.Mesh(new THREE.BoxGeometry(across ? GAP : KERB, 0.06, across ? KERB : GAP), kerbMat)
-      kerb.position.set(dx * (GAP / 2 - KERB / 2), ROAD_Y + 0.012, dz * (GAP / 2 - KERB / 2))
-      g.add(kerb)
-    }
-    g.position.set(n.x, 0, n.z)
-    return g
-  }
+  const streetEdge = (e) => { const g = makeStreetEdge({ axis: e.axis }); g.position.set(e.x, 0, e.z); return g }
+  const streetNode = (n) => { const g = makeStreetNode({ arms: n.arms }); g.position.set(n.x, 0, n.z); return g }
+
+  // Aiming at an edge: a pale bar on every edge you may road, a bright one
+  // under the cursor, and a translucent street where it would go.
+  const edgeBars = new Map()
+  const edgeBarGeo = { x: new THREE.PlaneGeometry(LOT + GAP * 0.2, GAP * 0.9), z: new THREE.PlaneGeometry(GAP * 0.9, LOT + GAP * 0.2) }
+  let ghostStreetMesh = null
 
   const live = new Map()
   const dying = new Map()
   const ghosts = new Map()
-  let ghostRoad = null
+  const ghostRoad = null
   let framed = false
 
   const place = (group, p) => {
@@ -204,9 +171,9 @@ export function createCityWorld (canvas, { reducedMotion = false } = {}) {
   }
   const now = () => performance.now()
 
-  function update ({ grid = null, lots = [], placements = [], roadEdges = [], roadNodes = [], valid = new Set(), cursor = null, ghost = null, ghostStreet = null } = {}, { instant = false } = {}) {
+  function update ({ grid = null, lots = [], placements = [], roadEdges = [], roadNodes = [], valid = new Set(), cursor = null, ghost = null, validEdges = [], cursorEdge = null } = {}, { instant = false } = {}) {
     if (!fieldBuilt && lots.length && grid) buildField(lots, grid)
-    const aiming = valid.size > 0
+    const aiming = valid.size > 0 || validEdges.length > 0
     // A plain field at rest; the plot lines show only while aiming.
     gridLines.forEach(m => { m.material.color.set(aiming ? PALETTE.gridLineHot : PALETTE.gridLine); m.material.opacity = aiming ? 0.55 : 0 })
 
@@ -295,17 +262,31 @@ export function createCityWorld (canvas, { reducedMotion = false } = {}) {
       place(entry.group, p)
       entry.placement = p
     }
-    // A Road card's ghost: a translucent street around the lot.
-    if (ghostRoad) { world.remove(ghostRoad); ghostRoad = null }
-    if (ghostStreet) {
-      ghostRoad = new THREE.Group()
-      const gm = new THREE.MeshBasicMaterial({ color: PALETTE.asphalt, transparent: true, opacity: 0.5, depthWrite: false })
-      for (const [dx, dz, along] of [[0, -1, true], [0, 1, true], [-1, 0, false], [1, 0, false]]) {
-        const m = new THREE.Mesh(new THREE.BoxGeometry(along ? LOT + GAP : GAP, 0.03, along ? GAP : LOT + GAP), gm)
-        m.position.set(ghostStreet.wx + dx * PITCH / 2, 0.06, ghostStreet.wz + dz * PITCH / 2)
-        ghostRoad.add(m)
+    // Edges you may road, and the one under the cursor.
+    const wantEdges = new Set(validEdges)
+    for (const [key, bar] of edgeBars) {
+      if (!wantEdges.has(key)) { world.remove(bar); edgeBars.delete(key) }
+    }
+    if (grid) {
+      for (const key of wantEdges) {
+        let bar = edgeBars.get(key)
+        if (!bar) {
+          const e = edgeCentre(grid, key)
+          bar = new THREE.Mesh(edgeBarGeo[e.axis], new THREE.MeshBasicMaterial({ color: PALETTE.valid, transparent: true, opacity: 0.5, depthWrite: false }))
+          bar.rotation.x = -Math.PI / 2; bar.position.set(e.x, 0.035, e.z)
+          world.add(bar); edgeBars.set(key, bar)
+        }
+        bar.material.color.set(key === cursorEdge ? PALETTE.cursor : PALETTE.valid)
+        bar.material.opacity = key === cursorEdge ? 0.95 : 0.45
       }
-      world.add(ghostRoad)
+    }
+    if (ghostStreetMesh) { world.remove(ghostStreetMesh); ghostStreetMesh = null }
+    if (cursorEdge && grid) {
+      const e = edgeCentre(grid, cursorEdge)
+      ghostStreetMesh = makeStreetEdge({ axis: e.axis })
+      ghostStreetMesh.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); o.material.transparent = true; o.material.opacity = 0.7 } })
+      ghostStreetMesh.position.set(e.x, 0.03, e.z)
+      world.add(ghostStreetMesh)
     }
 
     if (!framed && lots.length) frame(lots)
@@ -392,6 +373,9 @@ export function createCityWorld (canvas, { reducedMotion = false } = {}) {
     resize,
     project,
     pick,
+    /** Stage-pixel centre of a cell / an edge, for aiming in screen directions. */
+    screenOfCell: (grid, x, y) => { const c = cornerPoint(grid, x, y); return project(c.x + PITCH / 2, 0, c.z + PITCH / 2) },
+    screenOfEdge: (grid, key) => { const e = edgeCentre(grid, key); return project(e.x, 0, e.z) },
     ghostFor: (card, lot) => {
       if (!card || !lot) return []
       const recipe = recipeFor(card, 0)

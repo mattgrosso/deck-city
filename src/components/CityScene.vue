@@ -16,7 +16,7 @@
 </template>
 
 <script>
-import { layoutCity } from '@/world/cityLayout'
+import { layoutCity, LOT } from '@/world/cityLayout'
 
 const STAT_SHORT = { population: 'pop', jobs: 'jobs', revenue: 'rev' }
 
@@ -32,6 +32,8 @@ export default {
     targeting: Boolean,
     validCells: { type: Array, default: () => [] },
     cursor: { type: Object, default: null },
+    validEdges: { type: Array, default: () => [] }, // edge keys a Road may go on
+    cursorEdge: { type: String, default: null },
     previewCard: { type: Object, default: null },
     width: { type: Number, default: 900 },
     height: { type: Number, default: 580 },
@@ -49,6 +51,8 @@ export default {
     layout () { this.sync() },
     validCells () { this.sync() },
     cursor () { this.sync() },
+    validEdges () { this.sync() },
+    cursorEdge () { this.sync() },
     previewCard () { this.sync() },
     stageScale () { this.resize() }
   },
@@ -78,7 +82,6 @@ export default {
     sync (opts = {}) {
       if (!this.world) return
       const cursorLot = this.cursor ? this.lots.find(l => l.x === this.cursor.x && l.y === this.cursor.y) : null
-      const roadCard = this.targeting && this.previewCard?.placesRoad
       this.world.update({
         grid: this.grid,
         lots: this.lots,
@@ -87,8 +90,9 @@ export default {
         roadNodes: this.layout.roadNodes,
         valid: this.targeting ? this.validSet : new Set(),
         cursor: this.targeting ? this.cursor : null,
-        ghost: this.targeting && !roadCard ? this.world.ghostFor(this.previewCard, cursorLot) : [],
-        ghostStreet: roadCard ? cursorLot : null
+        ghost: this.targeting && this.cursor ? this.world.ghostFor(this.previewCard, cursorLot) : [],
+        validEdges: this.targeting ? this.validEdges : [],
+        cursorEdge: this.targeting ? this.cursorEdge : null
       }, opts)
       this.placeLabels()
     },
@@ -99,10 +103,13 @@ export default {
         const inst = byId.get(lot.instanceId)
         const stats = Object.entries(inst.card.stats ?? {}).filter(([, v]) => v).map(([k, v]) => `+${v} ${STAT_SHORT[k] ?? k}`)
         if (inst.slots) stats.push(`${inst.slots.used}/${inst.slots.capacity} slots`)
-        const p = this.world.project(lot.wx + 0.1, 0, lot.wz + 0.78)
+        const p = this.world.project(lot.wx + LOT / 2, 0, lot.wz + LOT / 2)
         return { id: lot.id, x: p.x, y: p.y, name: inst.card.name, stats: stats.join(' · '), monument: inst.card.type === 'goal' }
       })
     },
+    /** Stage-pixel positions, so the app can move the cursor in SCREEN directions on an isometric board. */
+    screenOfCell (x, y) { return this.world ? this.world.screenOfCell(this.grid, x, y) : { x: x * 100, y: y * 100 } },
+    screenOfEdge (key) { return this.world ? this.world.screenOfEdge(this.grid, key) : { x: 0, y: 0 } },
     onClick (event) {
       if (!this.world) return
       const rect = this.$refs.canvas.getBoundingClientRect()

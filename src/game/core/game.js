@@ -5,7 +5,7 @@
 
 import { CARD_TYPES, buildCardCatalog } from './cards/cardSchema'
 import { createPlayerState, buildStructure, placeRoad, spendTreasury } from './state/playerState'
-import { isCellEmpty, isBuildable } from './state/cityGrid'
+import { isCellEmpty, isBuildable, isEdgeInBounds } from './state/cityGrid'
 import { createDeck, addToDiscardPile } from './piles/deck'
 import { createRow, acquireFromRow } from './piles/row'
 import { createTurnManager, advancePhase, assertPhase } from './turn/turnManager'
@@ -109,23 +109,29 @@ export function createGame ({
 
     const card = state.hand[index]
 
+    // A Road card aims at an EDGE between two spaces ({ edge: 'h:2,2' }),
+    // never at a cell; everything else aims at a cell ({ x, y }).
+    if (card.placesRoad) {
+      const edge = position?.edge
+      if (!edge || !isEdgeInBounds(state.cityGrid, edge)) throw new Error(`Invalid edge: ${JSON.stringify(position)}`)
+      if (state.cityGrid.roads.has(edge)) throw new Error(`Edge ${edge} already has a road`)
+      state.hand.splice(index, 1)
+      spendTreasury(state, card.cost ?? 0)
+      return placeRoad(state, card, { ...context, edge })
+    }
+
     if (!position || !isCellEmpty(state.cityGrid, position.x, position.y)) {
       throw new Error(`Invalid or occupied cell: ${JSON.stringify(position)}`)
     }
-    // Road cards create road frontage, so they don't require it themselves;
-    // monuments (claimed goals) skip the requirement entirely (see
+    // Monuments (claimed goals) skip the requirement entirely (see
     // cards/goalCards.js); everything else can only be built on a cell with
     // an adjacent road.
-    if (!card.placesRoad && !card.skipsRoadRequirement && !isBuildable(state.cityGrid, position.x, position.y)) {
+    if (!card.skipsRoadRequirement && !isBuildable(state.cityGrid, position.x, position.y)) {
       throw new Error(`Cell (${position.x}, ${position.y}) has no road access`)
     }
 
     state.hand.splice(index, 1)
     spendTreasury(state, card.cost ?? 0)
-
-    if (card.placesRoad) {
-      return placeRoad(state, card, { ...context, position })
-    }
     return buildStructure(state, card, { ...context, position })
   }
 

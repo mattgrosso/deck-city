@@ -119,6 +119,38 @@ Commonwealth recipe: three.js inside the Vue app with Kenney's CC0 kits.
   exists. Goal cards lost the "becomes a Monument" line (the keyword panel
   says it) so their text fits.
 
+**Round three (same day; Matt's brain dump while playing).** Done:
+- *"The labels don't match the buttons on my controller"* - `padKind()` in
+  `src/ui/input.js` reads the Gamepad id (Xbox / PlayStation / Switch /
+  generic; Xbox is checked first because its id contains Sony's bare
+  "Wireless Controller") and `GLYPHS` labels every action per family; the
+  legend, the end-phase button and every overlay hint use them. Buttons
+  are mapped by POSITION, only the letters change.
+- *"The road card art is still the old art"* - Road and Clean Streets are
+  drawn from `src/world/streets.js`, the same geometry the board uses.
+- *"Get my cursor up to the items in the top bar"* - Up from the hand (or
+  the market) enters **look** mode: the cursor walks the plots and an
+  `InfoPanel` says what stands there (its rules, slots used) or whether an
+  empty plot touches a street. Up past the top row reaches **stats** mode:
+  left/right across the top bar, each number explained with today's
+  values. B or Down steps back.
+- *"I don't know how to play"* - `HowTo.vue`, six screens, opens on the
+  first game (localStorage `deck-city:howto-seen`) and from the pause menu.
+- *"The grid is isometric but it expects orthogonal directions"* - aiming
+  is in SCREEN directions now: every target (plot or edge) carries its
+  stage-pixel position from `CityScene.screenOfCell/Edge`, and the d-pad
+  picks the nearest target in the pressed direction (`stepCursor` rejects
+  anything more than ~60° off).
+- *"Roads wrap an entire square … I'd rather have individual segments"* -
+  engine change: `addRoadEdge(grid, key)`, `listAllEdges`, `placeRoad(state,
+  card, { edge })`, `playCard(id, { edge })` for Road cards; the starting
+  city is a two-segment street through the middle. Aiming a Road lights
+  every unroaded edge and ghosts the street under the cursor.
+- The building chip sits at the plot's front corner now.
+- *"Doesn't seem to matter where I put things"* - noted, not changed:
+  today only Park (adjacency) and three goals (rows, pairs) care. A design
+  conversation, not a bug.
+
 **Not done / next:** nobody has played a full game on the TV yet — that's
 the point of all this. Then: tune every number (all still first guesses),
 decide whether Build and Acquire should be one phase, sound, the road-chain

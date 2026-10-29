@@ -7,7 +7,7 @@
       <div v-if="items" class="overlay__menu">
         <div v-for="(item, i) in items" :key="item" class="overlay__item" :class="{ 'overlay__item--on': i === index }" @click="$emit('pick', i)">{{ item }}</div>
       </div>
-      <div class="overlay__hint"><span class="btn btn--a">A</span> {{ hint }}</div>
+      <div class="overlay__hint"><span class="btn btn--a">{{ glyph }}</span> {{ hint }}</div>
     </div>
   </div>
 </template>
@@ -18,7 +18,7 @@ export default {
   props: {
     kind: { type: String, default: 'plain' }, // plain | title | won | lost | summary
     eyebrow: String, title: String, lines: { type: Array, default: () => [] },
-    items: Array, index: Number, hint: { type: String, default: 'Continue' }
+    items: Array, index: Number, hint: { type: String, default: 'Continue' }, glyph: { type: String, default: 'A' }
   },
   emits: ['pick']
 }

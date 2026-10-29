@@ -112,13 +112,59 @@ export function listRoadEdges (grid) {
   })
 }
 
-/** Two adjacent squares, roaded on every side, so a new game has somewhere legal to build. */
-export const DEFAULT_STARTING_ROAD_CELLS = [{ x: 2, y: 1 }, { x: 3, y: 1 }]
+/**
+ * A single edge key from its parts. 'h' edges run along x on the boundary
+ * above row y (y in 0..height); 'v' edges run along y on the boundary left
+ * of column x (x in 0..width).
+ */
+export function edgeKey (kind, x, y) {
+  return `${kind}:${x},${y}`
+}
+
+/** @returns {{kind: 'h'|'v', x: number, y: number}} the parts of an edge key */
+export function parseEdgeKey (key) {
+  const [kind, coords] = key.split(':')
+  const [x, y] = coords.split(',').map(Number)
+  return { kind, x, y }
+}
+
+/** Is this edge on the grid at all? */
+export function isEdgeInBounds (grid, key) {
+  const { kind, x, y } = parseEdgeKey(key)
+  if (kind === 'h') return x >= 0 && x < grid.width && y >= 0 && y <= grid.height
+  if (kind === 'v') return x >= 0 && x <= grid.width && y >= 0 && y < grid.height
+  return false
+}
+
+/**
+ * Paints ONE edge as roaded - a Road card is a segment between two
+ * spaces, not a ring round one (Matt, 2026-10-29: "I don't like that the
+ * roads wrap an entire square... I would rather have them be individual
+ * segments"). Throws for an edge off the grid or one already roaded.
+ */
+export function addRoadEdge (grid, key) {
+  if (!isEdgeInBounds(grid, key)) throw new Error(`Edge ${key} is off the grid`)
+  if (grid.roads.has(key)) throw new Error(`Edge ${key} already has a road`)
+  grid.roads.add(key)
+}
+
+/** Every edge on the grid, roaded or not, for a UI that aims at them. */
+export function listAllEdges (grid) {
+  const out = []
+  for (let y = 0; y <= grid.height; y++) for (let x = 0; x < grid.width; x++) out.push({ key: edgeKey('h', x, y), kind: 'h', x, y, roaded: grid.roads.has(edgeKey('h', x, y)) })
+  for (let y = 0; y < grid.height; y++) for (let x = 0; x <= grid.width; x++) out.push({ key: edgeKey('v', x, y), kind: 'v', x, y, roaded: grid.roads.has(edgeKey('v', x, y)) })
+  return out
+}
+
+/** A short street through the middle, so a new game has somewhere legal to build. */
+export const DEFAULT_STARTING_ROAD_EDGES = ['h:2,2', 'h:3,2']
+/** The cells that street gives frontage to (either side of it). */
+export const DEFAULT_STARTING_ROAD_CELLS = [{ x: 2, y: 1 }, { x: 3, y: 1 }, { x: 2, y: 2 }, { x: 3, y: 2 }]
 
 /**
  * @param {Object} grid
- * @param {{x: number, y: number}[]} [cells]
+ * @param {string[]} [edges] - edge keys
  */
-export function seedStartingRoads (grid, cells = DEFAULT_STARTING_ROAD_CELLS) {
-  cells.forEach(({ x, y }) => addRoadsAroundCell(grid, x, y))
+export function seedStartingRoads (grid, edges = DEFAULT_STARTING_ROAD_EDGES) {
+  edges.forEach(key => grid.roads.add(key))
 }

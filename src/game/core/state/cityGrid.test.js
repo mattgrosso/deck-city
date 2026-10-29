@@ -11,7 +11,9 @@ import {
   hasRoadFrontage,
   isBuildable,
   listRoadEdges,
-  seedStartingRoads
+  seedStartingRoads,
+  addRoadEdge,
+  listAllEdges
 } from './cityGrid'
 
 describe('createCityGrid', () => {
@@ -147,19 +149,42 @@ describe('listRoadEdges', () => {
 })
 
 describe('seedStartingRoads', () => {
-  it('roads the default starting cells and their neighbors', () => {
+  it('lays a short street through the middle, with frontage on both sides', () => {
     const grid = createCityGrid()
     seedStartingRoads(grid)
     expect(isBuildable(grid, 2, 1)).toBe(true)
     expect(isBuildable(grid, 3, 1)).toBe(true)
-    expect(isBuildable(grid, 1, 1)).toBe(true) // left neighbor
-    expect(isBuildable(grid, 4, 1)).toBe(true) // right neighbor
+    expect(isBuildable(grid, 2, 2)).toBe(true)
+    expect(isBuildable(grid, 3, 2)).toBe(true)
+    expect(isBuildable(grid, 1, 1)).toBe(false)
+    expect(isBuildable(grid, 4, 1)).toBe(false)
   })
 
-  it('accepts a custom list of cells', () => {
+  it('accepts a custom list of edges', () => {
     const grid = createCityGrid({ width: 3, height: 3 })
-    seedStartingRoads(grid, [{ x: 0, y: 0 }])
+    seedStartingRoads(grid, ['h:0,0'])
     expect(isBuildable(grid, 0, 0)).toBe(true)
     expect(isBuildable(grid, 2, 2)).toBe(false)
+  })
+})
+
+describe('addRoadEdge / listAllEdges', () => {
+  it('roads one edge, refuses an edge off the grid or already roaded', () => {
+    const grid = createCityGrid({ width: 2, height: 2 })
+    addRoadEdge(grid, 'v:1,0')
+    expect(isBuildable(grid, 0, 0)).toBe(true)
+    expect(isBuildable(grid, 1, 0)).toBe(true)
+    expect(isBuildable(grid, 0, 1)).toBe(false)
+    expect(() => addRoadEdge(grid, 'v:1,0')).toThrow(/already/)
+    expect(() => addRoadEdge(grid, 'h:5,0')).toThrow(/off the grid/)
+    expect(() => addRoadEdge(grid, 'v:0,2')).toThrow(/off the grid/)
+  })
+
+  it('lists every edge: (w)(h+1) horizontal and (w+1)(h) vertical', () => {
+    const grid = createCityGrid({ width: 2, height: 3 })
+    const all = listAllEdges(grid)
+    expect(all.length).toBe(2 * 4 + 3 * 3)
+    addRoadEdge(grid, 'h:0,0')
+    expect(listAllEdges(grid).find(e => e.key === 'h:0,0').roaded).toBe(true)
   })
 })

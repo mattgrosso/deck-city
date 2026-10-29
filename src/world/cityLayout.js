@@ -9,7 +9,7 @@
 // roads meeting gets the matching junction tile. Kenney's road tiles are
 // 1×1 with pavements, so an edge tile is scaled to the gap's width.
 
-import { cellEdgeKeys } from '@/game/core'
+import { cellEdgeKeys, parseEdgeKey } from '@/game/core'
 import { familyOf } from '@/ui/cardText'
 
 export const LOT = 1.0
@@ -22,6 +22,15 @@ export function cellCentre (grid, x, y) {
     x: (x - (grid.width - 1) / 2) * PITCH,
     z: (y - (grid.height - 1) / 2) * PITCH
   }
+}
+
+/** World x/z of an edge's middle and the axis it runs along. */
+export function edgeCentre (grid, key) {
+  const { kind, x, y } = parseEdgeKey(key)
+  const c = cornerPoint(grid, x, y)
+  return kind === 'h'
+    ? { x: c.x + PITCH / 2, z: c.z, axis: 'x' }
+    : { x: c.x, z: c.z + PITCH / 2, axis: 'z' }
 }
 
 /** World x/z of the lot corner (cx, cy): corner (0,0) is the top-left of cell (0,0). */

@@ -4,13 +4,15 @@
       <template v-if="screen === 'game'">
         <TopBar
           :turn="turn" :population="population" :population-target="POPULATION_TARGET" :jobs="jobs" :revenue="nextBudget"
-          :statuses="statuses" :disaster-in="disasterIn" :headed-off="headedOff"
+          :statuses="statuses" :disaster-in="disasterIn" :headed-off="headedOff" :focus="mode === 'stats' ? STATS[statIndex].key : null"
         />
 
         <div class="board-wrap" :class="{ shake: shakeBoard }">
           <CityScene
+            ref="scene"
             :grid="game.state.cityGrid" :structures="game.state.builtStructures" :tick="tick"
-            :targeting="mode === 'target'" :valid-cells="validCells" :cursor="cursor" :preview-card="selectedCard"
+            :targeting="mode === 'target' || mode === 'look'" :valid-cells="validCells" :cursor="cursorCell"
+            :valid-edges="validEdges" :cursor-edge="cursorEdge" :preview-card="mode === 'target' ? selectedCard : null"
             :width="1130" :height="690" :stage-scale="scale"
             @cell="onCellClick"
           />
@@ -25,6 +27,8 @@
         <div class="phase-tag" :class="`phase-tag--${phaseName}`">{{ phaseLabel }}</div>
 
         <CardInfo v-if="mode === 'hand' || mode === 'civic' || mode === 'target'" :card="focusedHandCard" :catalog="game.catalog" />
+        <InfoPanel v-if="mode === 'look' && lookInfo" v-bind="lookInfo" />
+        <InfoPanel v-if="mode === 'stats'" v-bind="statInfo" />
 
         <!-- Budget orb and draw pile: bottom-left (§1). -->
         <div class="orb-wrap" :class="{ shake: shakeOrb }">
@@ -42,8 +46,8 @@
 
         <!-- End-of-phase and discard pile: bottom-right (§1, §6). -->
         <div class="end-wrap">
-          <button class="end-btn" :class="{ 'end-btn--ready': canEndPhase }" :disabled="!canEndPhase" @click="act('confirm')">
-            <span class="btn btn--y">Y</span>
+          <button class="end-btn" :class="{ 'end-btn--ready': canEndPhase }" :disabled="!canEndPhase" @click="act('confirm', 'click')">
+            <span class="btn btn--y">{{ glyphs.confirm }}</span>
             <span>{{ endLabel }}</span>
           </button>
           <div class="pile-btn" @click="openPile(1)">
@@ -55,7 +59,7 @@
 
         <Hand
           :hand="game.state.hand" :keys="handKeys" :catalog="game.catalog"
-          :focused-index="mode === 'market' ? null : handIndex" :picks="picks" :dim="mode === 'market'" :can-play="canPlay"
+          :focused-index="handActive ? handIndex : null" :picks="picks" :dim="!handActive" :can-play="canPlay"
           @focus="onHandFocus" @select="onHandSelect"
         />
 
@@ -65,14 +69,15 @@
 
         <PileView v-if="mode === 'pile'" :tabs="pileTabs" :tab-index="pileTab" :focus-index="pileIndex" :catalog="game.catalog" @tab="pileTab = $event; pileIndex = 0" @focus="pileIndex = $event" />
 
-        <Overlay v-if="mode === 'summary'" kind="summary" eyebrow="Overnight" :title="summary.title" :lines="summary.lines" hint="Continue" />
-        <Overlay v-if="mode === 'over'" :kind="game.state.gameStatus" :eyebrow="`Turn ${turn}`" :title="game.state.gameStatus === 'won' ? 'City complete' : 'Out of goals'" :lines="overLines" hint="New game" />
-        <Overlay v-if="mode === 'menu'" kind="plain" title="Paused" :items="MENU_ITEMS" :index="menuIndex" hint="Choose" @pick="menuIndex = $event; act('select')" />
+        <Overlay v-if="mode === 'summary'" kind="summary" eyebrow="Overnight" :title="summary.title" :lines="summary.lines" hint="Continue" :glyph="glyphs.select" />
+        <Overlay v-if="mode === 'over'" :kind="game.state.gameStatus" :eyebrow="`Turn ${turn}`" :title="game.state.gameStatus === 'won' ? 'City complete' : 'Out of goals'" :lines="overLines" hint="New game" :glyph="glyphs.select" />
+        <Overlay v-if="mode === 'menu'" kind="plain" title="Paused" :items="MENU_ITEMS" :index="menuIndex" hint="Choose" :glyph="glyphs.select" @pick="menuIndex = $event; act('select', 'click')" />
+        <HowTo v-if="mode === 'howto'" :page="howtoPage" :glyphs="glyphs" />
       </template>
 
-      <Overlay v-if="screen === 'title'" kind="title" eyebrow="A deck-building city builder" title="Deck City" :lines="['Build a city of 20 people before the goals run out.', 'Press Enter or click to start full screen.']" hint="Start" @click="act('select', 'click')" />
+      <Overlay v-if="screen === 'title'" kind="title" eyebrow="A deck-building city builder" title="Deck City" :lines="['Build a city of 20 people before the goals run out.', 'Press Enter or click to start full screen.']" hint="Start" :glyph="glyphs.select" @click="act('select', 'click')" />
 
-      <ButtonLegend :items="legend" :pad-connected="padConnected" />
+      <ButtonLegend :items="legend" :pad="pad" />
       <p class="build-stamp" role="button" tabindex="0" title="Tap to reload" @click="stampTap">{{ refreshing ? 'reloading…' : stamp }}</p>
     </div>
     <BugReportButton v-if="firebaseConfigured" />
@@ -89,26 +94,41 @@ import PileView from '@/components/PileView.vue'
 import Overlay from '@/components/Overlay.vue'
 import ButtonLegend from '@/components/ButtonLegend.vue'
 import CardInfo from '@/components/CardInfo.vue'
-import {
-  createGame, starterCards, facilityCards, goalCards, disasterCards,
-  calcStatTotal, countCardsByTag, evaluateCondition, isCellEmpty, isBuildable
-} from '@/game/core'
-import { attachInput } from '@/ui/input'
+import InfoPanel from '@/components/InfoPanel.vue'
+import HowTo, { PAGES as HOWTO_PAGES } from '@/components/HowTo.vue'
 import BugReportButton from '@/components/shared/BugReportButton.vue'
 import BugResolutionNotice from '@/components/shared/BugResolutionNotice.vue'
+import {
+  createGame, starterCards, facilityCards, goalCards, disasterCards,
+  calcStatTotal, countCardsByTag, evaluateCondition, isCellEmpty, isBuildable, listAllEdges
+} from '@/game/core'
+import { attachInput, GLYPHS } from '@/ui/input'
+import { stepCursor, nearestCell } from '@/ui/layout'
+import { rulesFor, FAMILIES, familyOf } from '@/ui/cardText'
+import { ICONS } from '@/ui/icons'
 import { firebaseConfigured } from '@/firebase'
 import { buildStamp, forceRefresh } from '@/utils/buildStamp'
 import { initUpdateCheck } from '@/utils/checkForUpdate'
-import { stepCursor, nearestCell } from '@/ui/layout'
-import { ICONS } from '@/ui/icons'
 
 const BASE_REVENUE = 4
 const POPULATION_TARGET = 20
-const MENU_ITEMS = ['Resume', 'New game']
+const MENU_ITEMS = ['Resume', 'How to play', 'New game']
+const HOWTO_SEEN = 'deck-city:howto-seen'
+
+// The numbers along the top, in cursor order, and what each one means.
+const STATS = [
+  { key: 'population', title: 'Population', explain: (a) => [`${a.population} of ${POPULATION_TARGET}. Reach ${POPULATION_TARGET} and the city is finished.`, 'Houses add 2 each. A claimed goal (a Monument) adds 1.'] },
+  { key: 'jobs', title: 'Jobs', explain: (a) => [`${a.jobs} jobs. Shops give 2, factories 3.`, 'Jobs do nothing yet on their own: some goals ask for them.'] },
+  { key: 'budget', title: 'Next budget', explain: (a) => [`${a.nextBudget} next turn: ${a.nextBudget - BASE_REVENUE} revenue from buildings plus ${BASE_REVENUE} base income.`, `Unspent budget is lost at the end of the turn${a.rolloverCap ? ` except up to ${a.rolloverCap} (City Bank)` : ''}.`] },
+  { key: 'crime', title: 'Crime', explain: (a) => [`${a.crime} Crime card${a.crime === 1 ? '' : 's'} in your deck. A house adds one when built; a Park adds one per neighbouring house each turn.`, 'A Police Station removes one per free slot each turn.'] },
+  { key: 'trash', title: 'Trash', explain: (a) => [`${a.trash} Trash card${a.trash === 1 ? '' : 's'} in your deck. A shop adds one when built.`, 'A Sanitation Center removes one per free slot each turn.'] },
+  { key: 'pollution', title: 'Pollution', explain: (a) => [`${a.pollution} Pollution card${a.pollution === 1 ? '' : 's'} in your deck. A factory adds one when built.`, 'A Clinic removes one per free slot each turn.'] },
+  { key: 'disaster', title: 'Disaster clock', explain: (a) => [a.headedOff ? 'Headed off for good by a Fire Station.' : `Strikes in ${a.disasterIn} turn${a.disasterIn === 1 ? '' : 's'}: a Flood or Blackout card is shuffled into your deck and bites when drawn.`, 'A Fire Station stops the clock permanently.'] }
+]
 
 export default {
   name: 'App',
-  components: { TopBar, CityScene, Market, Hand, PileView, Overlay, ButtonLegend, CardInfo, BugReportButton, BugResolutionNotice },
+  components: { TopBar, CityScene, Market, Hand, PileView, Overlay, ButtonLegend, CardInfo, InfoPanel, HowTo, BugReportButton, BugResolutionNotice },
   // The house bug button has no store to read; it asks this for a snapshot.
   provide () {
     return { bugSnapshot: () => this.bugSnapshot() }
@@ -117,24 +137,32 @@ export default {
     return {
       POPULATION_TARGET,
       MENU_ITEMS,
+      STATS,
       icons: ICONS,
       screen: 'title',
       game: null,
       tick: 0,
       scale: 1,
-      padConnected: false,
-      // hand | target | civic | market | pile | summary | over | menu
+      pad: null, // 'xbox' | 'playstation' | 'switch' | 'generic' | null
+      // hand | target | civic | market | pile | summary | over | menu | look | stats | howto
       mode: 'hand',
       handIndex: 0,
       selectedIndex: null,
-      cursor: null,
-      lastCursor: { x: 2, y: 1 },
+      // Aiming: the things the cursor can be on, with their stage-pixel
+      // positions, so the d-pad moves in SCREEN directions on an isometric board.
+      targets: [],
+      targetIndex: 0,
+      lastAim: { x: 560, y: 420 },
       picks: [],
       market: { row: 0, index: 0 },
+      statIndex: 0,
       pileTab: 0,
       pileIndex: 0,
       pileReturn: 'hand',
       menuIndex: 0,
+      menuReturn: 'hand',
+      howtoPage: 0,
+      howtoReturn: 'hand',
       summary: { title: '', lines: [] },
       toast: null,
       toastId: 0,
@@ -153,7 +181,7 @@ export default {
   mounted () {
     this.fit()
     window.addEventListener('resize', this.fit)
-    this.detach = attachInput({ onAction: this.act, onPadChange: (on) => { this.padConnected = on } })
+    this.detach = attachInput({ onAction: this.act, onPadChange: (kind) => { this.pad = kind } })
     // Auto-update (house standard): a reload only on the title screen or a
     // finished game - a game in progress lives in memory and nowhere else.
     const self = this
@@ -164,6 +192,7 @@ export default {
     this.detach?.()
   },
   computed: {
+    glyphs () { return GLYPHS[this.pad ?? 'keyboard'] ?? GLYPHS.generic },
     // Every computed touches `tick`: the engine mutates plain objects
     // outside Vue's reactivity, so a bump is what makes these re-read.
     turn () { void this.tick; return this.game.turnManager.turnNumber + 1 },
@@ -192,24 +221,37 @@ export default {
       const seen = {}
       return this.game.state.hand.map(card => { seen[card.id] = (seen[card.id] ?? 0) + 1; return `${card.id}#${seen[card.id]}` })
     },
+    handActive () { return this.mode === 'hand' || this.mode === 'civic' || this.mode === 'target' },
     focusedHandCard () { void this.tick; return this.game.state.hand[this.handIndex] ?? null },
     selectedCard () { void this.tick; return this.selectedIndex === null ? null : this.game.state.hand[this.selectedIndex] ?? null },
-    validCells () {
-      void this.tick
-      const card = this.selectedCard
-      if (!card || this.mode !== 'target') return []
-      const grid = this.game.state.cityGrid
-      const out = []
-      for (let y = 0; y < grid.height; y++) {
-        for (let x = 0; x < grid.width; x++) {
-          if (!isCellEmpty(grid, x, y)) continue
-          if (card.placesRoad || card.skipsRoadRequirement || isBuildable(grid, x, y)) out.push({ x, y })
-        }
-      }
-      return out
-    },
+    currentTarget () { return this.targets[this.targetIndex] ?? null },
+    validCells () { return this.mode === 'target' ? this.targets.filter(t => t.kind === 'cell').map(t => ({ x: t.x, y: t.y })) : [] },
+    validEdges () { return this.mode === 'target' ? this.targets.filter(t => t.kind === 'edge').map(t => t.key) : [] },
+    cursorCell () { const t = this.currentTarget; return (this.mode === 'target' || this.mode === 'look') && t?.kind === 'cell' ? { x: t.x, y: t.y } : null },
+    cursorEdge () { const t = this.currentTarget; return this.mode === 'target' && t?.kind === 'edge' ? t.key : null },
     canEndPhase () { return this.mode === 'hand' || this.mode === 'market' },
     endLabel () { return this.phaseName === 'acquire' ? 'End turn' : 'Done building' },
+    lookInfo () {
+      void this.tick
+      const t = this.currentTarget
+      if (!t || t.kind !== 'cell') return null
+      const id = this.game.state.cityGrid.cells[t.y * this.game.state.cityGrid.width + t.x]
+      const inst = this.game.state.builtStructures.find(s => s.instanceId === id)
+      if (!inst) return { eyebrow: 'Empty plot', title: `Plot ${t.x + 1}, ${t.y + 1}`, lines: [isBuildable(this.game.state.cityGrid, t.x, t.y) ? 'Touches a street: you can build here.' : 'No street yet. Lay a Road beside it first.'] }
+      const lines = rulesFor(inst.card, this.game.catalog)
+      if (inst.slots) lines.push(`${inst.slots.used} of ${inst.slots.capacity} slots used this turn.`)
+      return { eyebrow: FAMILIES[familyOf(inst.card)].label, title: inst.card.name, lines, tone: inst.card.type === 'goal' ? 'gold' : 'plain' }
+    },
+    statInfo () {
+      void this.tick
+      const stat = STATS[this.statIndex]
+      const about = {
+        population: this.population, jobs: this.jobs, nextBudget: this.nextBudget, rolloverCap: this.game.state.treasuryRolloverCap,
+        crime: this.statuses[0].count, trash: this.statuses[1].count, pollution: this.statuses[2].count,
+        disasterIn: this.disasterIn, headedOff: this.headedOff
+      }
+      return { eyebrow: 'What this means', title: stat.title, lines: stat.explain(about) }
+    },
     pileTabs () {
       void this.tick
       const byName = (a, b) => a.name.localeCompare(b.name)
@@ -228,15 +270,19 @@ export default {
         : [`Population reached ${this.population} of ${POPULATION_TARGET} before the goal deck ran dry.`]
     },
     legend () {
+      const L = (action, label) => ({ action, label })
       switch (this.screen === 'title' ? 'title' : this.mode) {
-        case 'title': return [{ btn: 'A', label: 'Start' }]
-        case 'hand': return [{ btn: '↔', label: 'Choose card' }, { btn: 'A', label: 'Play' }, { btn: 'Y', label: this.endLabel }, { btn: 'X', label: 'Deck' }, { btn: 'Start', label: 'Menu' }]
-        case 'target': return [{ btn: '✥', label: 'Choose cell' }, { btn: 'A', label: 'Place' }, { btn: 'B', label: 'Back' }]
-        case 'civic': return [{ btn: '↔', label: 'Choose' }, { btn: 'A', label: 'Mark to discard' }, { btn: 'B', label: 'Back' }]
-        case 'market': return [{ btn: '✥', label: 'Browse' }, { btn: 'A', label: 'Buy / Claim' }, { btn: 'Y', label: 'End turn' }, { btn: 'X', label: 'Deck' }, { btn: 'Start', label: 'Menu' }]
-        case 'pile': return [{ btn: 'LB', label: 'Prev' }, { btn: 'RB', label: 'Next' }, { btn: '✥', label: 'Browse' }, { btn: 'B', label: 'Close' }]
-        case 'menu': return [{ btn: '✥', label: 'Choose' }, { btn: 'A', label: 'Pick' }, { btn: 'B', label: 'Resume' }]
-        default: return [{ btn: 'A', label: 'Continue' }]
+        case 'title': return [L('select', 'Start')]
+        case 'hand': return [L('lr', 'Choose card'), L('select', 'Play'), L('up', 'Look at the city'), L('confirm', this.endLabel), L('deck', 'Deck'), L('menu', 'Menu')]
+        case 'target': return [L('dpad', 'Aim'), L('select', 'Place'), L('back', 'Back')]
+        case 'civic': return [L('lr', 'Choose'), L('select', 'Mark to discard'), L('back', 'Back')]
+        case 'market': return [L('dpad', 'Browse'), L('select', 'Buy / Claim'), L('up', 'Look at the city'), L('confirm', 'End turn'), L('deck', 'Deck'), L('menu', 'Menu')]
+        case 'look': return [L('dpad', 'Move'), L('up', 'Top bar'), L('back', 'Back')]
+        case 'stats': return [L('lr', 'Next number'), L('back', 'Back')]
+        case 'pile': return [L('prevPile', 'Prev'), L('nextPile', 'Next'), L('dpad', 'Browse'), L('back', 'Close')]
+        case 'menu': return [L('dpad', 'Choose'), L('select', 'Pick'), L('back', 'Resume')]
+        case 'howto': return [L('lr', 'Page'), L('select', 'Next'), L('back', 'Close')]
+        default: return [L('select', 'Continue')]
       }
     }
   },
@@ -264,22 +310,27 @@ export default {
       this.mode = 'hand'
       this.handIndex = 0
       this.selectedIndex = null
-      this.cursor = null
+      this.targets = []
       this.picks = []
       this.market = { row: 0, index: 0 }
       this.refresh()
+    },
+    startGame () {
+      this.screen = 'game'
+      let seen = false
+      try { seen = window.localStorage.getItem(HOWTO_SEEN) === '1' } catch { /* no storage */ }
+      if (!seen) this.openHowTo('hand')
     },
 
     // ----- input -----------------------------------------------------
     act (action, source = 'pad') {
       if (this.screen === 'title') {
         if (action === 'select' || action === 'confirm') {
-          // A browser on a TV wants its chrome gone. Browsers only grant
-          // full screen on a real user gesture, which a gamepad press is
-          // not (Chrome, Safari), so this fires for the keyboard and the
-          // mouse; a controller player presses Enter once, or taps Start.
+          // Browsers only grant full screen on a real user gesture, which a
+          // gamepad press is not (Chrome, Safari): the keyboard and the mouse
+          // get it here; a controller player presses Enter once.
           if (source !== 'pad') document.documentElement.requestFullscreen?.().catch(() => {})
-          this.screen = 'game'
+          this.startGame()
         }
         return
       }
@@ -291,14 +342,15 @@ export default {
       if (action === 'left' && n) this.handIndex = (this.handIndex - 1 + n) % n
       else if (action === 'right' && n) this.handIndex = (this.handIndex + 1) % n
       else if (action === 'select') this.tryPlay(this.handIndex)
+      else if (action === 'up') this.openLook('hand')
       else if (action === 'confirm') this.endBuild()
       else if (action === 'deck') this.openPile(0)
       else if (action === 'menu') this.openMenu()
     },
     in_target (action) {
-      if (['up', 'down', 'left', 'right'].includes(action)) this.cursor = stepCursor(this.cursor, action, this.validCells)
-      else if (action === 'select') this.placeAt(this.cursor)
-      else if (action === 'back') { this.mode = 'hand'; this.selectedIndex = null; this.cursor = null }
+      if (['up', 'down', 'left', 'right'].includes(action)) this.moveAim(action)
+      else if (action === 'select') this.placeAt(this.currentTarget)
+      else if (action === 'back') { this.mode = 'hand'; this.selectedIndex = null; this.targets = [] }
     },
     in_civic (action) {
       const n = this.game.state.hand.length
@@ -316,17 +368,29 @@ export default {
       const len = rows[row].length
       if (action === 'left' && len) this.market = { row, index: (index - 1 + len) % len }
       else if (action === 'right' && len) this.market = { row, index: (index + 1) % len }
-      else if (action === 'up' || action === 'down') {
-        const next = row === 0 ? 1 : 0
-        this.market = { row: next, index: Math.min(index, Math.max(0, rows[next].length - 1)) }
-      } else if (action === 'select') this.buyOrClaim()
+      else if (action === 'down' && row === 0) this.market = { row: 1, index: Math.min(index, Math.max(0, rows[1].length - 1)) }
+      else if (action === 'up' && row === 1) this.market = { row: 0, index: Math.min(index, Math.max(0, rows[0].length - 1)) }
+      else if (action === 'up') this.openLook('market')
+      else if (action === 'select') this.buyOrClaim()
       else if (action === 'confirm') this.endTurn()
       else if (action === 'deck') this.openPile(1)
       else if (action === 'menu') this.openMenu()
     },
+    in_look (action) {
+      if (action === 'back' || action === 'down' && this.atBottomOfLook()) { this.mode = this.lookReturn; this.targets = []; return }
+      if (action === 'up' && this.atTopOfLook()) { this.openStats(this.lookReturn); return }
+      if (['up', 'down', 'left', 'right'].includes(action)) this.moveAim(action)
+      else if (action === 'menu') this.openMenu()
+    },
+    in_stats (action) {
+      if (action === 'left') this.statIndex = (this.statIndex + STATS.length - 1) % STATS.length
+      else if (action === 'right') this.statIndex = (this.statIndex + 1) % STATS.length
+      else if (action === 'back' || action === 'down' || action === 'select') this.mode = this.statsReturn
+      else if (action === 'menu') this.openMenu()
+    },
     in_pile (action) {
       const cards = this.pileTabs[this.pileTab].cards
-      const cols = 8
+      const cols = 9
       if (action === 'prevPile') { this.pileTab = (this.pileTab + 2) % 3; this.pileIndex = 0 } else if (action === 'nextPile') { this.pileTab = (this.pileTab + 1) % 3; this.pileIndex = 0 } else if (action === 'left' && cards.length) this.pileIndex = Math.max(0, this.pileIndex - 1)
       else if (action === 'right' && cards.length) this.pileIndex = Math.min(cards.length - 1, this.pileIndex + 1)
       else if (action === 'up') this.pileIndex = Math.max(0, this.pileIndex - cols)
@@ -342,12 +406,47 @@ export default {
     in_menu (action) {
       if (action === 'up') this.menuIndex = (this.menuIndex + MENU_ITEMS.length - 1) % MENU_ITEMS.length
       else if (action === 'down') this.menuIndex = (this.menuIndex + 1) % MENU_ITEMS.length
-      else if (action === 'back') this.mode = this.menuReturn
+      else if (action === 'back' || action === 'menu') this.mode = this.menuReturn
       else if (action === 'select') {
-        if (MENU_ITEMS[this.menuIndex] === 'New game') this.newGame()
+        const item = MENU_ITEMS[this.menuIndex]
+        if (item === 'New game') this.newGame()
+        else if (item === 'How to play') this.openHowTo(this.menuReturn)
         else this.mode = this.menuReturn
       }
     },
+    in_howto (action) {
+      const last = HOWTO_PAGES.length - 1
+      if (action === 'left') this.howtoPage = Math.max(0, this.howtoPage - 1)
+      else if (action === 'right') this.howtoPage = Math.min(last, this.howtoPage + 1)
+      else if (action === 'select' || action === 'confirm') { if (this.howtoPage < last) this.howtoPage++; else this.closeHowTo() } else if (action === 'back' || action === 'menu') this.closeHowTo()
+    },
+
+    // ----- aiming on an isometric board ------------------------------
+    // Targets carry their stage-pixel position; the d-pad picks the nearest
+    // one in the pressed SCREEN direction. Matt: "the grid is isometric...
+    // it's still expecting orthogonal directions... confusing."
+    screenOf (t) {
+      const scene = this.$refs.scene
+      if (!scene) return { x: t.x * 100, y: t.y * 100 }
+      return t.kind === 'edge' ? scene.screenOfEdge(t.key) : scene.screenOfCell(t.x, t.y)
+    },
+    withScreen (targets) {
+      return targets.map(t => { const p = this.screenOf(t); return { ...t, sx: p.x, sy: p.y } })
+    },
+    moveAim (dir) {
+      const here = this.currentTarget
+      if (!here) return
+      const points = this.targets.map((t, i) => ({ x: t.sx, y: t.sy, i }))
+      const next = stepCursor({ x: here.sx, y: here.sy }, dir, points)
+      if (next.i !== undefined) this.targetIndex = next.i
+    },
+    aimNearest (point) {
+      const pts = this.targets.map((t, i) => ({ x: t.sx, y: t.sy, i }))
+      const best = nearestCell(point, pts)
+      this.targetIndex = best ? best.i : 0
+    },
+    atTopOfLook () { const t = this.currentTarget; return !this.targets.some(o => o !== t && o.sy < t.sy - 10) },
+    atBottomOfLook () { const t = this.currentTarget; return !this.targets.some(o => o !== t && o.sy > t.sy + 10) },
 
     // ----- mouse -----------------------------------------------------
     onHandFocus (i) { if (this.mode === 'hand' || this.mode === 'civic') this.handIndex = i },
@@ -355,8 +454,11 @@ export default {
       if (this.mode === 'hand') { this.handIndex = i; this.tryPlay(i) } else if (this.mode === 'civic' && i !== this.selectedIndex) { this.handIndex = i; this.togglePick(i) }
     },
     onCellClick (cell) {
-      if (this.mode !== 'target') return
-      if (this.validCells.some(c => c.x === cell.x && c.y === cell.y)) { this.cursor = cell; this.placeAt(cell) }
+      if (this.mode !== 'target' && this.mode !== 'look') return
+      const i = this.targets.findIndex(t => t.kind === 'cell' && t.x === cell.x && t.y === cell.y)
+      if (i === -1) return
+      this.targetIndex = i
+      if (this.mode === 'target') this.placeAt(this.currentTarget)
     },
     onMarketFocus (f) { if (this.mode === 'market') this.market = f },
     onMarketSelect (f) { if (this.mode === 'market') { this.market = f; this.buyOrClaim() } },
@@ -380,29 +482,40 @@ export default {
         this.handIndex = index === 0 ? 1 : 0
         return
       }
-      this.selectedIndex = index
-      this.mode = 'target'
-      if (!this.validCells.length) {
-        this.mode = 'hand'; this.selectedIndex = null
-        return this.refuse(card.placesRoad ? 'No empty cell left.' : 'No empty cell with a road. Build a Road first.', 'board')
+      const grid = this.game.state.cityGrid
+      let targets
+      if (card.placesRoad) {
+        targets = listAllEdges(grid).filter(e => !e.roaded).map(e => ({ id: e.key, kind: 'edge', key: e.key }))
+      } else {
+        targets = []
+        for (let y = 0; y < grid.height; y++) {
+          for (let x = 0; x < grid.width; x++) {
+            if (!isCellEmpty(grid, x, y)) continue
+            if (card.skipsRoadRequirement || isBuildable(grid, x, y)) targets.push({ id: `${x},${y}`, kind: 'cell', x, y })
+          }
+        }
       }
-      this.cursor = nearestCell(this.lastCursor, this.validCells)
+      if (!targets.length) return this.refuse(card.placesRoad ? 'Every street is laid.' : 'No empty plot beside a street. Lay a Road first.', 'board')
+      this.selectedIndex = index
+      this.targets = this.withScreen(targets)
+      this.aimNearest(this.lastAim)
+      this.mode = 'target'
     },
-    placeAt (cell) {
+    placeAt (target) {
       const card = this.selectedCard
-      if (!card) return
+      if (!card || !target) return
       try {
-        this.game.actions.playCard(card.id, cell)
+        this.game.actions.playCard(card.id, target.kind === 'edge' ? { edge: target.key } : { x: target.x, y: target.y })
       } catch (err) {
         return this.refuse(err.message, 'board')
       }
-      this.lastCursor = cell
+      this.lastAim = { x: target.sx, y: target.sy }
       if (card.cost) this.pop(`-${card.cost}`, 'orb')
       if (card.stats?.population) this.pop(`+${card.stats.population} pop`, 'board', 'var(--green)')
-      this.say(`${card.name} built.`)
+      this.say(card.placesRoad ? 'Street laid.' : `${card.name} built.`)
       this.mode = 'hand'
       this.selectedIndex = null
-      this.cursor = null
+      this.targets = []
       this.handIndex = Math.min(this.handIndex, Math.max(0, this.game.state.hand.length - 1))
       this.refresh()
     },
@@ -481,9 +594,34 @@ export default {
       this.mode = 'pile'
     },
     openMenu () {
-      this.menuReturn = this.mode
+      this.menuReturn = this.mode === 'look' || this.mode === 'stats' ? this.lookReturn ?? 'hand' : this.mode
       this.menuIndex = 0
       this.mode = 'menu'
+    },
+    openLook (from) {
+      const grid = this.game.state.cityGrid
+      const targets = []
+      for (let y = 0; y < grid.height; y++) for (let x = 0; x < grid.width; x++) targets.push({ id: `${x},${y}`, kind: 'cell', x, y })
+      this.lookReturn = from
+      this.targets = this.withScreen(targets)
+      // Start on a building if there is one, else the middle of the field.
+      const built = this.targets.filter(t => grid.cells[t.y * grid.width + t.x])
+      this.aimNearest(built.length ? { x: built[0].sx, y: built[0].sy } : this.lastAim)
+      this.mode = 'look'
+    },
+    openStats (from) {
+      this.statsReturn = from
+      this.targets = []
+      this.mode = 'stats'
+    },
+    openHowTo (from) {
+      this.howtoReturn = from
+      this.howtoPage = 0
+      this.mode = 'howto'
+    },
+    closeHowTo () {
+      try { window.localStorage.setItem(HOWTO_SEEN, '1') } catch { /* no storage */ }
+      this.mode = this.howtoReturn
     },
 
     // ----- house kit -------------------------------------------------
@@ -508,7 +646,7 @@ export default {
           log: this.game.log.slice(-20)
         },
         user: null,
-        context: { screen: this.screen, padConnected: this.padConnected, scale: this.scale }
+        context: { screen: this.screen, pad: this.pad, scale: this.scale }
       }
     },
     stampTap () {

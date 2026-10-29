@@ -70,7 +70,10 @@ export function stepCursor (from, dir, valid) {
     const along = ax * dx + ay * dy
     if (along <= 0) continue
     const across = Math.abs(ax * dy) + Math.abs(ay * dx)
-    const score = along + across * 2 // sideways drift costs more than distance, so a column walks straight
+    // Sideways drift costs more than distance, so a column walks straight;
+    // anything more than ~60° off the pressed direction is not "that way".
+    if (across > along * 1.8) continue
+    const score = along + across * 2
     if (score < bestScore) { bestScore = score; best = cell }
   }
   return best ?? from

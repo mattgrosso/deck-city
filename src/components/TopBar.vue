@@ -5,18 +5,18 @@
       <div class="top__turn">Turn {{ turn }}</div>
     </div>
     <div class="top__mid">
-      <div class="pill pill--big" :class="{ 'pill--win': population >= populationTarget }">
+      <div class="pill pill--big" :class="{ 'pill--win': population >= populationTarget, 'focus-ring': focus === 'population' }">
         <svg viewBox="0 0 24 24"><path :d="icons.people" /></svg>
         <span>{{ population }}</span><span class="muted">/ {{ populationTarget }}</span>
       </div>
-      <div class="pill"><svg viewBox="0 0 24 24"><path :d="icons.jobs" /></svg>{{ jobs }} <span class="muted">jobs</span></div>
-      <div class="pill"><svg viewBox="0 0 24 24"><path :d="icons.coin" /></svg>{{ revenue }} <span class="muted">next budget</span></div>
-      <div class="pill pill--status" v-for="s in statuses" :key="s.name" :class="{ 'pill--zero': !s.count }">
+      <div class="pill" :class="{ 'focus-ring': focus === 'jobs' }"><svg viewBox="0 0 24 24"><path :d="icons.jobs" /></svg>{{ jobs }} <span class="muted">jobs</span></div>
+      <div class="pill" :class="{ 'focus-ring': focus === 'budget' }"><svg viewBox="0 0 24 24"><path :d="icons.coin" /></svg>{{ revenue }} <span class="muted">next budget</span></div>
+      <div class="pill pill--status" v-for="s in statuses" :key="s.name" :class="{ 'pill--zero': !s.count, 'focus-ring': focus === s.name }">
         <svg viewBox="0 0 24 24"><path :d="icons[s.icon]" /></svg>{{ s.count }} <span class="muted">{{ s.name }}</span>
       </div>
     </div>
     <div class="top__right">
-      <div class="pill" :class="{ 'pill--danger': !headedOff && disasterIn <= 1, 'pill--safe': headedOff }">
+      <div class="pill" :class="{ 'pill--danger': !headedOff && disasterIn <= 1, 'pill--safe': headedOff, 'focus-ring': focus === 'disaster' }">
         <svg viewBox="0 0 24 24"><path :d="icons.clock" /></svg>
         <span v-if="headedOff">Disaster headed off</span>
         <span v-else>Disaster in {{ disasterIn }} {{ disasterIn === 1 ? 'turn' : 'turns' }}</span>
@@ -32,7 +32,7 @@ export default {
   name: 'TopBar',
   props: {
     turn: Number, population: Number, populationTarget: Number, jobs: Number, revenue: Number,
-    statuses: Array, disasterIn: Number, headedOff: Boolean
+    statuses: Array, disasterIn: Number, headedOff: Boolean, focus: { type: String, default: null }
   },
   data () { return { icons: ICONS } }
 }
