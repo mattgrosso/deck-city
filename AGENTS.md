@@ -7,16 +7,19 @@ making changes.
 
 ## Stack
 
-- **Vue 3** (Options API) — UI shell, menus, HUD
-- **Phaser 3** — game engine, mounted inside a Vue component
-- **Vite** — dev server & bundler
+- **Vue 3** (Options API) — the whole UI, on a fixed 1920×1080 stage scaled
+  to the viewport (TV-first; see docs/STS-LESSONS.md). Phaser was dropped
+  in the 2026-10-29 rebuild.
+- **Vite** — dev server & bundler (vite.config.js also defines the
+  `process.env.VUE_APP_*` values the shared house modules read)
 - **Vitest** + **@vue/test-utils** — testing
 - **ESLint** (flat config) — linting
 - **yarn** — package manager (yarn.lock is committed; don't switch to npm/pnpm)
 
-The game is being built browser-first. The plan for Steam distribution is to
-wrap this same Vue+Phaser build in Electron once the game is further along —
-that hasn't been scaffolded yet, and shouldn't be until it's actually needed.
+The game is built browser-first, played on a TV with a controller (Gamepad
+API; the keyboard mirrors every button). The plan for Steam distribution is
+to wrap this same build in Electron once the game is further along — not
+scaffolded yet, and shouldn't be until it's actually needed.
 
 ## Commands
 
@@ -30,6 +33,8 @@ yarn lint:fix      # eslint --fix
 yarn test          # vitest, watch mode
 yarn test:run      # vitest, single run (use this in CI / before committing)
 yarn test:coverage # vitest with coverage
+yarn deploy        # lint + tests + build + S3 sync + CloudFront invalidation (--profile personal)
+yarn fetch-bug-reports / yarn resolve-bug-report   # the hub's bug-button loop (.env.local)
 ```
 
 Before considering a change done: run `yarn lint` and `yarn test:run` and
@@ -39,14 +44,14 @@ make sure both are clean.
 
 ```
 src/
-  main.js          # Vue app entry point
-  App.vue          # root component, mounts the Phaser game
-  style.css        # global styles
-  components/      # Vue UI components (menus, HUD, overlays)
-  game/            # Phaser code
-    config.js      # Phaser game config
-    scenes/         # Phaser scenes
-  test/            # Vitest tests
+  main.js          # Vue app entry point + house kit (usage ping, Sentry, SW)
+  App.vue          # the orchestrator: game instance, modes, input dispatch
+  style.css        # tokens + the scaled stage
+  ui/              # pure helpers: input.js, layout.js, cardText.js, icons.js
+  components/      # the screen (TopBar, CityBoard, Hand, GameCard, Market, ...)
+  components/shared/, utils/, firebase.js, sentry.js   # house modules (hub copies)
+  game/core/       # the rules engine: plain JS, no Vue, fully unit-tested
+  test/            # App.test.js drives the shell by controller actions
 ```
 
 Path alias `@` points to `src/` (configured in vite.config.js, vitest.config.js,
@@ -61,13 +66,18 @@ Phaser Scene.
 
 - 2-space indentation, no enforced quote style (see eslint.config.js)
 - Vue Options API, not Composition API — matches the author's other projects
-- Phaser needs a real canvas/WebGL context, which jsdom (the test environment)
-  doesn't provide. Tests that touch Phaser mock it — see
-  `src/test/App.test.js` for the pattern.
+- Everything the player does goes through `App.act(action)`, so a feature is
+  testable by firing actions (`src/test/App.test.js`), and a screenshot run
+  is a Playwright script pressing keys.
+- House standards (bug button, resolution notices, auto-update, build stamp)
+  are present and expected to stay.
 
 ## Workflow
 
 - No direct pushes to `main` — all changes go through a feature branch + PR.
+  (2026-10-29: Matt is working solo on `feature/goals-facilities-adjacency`
+  for a while; commits land there directly and deploy from his machine. One
+  PR to `main` when Brian comes back in.)
 - CI (`.github/workflows/ci.yml`) runs lint + tests on every push and PR.
 - Merging to `main` triggers `.github/workflows/deploy.yml`, which builds the
   app and deploys it to AWS (S3 + CloudFront) automatically. There is no

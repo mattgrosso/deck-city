@@ -22,3 +22,6 @@ pnpm-debug.log*
 *.njsproj
 *.sln
 *.sw?
+
+# written by scripts/writeVersion.mjs on every build
+/public/version.json

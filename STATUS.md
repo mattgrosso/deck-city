@@ -1,12 +1,67 @@
 # Deck City — status
 
 A running handoff doc between the two of us (and our AI assistants) — what's
-built, what's live in `main` right now, and where the design is headed next.
+built, what's live, and where the design is headed next.
 See [AGENTS.md](./AGENTS.md) for stack/commands/conventions.
 
-_Last updated: 2026-07-22._
+_Last updated: 2026-10-29._
 
-## What's merged and playable in `main` right now
+## 2026-10-29: the TV rebuild (branch `feature/goals-facilities-adjacency`)
+
+Matt picked the project back up after three months and decided to go hard
+solo for a while before bringing Brian back in, so this branch is now the
+working branch: commits land on it directly, no PRs, and it deploys from
+this machine with `yarn deploy`. One PR to `main` when it's time.
+
+**Live at https://deckcity.aroundtableround.com** — part of the Around Table
+Round family now (bucket `aroundtableround-deck-city`, CloudFront
+`EEMSOM4VGCYG5`, Route 53 alias on the hub's wildcard cert). The hub card is
+`data-admin-only hidden` like Commonwealth's: only a signed-in admin sees it
+on aroundtableround.com. The old `deck-city` bucket / `E3OE80F3CN2B1X`
+distribution and the GitHub Actions deploy on `main` still exist, untouched,
+serving July's build; retire them when `main` catches up.
+
+**The whole UI was rebuilt for a TV and a controller.** Phaser is gone;
+the shell is plain Vue + CSS on a fixed 1920×1080 stage scaled to the
+viewport. The design brief was Slay the Spire 1 and 2 — layout, hand,
+board, cards, controls — and the lessons are written down in
+[docs/STS-LESSONS.md](./docs/STS-LESSONS.md). The engine under
+`src/game/core/` is untouched and still carries every test.
+
+- `src/ui/input.js` — Gamepad API + keyboard → one action vocabulary
+  (up/down/left/right, select A, back B, confirm Y, deck X, piles LB/RB,
+  menu Start; arrows/Enter/Esc/E/Tab/Q/R/M on a keyboard). Held directions
+  repeat. Y never ends a phase while a card is selected (the StS2
+  accidental-end-turn lesson).
+- `src/ui/layout.js` — the fan geometry (focused card rises and grows,
+  neighbours slide apart) and the grid cursor (nearest valid cell in the
+  pressed direction).
+- `src/ui/cardText.js` — every card's rules text, keywords and family colour
+  derived from its data, so a new card needs no copy.
+- `src/App.vue` — the one orchestrator: modes `hand → target / civic`,
+  `market`, `pile`, `summary`, `over`, `menu`. Build phase = the hand is
+  lit; Done building (Y) → Acquire = the market rows are lit; End turn (Y)
+  runs endOfTurn/cleanup/draw and shows an "Overnight" card with the log
+  lines before the next hand.
+- Components: `TopBar` (turn, population/target, jobs, next budget, status
+  counts, disaster clock), `CityBoard` (roads as edges, tiles, targeting
+  cursor and ghost), `Hand`, `GameCard`, `Market` (city row + goals with
+  READY badges and the expiry countdown), `PileView` (draw/discard/whole
+  deck), `Overlay` (title, summary, win/lose, pause), `ButtonLegend`,
+  `CardInfo` (keyword definitions for the focused card).
+
+**House kit** (bug button + resolution notices on the hub's Firebase
+project under `deckCityBugReports`, auto-update, tap-to-reload build stamp,
+usage ping, offline PWA) is in; it's the res-arcana copy adapted for an app
+with no store. Sentry is wired but off: neither API token on this Mac may
+create a project — paste a DSN into `src/sentry.js` when one exists.
+
+**Not done / next:** nobody has played a full game on the TV yet — that's
+the point of all this. Then: tune every number (all still first guesses),
+decide whether Build and Acquire should be one phase, sound, the road-chain
+goal condition, more goals, art.
+
+## What was merged and playable in `main` as of July
 
 Four PRs landed so far, in order:
 
