@@ -7,6 +7,7 @@
 import { createDeck, addToDiscardPile } from '../piles/deck'
 import { resolveTrigger } from '../effects/effectRegistry'
 import { createCityGrid, placeInstance, addRoadEdge, seedStartingRoads, instanceAt } from './cityGrid'
+import { WATERFRONT, touchesWater } from './terrain'
 
 /**
  * @param {Object} options
@@ -182,6 +183,14 @@ export function instanceStats (state, instance) {
       if (!count) continue
       bonus[rule.stat] = (bonus[rule.stat] ?? 0) + count * rule.amount
       reasons.push({ stat: rule.stat, amount: count * rule.amount, tag: rule.targetTag, count, scope: rule.scope ?? 'near' })
+    }
+  }
+  // Waterfront: a home or shop beside water, once however much it touches.
+  if (instance.position && touchesWater(state.cityGrid, instance.position.x, instance.position.y)) {
+    for (const w of WATERFRONT) {
+      if (!instance.card.tags?.includes(w.tag)) continue
+      bonus[w.stat] = (bonus[w.stat] ?? 0) + w.amount
+      reasons.push({ stat: w.stat, amount: w.amount, tag: 'water', count: 1, scope: 'near' })
     }
   }
   const total = {}

@@ -80,6 +80,7 @@ export const PAGES = [
     lines: [
       'Every building counts its four neighbours. Houses grow beside houses and shrink beside factories.',
       'Shops earn more beside houses and less beside other shops. Factories earn more in a cluster.',
+      'Each game has its own map: a river, a lake or a coast. Nothing builds on water, but a home beside it houses one more and a shop beside it earns one more. A Road can bridge it.',
       'While you aim, the panel shows what the spot is worth and what changes next door.'
     ]
   }

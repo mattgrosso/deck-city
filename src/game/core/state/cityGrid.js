@@ -17,7 +17,8 @@ export const DEFAULT_CITY_GRID_SIZE = { width: 12, height: 8 }
 export function createCityGrid ({ width, height } = DEFAULT_CITY_GRID_SIZE) {
   // `limits` is the part of the grid the city may use right now - the run
   // widens it each era (turn/run.js). Defaults to the whole grid.
-  return { width, height, cells: Array(width * height).fill(null), roads: new Set(), limits: { x0: 0, y0: 0, x1: width, y1: height } }
+  // `terrain` is per cell: null for grass, 'water' (state/terrain.js lays it).
+  return { width, height, cells: Array(width * height).fill(null), terrain: Array(width * height).fill(null), roads: new Set(), limits: { x0: 0, y0: 0, x1: width, y1: height } }
 }
 
 /** Is a cell inside the current city limits? */
@@ -43,8 +44,9 @@ export function isInBounds (grid, x, y) {
   return x >= 0 && x < grid.width && y >= 0 && y < grid.height
 }
 
+/** Free land: in bounds, nothing built, not water. */
 export function isCellEmpty (grid, x, y) {
-  return isInBounds(grid, x, y) && grid.cells[indexOf(grid, x, y)] === null
+  return isInBounds(grid, x, y) && grid.cells[indexOf(grid, x, y)] === null && grid.terrain?.[indexOf(grid, x, y)] !== 'water'
 }
 
 /**

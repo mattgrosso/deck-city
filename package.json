@@ -18,7 +18,10 @@
     "resolve-bug-report": "node --env-file=.env.local scripts/resolve-bug-report.mjs",
     "price": "vite-node tools/price.mjs",
     "reprice": "vite-node tools/reprice.mjs",
-    "selfplay": "vite-node tools/selfplay.mjs"
+    "selfplay": "vite-node tools/selfplay.mjs",
+    "playtest:watch": "node --env-file=.env.local scripts/playtest-watch.mjs",
+    "playtest:say": "node --env-file=.env.local scripts/playtest-say.mjs",
+    "playtest:transcript": "node --env-file=.env.local scripts/playtest-transcript.mjs"
   },
   "dependencies": {
     "@sentry/vue": "^10",

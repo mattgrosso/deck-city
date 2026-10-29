@@ -6,6 +6,7 @@
 import { CARD_TYPES, buildCardCatalog } from './cards/cardSchema'
 import { createPlayerState, buildStructure, placeRoad, spendTreasury, seedStructure, clearStatusCard, effectiveCost } from './state/playerState'
 import { isCellEmpty, isBuildable, isEdgeInBounds, isEdgeConnected, isInLimits, isEdgeInLimits } from './state/cityGrid'
+import { generateTerrain } from './state/terrain'
 import { createRun, chooseMandate as chooseRunMandate, callElection as callRunElection, goEndless } from './turn/run'
 import { createDeck, addToDiscardPile, shuffle } from './piles/deck'
 import { createRow, acquireFromRow } from './piles/row'
@@ -51,6 +52,7 @@ function assertPlaying (state) {
  * @param {string[]} [options.startingRoadEdges]
  * @param {string[]} [options.supplyCardIds] - always for sale beside the city row, never sold out (Roads)
  * @param {Object} [options.run] - a run of eras, mandates and patience (turn/run.js); without it the old population-target game
+ * @param {{dry?: Object, firstEra?: Object}|null} [options.terrain] - lay water on the map (state/terrain.js); off by default
  * @param {boolean} [options.shuffleStartingDeck] - default true; tests turn it off to deal in list order
  * @param {() => number} [options.rng]
  */
@@ -71,6 +73,7 @@ export function createGame ({
   cityTiers = [],
   shuffleMarkets = true,
   shuffleStartingDeck = true,
+  terrain = null,
   gridSize,
   startingRoadEdges,
   run = null,
@@ -110,6 +113,8 @@ export function createGame ({
   if (shuffleMarkets) shuffle(goalDeck)
   const goalRow = createRow({ sourceDeck: goalDeck, size: goalRowSize, timerFor: goalTimerFor })
 
+  // A new map each game (before the town is seeded, which is kept dry).
+  if (terrain) state.terrainKind = generateTerrain(state.cityGrid, state.deck.rng, terrain)
   startingBuildings.forEach(({ cardId, x, y }) => seedStructure(state, resolveCard(cardId), { x, y }))
 
   const disasterCards = disasterCardIds.map(resolveCard)

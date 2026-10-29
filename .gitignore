@@ -28,3 +28,4 @@ pnpm-debug.log*
 
 # vite's transient copy of the config while it loads (would make the build stamp read -dirty)
 vite.config.*.timestamp-*
+playtest-live/

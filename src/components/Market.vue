@@ -77,10 +77,7 @@ export default {
 .market {
   position: absolute; right: 36px; top: 100px; width: 660px;
   display: flex; flex-direction: column; gap: 10px;
-  transition: filter 200ms ease, opacity 200ms ease;
-  opacity: 0.72; filter: saturate(0.7);
 }
-.market--active { opacity: 1; filter: none; }
 .market__row--goals { margin-bottom: 8px; padding: 10px 12px 14px; border-radius: 14px; background: linear-gradient(180deg, #fff6dc, #fdf0c9); border: 1.5px solid #e8c56a; box-shadow: 0 6px 20px rgba(217,154,26,0.12); }
 .market__head { display: flex; justify-content: space-between; align-items: baseline; margin: 0 4px 6px; }
 .market__title { font-size: 16px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-2); }
@@ -91,6 +88,8 @@ export default {
 .market__row--goals .market__cards { gap: 10px; padding-top: 4px; }
 .market__slot { position: relative; transition: transform 160ms ease; }
 .market__slot:has(.focus-ring) { transform: scale(1.12); z-index: 2; }
+/* The city row grows downward, so the focused card never hides the row's title. */
+.market__row:not(.market__row--goals) .market__slot { transform-origin: 50% 0; }
 .market__timer { position: absolute; left: 50%; bottom: -11px; transform: translateX(-50%); background: #fff; border: 1.5px solid #e2c47a; color: #7a5407; font-weight: 800; font-size: 11px; letter-spacing: 0.06em; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
 .market__timer--warm { border-color: #f0a33a; color: #a35e05; }
 .market__timer--hot { background: var(--red); border-color: var(--red); color: #fff; }

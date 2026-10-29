@@ -85,6 +85,8 @@ export {
   seedStartingRoads
 } from './state/cityGrid'
 
+export { generateTerrain, isWater, touchesWater, WATERFRONT } from './state/terrain'
+
 export { DEFAULT_PHASES } from './turn/phases'
 export {
   createTurnManager, getCurrentPhase, advancePhase, runPhase, assertPhase

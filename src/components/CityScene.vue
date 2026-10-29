@@ -111,7 +111,7 @@ export default {
         validEdges: this.targeting ? this.validEdges : [],
         cursorEdge: this.targeting ? this.cursorEdge : null,
         plannedEdges: this.targeting ? this.plannedEdges : [],
-        extraPoints: this.targeting ? this.aimPoints() : []
+        extraPoints: [...this.nearWater(), ...(this.targeting ? this.aimPoints() : [])]
       }, opts)
       this.placeLabels()
     },
@@ -125,6 +125,13 @@ export default {
         const p = this.world.project(lot.wx + LOT / 2, 0, lot.wz + LOT / 2)
         return { id: lot.id, x: p.x, y: p.y, name: inst.card.name, stats: stats.join(' · '), monument: inst.card.type === 'goal' }
       })
+    },
+    /** Water within a few plots of the city: framed too, so the map's lake or river is part of the view, not just off the edge of it. */
+    nearWater () {
+      const built = this.lots.filter(l => l.instanceId)
+      return this.lots
+        .filter(l => l.ground === 'water' && built.some(b => Math.abs(b.x - l.x) <= 3 && Math.abs(b.y - l.y) <= 3))
+        .map(l => ({ x: l.wx, z: l.wz }))
     },
     /** Where the player may aim or is looking: the camera keeps these in frame. */
     aimPoints () {

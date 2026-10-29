@@ -134,7 +134,9 @@ export function layoutCity (grid, structures) {
       const instance = id ? byId.get(id) : null
       const { x: wx, z: wz } = cellCentre(grid, x, y)
       const recipe = instance ? recipeFor(instance.card, seqOf(instance)) : null
-      lots.push({ id: `lot:${x},${y}`, x, y, wx, wz, ground: recipe?.ground ?? (instance ? 'built' : 'empty'), instanceId: id ?? null })
+      const water = !instance && grid.terrain?.[y * grid.width + x] === 'water'
+      lots.push({ id: `lot:${x},${y}`, x, y, wx, wz, ground: water ? 'water' : recipe?.ground ?? (instance ? 'built' : 'empty'), instanceId: id ?? null })
+      if (water) continue
       if (!instance) {
         // Empty land is not empty: a tree or two, placed by the cell's own
         // number so the same lot always looks the same, cleared when built on.

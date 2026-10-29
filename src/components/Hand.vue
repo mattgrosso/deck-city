@@ -93,7 +93,6 @@ export default {
   width: 0; height: 292px;
   transition: filter 200ms ease;
 }
-.hand--dim { filter: brightness(0.9) saturate(0.7); opacity: 0.8; }
 .hand__slot {
   position: absolute; left: -100px; top: 0;
   transition: transform 180ms cubic-bezier(.2,.8,.2,1);

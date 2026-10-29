@@ -92,6 +92,14 @@
 
       <Overlay v-if="screen === 'title'" kind="title" eyebrow="A deck-building city builder" title="Deck City" :lines="['Three eras. Choose a mandate for each and meet it before the public runs out of patience.', 'Press A, Enter or click to start.']" hint="Start" :glyph="glyphs.select" @click="act('select', 'click')" />
 
+      <div v-if="playtest.on" class="pt" :class="`pt--${playtest.mic}`">
+        <span class="pt__dot" />
+        <span class="pt__state">{{ { on: 'Playtest · listening', paused: 'Playtest · mic paused (press P twice)', denied: 'Playtest · the browser blocked the mic', unsupported: 'Playtest · this browser cannot transcribe', off: 'Playtest' }[playtest.mic] }} · {{ playtest.lines }} lines</span>
+        <span v-if="playtest.heard" class="pt__heard">“{{ playtest.heard }}”</span>
+      </div>
+      <transition name="toast">
+        <div v-if="playtest.note" :key="playtest.note.at" class="pt-note"><span class="pt-note__who">Claude</span>{{ playtest.note.text }}</div>
+      </transition>
       <button v-if="!isFullscreen" class="fs-btn" :class="{ 'fs-btn--title': screen === 'title' }" type="button" @click.stop="toggleFullscreen('click')">
         <svg viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" /></svg>
         Full screen <span class="fs-btn__key">F</span>
@@ -122,7 +130,7 @@ import { runGameOptions } from '@/game/runSetup'
 import BugReportButton from '@/components/shared/BugReportButton.vue'
 import BugResolutionNotice from '@/components/shared/BugResolutionNotice.vue'
 import {
-  createGame, effectiveCost, clearsOf, isInLimits,
+  createGame, effectiveCost, clearsOf, isInLimits, isWater,
   calcStatTotal, countCardsByTag, evaluateCondition, isCellEmpty, isBuildable, listConnectedEdges,
   previewPlacement, instanceStats
 } from '@/game/core'
@@ -131,13 +139,14 @@ import { stepCursor, nearestCell } from '@/ui/layout'
 import { rulesFor, FAMILIES, familyOf, effectText } from '@/ui/cardText'
 import { ICONS } from '@/ui/icons'
 import { firebaseConfigured } from '@/firebase'
+import { playtest, startPlaytest, stopPlaytest, playtestAvailable, playtestWasOn } from '@/utils/playtest'
 import { buildStamp, forceRefresh } from '@/utils/buildStamp'
 import { initUpdateCheck } from '@/utils/checkForUpdate'
 
 // The clear part of the stage (left of the market, above the hand) the city is framed into.
 const VIEW_RECT = { x: 40, y: 90, w: 1130, h: 690 }
 const SHORT = { population: 'pop', revenue: 'rev', jobs: 'jobs' }
-const MENU_ITEMS = ['Resume', 'Full screen', 'How to play', 'New game']
+const MENU_ITEMS = ['Resume', 'Full screen', 'Playtest mode', 'How to play', 'New game']
 const HOWTO_SEEN = 'deck-city:howto-seen'
 
 // The numbers along the top, in cursor order, and what each one means.
@@ -203,7 +212,8 @@ export default {
       firebaseConfigured,
       stamp: buildStamp(),
       refreshing: false,
-      isFullscreen: false
+      isFullscreen: false,
+      playtest
     }
   },
   created () {
@@ -220,6 +230,8 @@ export default {
     // finished game - a game in progress lives in memory and nowhere else.
     const self = this
     initUpdateCheck({ get state () { return { game: self.screen === 'game' ? self.game.state : null } } })
+    // A reload mid-playtest carries on the same transcript.
+    if (playtestWasOn()) startPlaytest(this.playtestWhere)
   },
   beforeUnmount () {
     window.removeEventListener('resize', this.fit)
@@ -293,11 +305,12 @@ export default {
       if (!t || t.kind !== 'cell') return null
       const id = this.game.state.cityGrid.cells[t.y * this.game.state.cityGrid.width + t.x]
       const inst = this.game.state.builtStructures.find(s => s.instanceId === id)
+      if (!inst && isWater(this.game.state.cityGrid, t.x, t.y)) return { eyebrow: 'Water', title: `Plot ${t.x + 1}, ${t.y + 1}`, lines: ['Nothing can be built on water. A Road can bridge it.', 'A home beside water: +1 people. A shop: +1 revenue.'] }
       if (!inst) return { eyebrow: 'Empty plot', title: `Plot ${t.x + 1}, ${t.y + 1}`, lines: [isBuildable(this.game.state.cityGrid, t.x, t.y) ? 'Touches a street: you can build here.' : 'No street yet. Lay a Road beside it first.'] }
       const st = instanceStats(this.game.state, inst)
       const now = Object.entries(st.total).filter(([, v]) => v).map(([k, v]) => `${v} ${k}`).join(', ')
       const lines = [now ? `Gives ${now} here.` : 'Gives nothing here.']
-      for (const r of st.reasons) lines.push(`${r.amount > 0 ? '+' : '−'}${Math.abs(r.amount)} ${r.stat}: ${r.count} ${this.game.catalog[r.tag]?.name ?? r.tag} next door.`)
+      for (const r of st.reasons) lines.push(`${r.amount > 0 ? '+' : '−'}${Math.abs(r.amount)} ${r.stat}: ${r.tag === 'water' ? 'on the waterfront' : `${r.count} ${this.game.catalog[r.tag]?.name ?? r.tag} next door`}.`)
       lines.push(...rulesFor(inst.card, this.game.catalog).slice(1))
       if (inst.slots) lines.push(`${inst.slots.used} of ${inst.slots.capacity} slots used this turn.`)
       return { eyebrow: FAMILIES[familyOf(inst.card)].label, title: inst.card.name, lines, tone: inst.card.type === 'goal' ? 'gold' : 'plain' }
@@ -316,7 +329,7 @@ export default {
       const reasons = p.ownReasons.map(r => ({
         stat: r.stat,
         amount: r.amount,
-        label: r.scope === 'city' ? `${r.count} ${tagName(r.tag)} in the city` : `${r.count} ${tagName(r.tag)} next door`
+        label: r.tag === 'water' ? 'Waterfront' : r.scope === 'city' ? `${r.count} ${tagName(r.tag)} in the city` : `${r.count} ${tagName(r.tag)} next door`
       }))
       const marks = p.neighbours.map(n => ({ x: n.position.x, y: n.position.y, text: stat(n.delta), tone: Object.values(n.delta).some(v => v < 0) ? 'bad' : 'good' }))
       // The panel sits top-left; it drops lower when the cursor is under it.
@@ -419,6 +432,7 @@ export default {
     act (action, source = 'pad') {
       this.lastSource = source
       if (action === 'fullscreen') return this.toggleFullscreen(source)
+      if (action === 'playtest') return this.togglePlaytest()
       if (this.screen === 'title') {
         if (action === 'select' || action === 'confirm') {
           // Matt: "if I hit the button with a controller, it doesn't go to
@@ -548,7 +562,7 @@ export default {
       else if (action === 'select') {
         const item = MENU_ITEMS[this.menuIndex]
         if (item === 'New game') this.newGame()
-        else if (item === 'Full screen') { this.mode = this.menuReturn; this.toggleFullscreen(this.lastSource) } else if (item === 'How to play') this.openHowTo(this.menuReturn)
+        else if (item === 'Full screen') { this.mode = this.menuReturn; this.toggleFullscreen(this.lastSource) } else if (item === 'Playtest mode') { this.mode = this.menuReturn; this.togglePlaytest() } else if (item === 'How to play') this.openHowTo(this.menuReturn)
         else this.mode = this.menuReturn
       }
     },
@@ -868,6 +882,29 @@ export default {
     },
 
     // ----- feedback --------------------------------------------------
+    // ----- playtest mode (utils/playtest.js) -----------------------------
+    togglePlaytest () {
+      if (!playtestAvailable()) return this.say('Playtest mode needs the database, which this build has not got.', 'bad')
+      if (playtest.on) { stopPlaytest(); this.say('Playtest mode off.') } else { startPlaytest(this.playtestWhere); this.say('Playtest mode on: talk as you play.', 'good') }
+    },
+    /** Where the game was when a line was said, so the transcript reads in context. */
+    playtestWhere () {
+      const s = this.game.state
+      const run = s.run
+      return {
+        turn: this.turn,
+        era: run?.era ?? null,
+        patience: run?.patience ?? null,
+        mandate: run?.mandate?.name ?? null,
+        phase: this.phaseName,
+        mode: this.mode,
+        screen: this.screen,
+        budget: this.treasury,
+        population: this.population,
+        hand: s.hand.map(c => c.name).join(', '),
+        card: this.selectedCard?.name ?? this.focusedHandCard?.name ?? null
+      }
+    },
     say (text, kind = 'plain') {
       this.toast = { text, kind, id: ++this.toastId }
       clearTimeout(this.toastTimer)
@@ -925,6 +962,13 @@ export default {
 .fs-btn__key { display: inline-grid; place-items: center; min-width: 22px; height: 22px; border-radius: 6px; background: #eef2f7; font-size: 12px; }
 .fs-btn--title { z-index: 41; right: 50%; transform: translateX(50%); bottom: 300px; font-size: 20px; padding: 10px 22px; }
 .build-stamp { position: absolute; right: 36px; bottom: 48px; margin: 0; font-size: 12px; color: var(--ink-3); z-index: 21; cursor: pointer; }
+.pt { position: absolute; right: 36px; bottom: 182px; z-index: 22; display: flex; align-items: center; gap: 10px; max-width: 520px; padding: 6px 14px; border-radius: 999px; background: #fff; border: 1.5px solid var(--line); font-size: 14px; font-weight: 700; color: var(--ink-2); box-shadow: 0 4px 14px rgba(27,33,48,0.12); }
+.pt__dot { width: 10px; height: 10px; border-radius: 50%; background: var(--red); flex: none; animation: pt-pulse 1.4s ease-in-out infinite; }
+.pt--paused .pt__dot, .pt--denied .pt__dot, .pt--unsupported .pt__dot { animation: none; background: #b8c0cc; }
+.pt__heard { font-weight: 600; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+@keyframes pt-pulse { 50% { opacity: 0.35; } }
+.pt-note { position: absolute; left: 590px; top: 150px; transform: translateX(-50%); z-index: 22; max-width: 820px; padding: 14px 22px; border-radius: 14px; background: #fff; border: 2px solid #7a5cf0; font-size: 20px; font-weight: 600; line-height: 1.35; box-shadow: 0 8px 26px rgba(27,33,48,0.18); }
+.pt-note__who { display: block; font-size: 12px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #7a5cf0; margin-bottom: 4px; }
 .toast { position: absolute; left: 590px; top: 92px; transform: translateX(-50%); padding: 9px 20px; border-radius: 999px; background: #fff; border: 1.5px solid var(--line); font-size: 19px; font-weight: 700; z-index: 15; white-space: nowrap; box-shadow: 0 6px 20px rgba(27,33,48,0.15); }
 .toast--bad { border-color: var(--red); color: var(--red); }
 .toast--good { border-color: var(--green); color: #1d7a47; }

@@ -44,7 +44,8 @@ const KEYS = {
   Tab: 'deck',
   KeyQ: 'prevPile', KeyR: 'nextPile',
   KeyM: 'menu',
-  KeyF: 'fullscreen'
+  KeyF: 'fullscreen',
+  KeyP: 'playtest'
 }
 
 export const DIRECTIONS = ['up', 'down', 'left', 'right']

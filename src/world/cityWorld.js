@@ -24,6 +24,8 @@ const PALETTE = {
   plate: 0xdfe3ea, // pavement under a building
   park: 0x5fbf6a,
   plaza: 0xeadfc1,
+  water: 0x4fa6d8,
+  shore: 0xe8d9a8, // the sand round the water
   valid: 0xfff5b8, // a lot you may build on
   cursor: 0xffffff
 }
@@ -114,6 +116,17 @@ export function createCityWorld (canvas, { reducedMotion = false } = {}) {
   const pickables = []
   const plateGeo = new THREE.BoxGeometry(LOT + GAP * 0.3, 0.06, LOT + GAP * 0.3)
   const overlayGeo = new THREE.PlaneGeometry(LOT + GAP * 0.3, LOT + GAP * 0.3)
+  // Water fills the whole pitch so neighbouring cells run together, over a
+  // slightly bigger sand plane that shows only round the outside as a shore.
+  const waterGeo = new THREE.PlaneGeometry(PITCH + 0.02, PITCH + 0.02)
+  const shoreGeo = new THREE.PlaneGeometry(PITCH + 0.2, PITCH + 0.2)
+  const makeWater = (lot) => {
+    const g = new THREE.Group()
+    const shore = new THREE.Mesh(shoreGeo, mat(PALETTE.shore)); shore.rotation.x = -Math.PI / 2; shore.position.y = 0.001; shore.receiveShadow = true
+    const water = new THREE.Mesh(waterGeo, mat(PALETTE.water, { roughness: 0.25, metalness: 0.1 })); water.rotation.x = -Math.PI / 2; water.position.y = 0.004; water.receiveShadow = true
+    g.add(shore); g.add(water); g.position.set(lot.wx, 0, lot.wz)
+    return g
+  }
   const ringGeo = new THREE.ShapeGeometry((() => { const s = roundedRect(LOT + GAP * 0.55, LOT + GAP * 0.55, 0.08); s.holes.push(new THREE.Path().setFromPoints(roundedRect(LOT + GAP * 0.3, LOT + GAP * 0.3, 0.06).getPoints(12))); return s })())
   let fieldBuilt = false
   let gridMeta = null
@@ -181,12 +194,16 @@ export function createCityWorld (canvas, { reducedMotion = false } = {}) {
     for (const lot of lots) {
       let plate = plates.get(lot.id)
       const wants = lot.ground !== 'empty'
-      if (wants && !plate) {
+      if (plate && Boolean(plate.userData.water) !== (lot.ground === 'water')) { field.remove(plate); world.remove(plate); plates.delete(lot.id); plate = null }
+      if (wants && !plate && lot.ground === 'water') {
+        plate = makeWater(lot); plate.userData.water = true
+        field.add(plate); plates.set(lot.id, plate)
+      } else if (wants && !plate) {
         plate = new THREE.Mesh(plateGeo, mat(PALETTE.plate))
         plate.position.set(lot.wx, -0.01, lot.wz); plate.receiveShadow = true
         world.add(plate); plates.set(lot.id, plate)
       } else if (!wants && plate) { world.remove(plate); plates.delete(lot.id); plate = null }
-      if (plate) plate.material.color.set(PALETTE[lot.ground] ?? PALETTE.plate)
+      if (plate && !plate.userData.water) plate.material.color.set(PALETTE[lot.ground] ?? PALETTE.plate)
 
       let ov = overlays.get(lot.id)
       if (!ov) {

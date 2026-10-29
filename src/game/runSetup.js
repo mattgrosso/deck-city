@@ -51,6 +51,8 @@ export function runGameOptions ({ rng } = {}) {
     // Roads are always for sale beside the city row (yarn selfplay: cities
     // stalled with budget to spare and no street to build on).
     supplyCardIds: ['road'],
+    // A new map each game: a river, a lake or a coast, never on the town.
+    terrain: { dry: { x0: 9, y0: 5, x1: 15, y1: 11 }, firstEra: RUN.eras[0].limits },
     ...(rng ? { rng } : {})
   }
 }
