@@ -747,7 +747,7 @@ export default {
 </script>
 
 <style scoped>
-.board-wrap { position: absolute; left: 0; top: 0; z-index: 0; }
+.board-wrap { position: absolute; left: 0; top: 0; z-index: -1; } /* under every panel; the stage is a stacking context (transform), so still above its background */
 .phase-tag { position: absolute; left: 48px; top: 96px; z-index: 3; font-size: 14px; font-weight: 800; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-3); }
 .phase-tag--acquire { color: #b47a0a; }
 
