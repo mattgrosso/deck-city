@@ -1,9 +1,12 @@
 <template>
   <div class="market" :class="{ 'market--active': active }">
+    <div v-if="mandate" class="market__mandate" @mouseenter="$emit('focus', { row: 2, index: 0 })" @click="$emit('select', { row: 2, index: 0 })">
+      <MandateTile :mandate="mandate" :state="state" :catalog="catalog" :tick="tick" :focused="isFocused(2, 0)" />
+    </div>
     <div class="market__row market__row--goals">
       <div class="market__head">
         <span class="market__title market__title--gold">Goals <span class="market__sub">· claim one a turn · {{ goalsLeft }} more in the deck</span></span>
-        <span class="market__note">Run out of goals and the city stalls</span>
+        <span class="market__note">Each leaves when its clock runs out</span>
       </div>
       <div class="market__cards">
         <div
@@ -21,7 +24,13 @@
     <div class="market__row">
       <div class="market__head">
         <span class="market__title">City row <span class="market__buys" :class="{ 'market__buys--none': buys < 1 }">{{ buys }} {{ buys === 1 ? 'buy' : 'buys' }} left</span></span>
-        <span class="market__note">The coin builds it; the tag buys it</span>
+        <span v-if="!supply.length" class="market__note">The coin builds it; the tag buys it</span>
+        <span
+          v-for="(card, j) in supply" :key="`s${j}`" class="market__supply"
+          :class="{ 'focus-ring': isFocused(0, cityRow.length + j), 'market__supply--cant': active && (buys < 1 || (card.price ?? card.cost) > treasury) }"
+          @mouseenter="$emit('focus', { row: 0, index: cityRow.length + j })"
+          @click="$emit('select', { row: 0, index: cityRow.length + j })"
+        >{{ card.name }} <span class="muted">· always for sale ·</span> Buy {{ card.price ?? card.cost }}</span>
       </div>
       <div class="market__cards">
         <div
@@ -43,17 +52,19 @@
 <script>
 import GameCard from './GameCard.vue'
 import GoalTile from './GoalTile.vue'
+import MandateTile from './MandateTile.vue'
 
 // The goals sit ABOVE the city row now, in gold, each with its own clock.
 // Matt: "I sort of accidentally fulfilled one of the goals... they just look
 // like other cards... it would be better if those were emphasized."
 export default {
   name: 'Market',
-  components: { GameCard, GoalTile },
+  components: { GameCard, GoalTile, MandateTile },
   props: {
     cityRow: Array, goalRow: Array, goalTimers: { type: Array, default: () => [] }, catalog: Object, treasury: Number,
     state: Object, tick: { type: Number, default: 0 }, buys: { type: Number, default: 1 },
-    active: Boolean, focus: Object, goalMet: Function, goalsLeft: Number
+    active: Boolean, focus: Object, goalMet: Function, goalsLeft: Number,
+    mandate: { type: Object, default: null }, supply: { type: Array, default: () => [] }
   },
   emits: ['focus', 'select'],
   methods: {
@@ -87,5 +98,10 @@ export default {
 .market__buys { margin-left: 8px; font-size: 12px; letter-spacing: 0.04em; text-transform: none; background: var(--gold); color: #2e2000; padding: 2px 9px; border-radius: 999px; vertical-align: 2px; }
 .market__buys--none { background: #dfe5ee; color: var(--ink-3); }
 .market__price { position: absolute; left: 50%; bottom: -11px; transform: translateX(-50%); background: var(--gold); color: #2e2000; border: 1.5px solid #c98a12; font-weight: 800; font-size: 12px; padding: 2px 10px; border-radius: 999px; white-space: nowrap; }
+.market__mandate { margin-bottom: 4px; }
+.market__supply { cursor: pointer; background: #fff; border: 1.5px solid #c98a12; color: #2e2000; font-weight: 800; font-size: 13px; padding: 3px 12px; border-radius: 999px; white-space: nowrap; }
+.market__supply .muted { color: var(--ink-3); font-weight: 600; }
+.market__supply.focus-ring { outline: 3px solid var(--focus); outline-offset: 2px; }
+.market__supply--cant { opacity: 0.55; }
 .market__empty { color: var(--ink-3); font-size: 20px; align-self: center; padding-left: 10px; }
 </style>

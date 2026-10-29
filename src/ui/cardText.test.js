@@ -49,6 +49,8 @@ describe('conditionText', () => {
     expect(conditionText({ type: 'all', conditions: [{ type: 'populationAtLeast', amount: 10 }, { type: 'buildingCountAtLeast', cardId: 'police-station', amount: 1 }] }, catalog))
       .toBe('population 10 or more and 1 Police Station built')
     expect(conditionText({ type: 'statusCountAtMost', tag: 'trash', amount: 0 }, catalog)).toBe('no Trash in your deck')
+    expect(conditionText({ type: 'statusTotalAtMost', amount: 3 }, catalog)).toBe('3 or fewer bad cards in your deck')
+    expect(conditionText({ type: 'employed' }, catalog)).toBe('a job for everyone')
     expect(conditionText({ type: 'adjacentChain', tag: 'residential', length: 3 }, catalog)).toBe('3 Residential in a row')
   })
 })

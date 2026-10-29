@@ -48,6 +48,8 @@ const CIVIC_SCENES = [
   [part('commercial/building-l', { scale: 0.45, tint: 0xfff1c9 }), part('suburban/planter', { scale: 1.6, dx: 0.5, dz: 0.5 })]
 ]
 const SPECIAL = {
+  boulevard: scene([{ street: 'edge', axis: 'x', length: 2.4 }, part('suburban/tree-small', { scale: 1.4, dx: -0.6, dz: -0.45 }), part('suburban/tree-small', { scale: 1.4, dx: 0, dz: -0.45 }), part('suburban/tree-small', { scale: 1.4, dx: 0.6, dz: -0.45 }), part('roads/light-curved', { scale: 1.2, dx: 0.3, dz: 0.45 })], { ground: 'field' }),
+  highway: scene([{ street: 'edge', axis: 'x', length: 2.6, dz: -0.25 }, { street: 'edge', axis: 'x', length: 2.6, dz: 0.25 }, part('roads/sign-highway', { scale: 1.1, dx: 0.5, dz: 0 })], { ground: 'field' }),
   tourist: scene([part('commercial/detail-parasol-a', { scale: 2, dx: -0.3 }), part('commercial/detail-parasol-b', { scale: 2, dx: 0.35, dz: 0.2 }), part('suburban/planter', { scale: 1.6, dx: 0.1, dz: -0.5 })], { ground: 'plaza' }),
   commuter: scene([part('roads/traffic-light', { scale: 2, dx: -0.3 }), { street: 'edge', axis: 'x', length: 2.0, dz: 0.3 }, part('roads/light-curved', { scale: 1.4, dx: 0.5, dz: -0.3 })], { ground: 'field' }),
   volunteer: scene([part('roads/dumpster', { scale: 1.8, dx: -0.3 }), part('suburban/planter', { scale: 1.6, dx: 0.35, dz: 0.2 }), part('suburban/tree-small', { scale: 1.5, dx: 0.1, dz: -0.45 })], { ground: 'park' }),

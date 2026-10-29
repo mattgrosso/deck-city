@@ -14,9 +14,9 @@ import { createCityGrid, placeInstance, addRoadEdge, seedStartingRoads, instance
  * @param {number} [options.treasury]
  * @param {() => number} [options.rng]
  */
-export function createPlayerState ({ startingDeckCards = [], treasury = 0, rng } = {}) {
-  const cityGrid = createCityGrid()
-  seedStartingRoads(cityGrid)
+export function createPlayerState ({ startingDeckCards = [], treasury = 0, rng, gridSize, startingRoadEdges } = {}) {
+  const cityGrid = createCityGrid(gridSize)
+  seedStartingRoads(cityGrid, startingRoadEdges)
 
   return {
     treasury,

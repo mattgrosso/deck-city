@@ -20,7 +20,7 @@ for (const card of CITY_CARDS) {
   const slot = card.type === 'civic' ? CARD_SLOT : 0
   let best = null
   // A building costs at least 1; a civic card may be free (its hand slot is its price).
-  for (let c = slot ? 0 : 1; c <= 20; c++) {
+  for (let c = slot ? 0 : 1; c <= 40; c++) {
     const r = value / (c + slot)
     if (r < FAIR.low) break
     if (best === null || Math.abs(r - TARGET) < Math.abs(best.r - TARGET)) best = { c, r }

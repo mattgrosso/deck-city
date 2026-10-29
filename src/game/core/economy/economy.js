@@ -45,6 +45,9 @@ export const VALUE = {
   // One more purchase at the city row this turn: the surplus of a fair buy
   // (about a spare copy's worth) plus getting the card a turn sooner.
   buy: 1.5,
+  // A point of Public Patience: the era's clock. A turn costs ~3-4 of it
+  // and a turn of building is worth a few budget, so a point is about 1.
+  patience: 1,
   // Keeping up to N budget between turns: about 2 a turn kept, for HORIZON turns, at SPEND.
   rollover: 2 * HORIZON * SPEND
 }
@@ -109,6 +112,7 @@ export function valueOfEffect (effect, catalog = {}) {
     case 'drawCards': return amount * VALUE.draw
     case 'discardCards': return 2 * VALUE.discard
     case 'gainBuys': return amount * VALUE.buy
+    case 'gainPatience': return amount * VALUE.patience
     case 'raiseTreasuryRolloverCap': return VALUE.rollover * Math.min(1, amount / 10)
     case 'gainTreasuryPerAdjacent': return amount * NEIGHBOURS.good
     case 'gainTreasuryPerCount': return amount * CITY_COUNT / (effect.per ?? 1)

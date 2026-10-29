@@ -55,8 +55,8 @@ export const FIRE_STATION = {
   id: 'fire-station',
   type: CARD_TYPES.BUILDING,
   name: 'Fire Station',
-  cost: 5,
-  price: 2, // to buy it at the market; `cost` is to build it
+  cost: 3, // was 5: disasters bite once now, so blocking one is worth less (docs/ECONOMY.md)
+  price: 1, // to buy it at the market; `cost` is to build it
   tags: ['civic'],
   stats: {},
   // Each standing Fire Station blocks one disaster card per strike, and

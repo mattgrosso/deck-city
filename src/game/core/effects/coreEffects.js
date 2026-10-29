@@ -184,3 +184,10 @@ registerEffect('gainCardPerAdjacent', (effect, { state, catalog, log, instanceId
   addToDiscardPile(state.deck, Array(n).fill(card))
   log?.push(`+${n} ${card.name} card${n === 1 ? '' : 's'} in your deck.`)
 })
+
+/** Public Patience back (a run's clock, turn/run.js). Never above the era's start. */
+registerEffect('gainPatience', (effect, { state, log }) => {
+  if (!state.run || state.run.status !== 'playing') return
+  state.run.patience = Math.min(state.run.patienceStart, state.run.patience + (effect.amount ?? 1))
+  log?.push(`+${effect.amount ?? 1} patience.`)
+})

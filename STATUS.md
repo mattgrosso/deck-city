@@ -266,10 +266,28 @@ pooled by family and tier for the rest, scaled from each model's measured
 footprint (`footprints.json`). Every card has a picture (159 PNGs).
 
 **`yarn selfplay [n]`** (tools/selfplay.mjs) plays whole games with a
-greedy robot. With tiers at 12/22: ~75% won around turn 20, tier II about
+greedy robot (now whole runs; `EARLY=0` stops it calling elections early). Before the run existed: With tiers at 12/22: ~75% won around turn 20, tier II about
 turn 4, tier III about turn 14, no losses (the goal deck never ran out),
 and decks bloat past 100 cards from status cards. Those are the next
 design questions.
+
+**The run (2026-10-29), replacing "30 people wins":** three eras, each
+ending in an election judged on a **Mandate** the player picks from two
+(`src/game/core/cards/mandates.js`, five per era). **Public Patience** is
+each era's clock (`src/game/core/turn/run.js`): it drains every turn by
+time, bad cards in the deck, unemployment, a disaster strike and a random
+"mood of the town"; `patience` passives on parks, culture and civic
+buildings slow it, but never below the drain `floor`. At zero the
+election is held: miss the Mandate and the run is lost. A met Mandate can
+be called early from the market (half the patience left carries over).
+Each era widens the city limits (`grid.limits`, `isInLimits`) and adds a
+tier to the City Row. Winning the third era offers an endless city.
+Roads are always for sale beside the row (`supplyCardIds`). Boulevard
+(3 segments) and Highway (4) joined the transit cards.
+`src/game/runSetup.js` holds every number and is what both App.vue and
+`yarn selfplay` build from. Self-play with blind Mandate picks: eras of
+about 31 to 55 turns, a whole run 110 to 140 turns, the robot passes
+about half of Era I. Policies (relics) are set aside for later.
 
 **Not done / next:** nobody has played a full game on the TV yet — that's
 the point of all this. Then: tune every number (all still first guesses),

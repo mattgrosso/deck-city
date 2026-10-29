@@ -36,6 +36,11 @@ registerCondition('buildingCountAtLeast', ({ cardId, amount }, { state }) => {
  * countCardsByTag), same "wherever it currently is in the deck" scope
  * consumeStatus already uses.
  */
+registerCondition('jobsAtLeast', ({ amount }, { state }) => calcStatTotal(state, 'jobs') >= amount)
+registerCondition('revenueAtLeast', ({ amount }, { state }) => calcStatTotal(state, 'revenue') >= amount)
+registerCondition('employed', (_, { state }) => calcStatTotal(state, 'jobs') >= calcStatTotal(state, 'population'))
+registerCondition('statusTotalAtMost', ({ amount }, { state }) => countCardsByTag(state, 'negative') <= amount)
+
 registerCondition('tagCountAtLeast', ({ tag, amount }, { state }) => {
   return state.builtStructures.filter(i => i.card.tags?.includes(tag)).length >= amount
 })
@@ -118,6 +123,10 @@ const PROGRESS = {
   treasuryAtLeast: ({ amount }, { state }) => ({ current: state.treasury, target: amount }),
   buildingCountAtLeast: ({ cardId, amount }, { state }) => ({ current: state.builtStructures.filter(i => i.card.id === cardId).length, target: amount }),
   tagCountAtLeast: ({ tag, amount }, { state }) => ({ current: state.builtStructures.filter(i => i.card.tags?.includes(tag)).length, target: amount }),
+  jobsAtLeast: ({ amount }, { state }) => ({ current: calcStatTotal(state, 'jobs'), target: amount }),
+  revenueAtLeast: ({ amount }, { state }) => ({ current: calcStatTotal(state, 'revenue'), target: amount }),
+  employed: (_, { state }) => ({ current: calcStatTotal(state, 'jobs'), target: calcStatTotal(state, 'population') }),
+  statusTotalAtMost: ({ amount }, { state }) => ({ current: countCardsByTag(state, 'negative'), target: amount, atMost: true }),
   // "At most N": progress counts DOWN; current is how many you have, done at <= target.
   statusCountAtMost: ({ tag, amount }, { state }) => ({ current: countCardsByTag(state, tag), target: amount, atMost: true }),
   adjacentPair: (condition, context) => ({ current: evaluateCondition(condition, context) ? 1 : 0, target: 1 }),

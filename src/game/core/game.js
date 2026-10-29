@@ -5,7 +5,8 @@
 
 import { CARD_TYPES, buildCardCatalog } from './cards/cardSchema'
 import { createPlayerState, buildStructure, placeRoad, spendTreasury, seedStructure, clearStatusCard, effectiveCost } from './state/playerState'
-import { isCellEmpty, isBuildable, isEdgeInBounds, isEdgeConnected } from './state/cityGrid'
+import { isCellEmpty, isBuildable, isEdgeInBounds, isEdgeConnected, isInLimits, isEdgeInLimits } from './state/cityGrid'
+import { createRun, chooseMandate as chooseRunMandate, callElection as callRunElection, goEndless } from './turn/run'
 import { createDeck, addToDiscardPile, shuffle } from './piles/deck'
 import { createRow, acquireFromRow } from './piles/row'
 import { createTurnManager, advancePhase, assertPhase } from './turn/turnManager'
@@ -46,6 +47,10 @@ function assertPlaying (state) {
  * @param {{tier: number, at: number, cardIds: string[]}[]} [options.cityTiers] - shuffled into the city deck when population reaches `at`
  * @param {number} [options.buysPerTurn] - city-row purchases a turn before any gainBuys
  * @param {(card: Object) => number} [options.goalTimerFor] - turns a goal stays on offer; default 3 + tier
+ * @param {{width: number, height: number}} [options.gridSize]
+ * @param {string[]} [options.startingRoadEdges]
+ * @param {string[]} [options.supplyCardIds] - always for sale beside the city row, never sold out (Roads)
+ * @param {Object} [options.run] - a run of eras, mandates and patience (turn/run.js); without it the old population-target game
  * @param {() => number} [options.rng]
  */
 export function createGame ({
@@ -64,6 +69,10 @@ export function createGame ({
   buysPerTurn = 1,
   cityTiers = [],
   shuffleMarkets = true,
+  gridSize,
+  startingRoadEdges,
+  run = null,
+  supplyCardIds = [],
   goalTimerFor = (card) => 3 + (card.tier ?? 1),
   rng
 } = {}) {
@@ -78,7 +87,9 @@ export function createGame ({
   const state = createPlayerState({
     startingDeckCards: startingDeckCardIds.map(resolveCard),
     treasury,
-    rng
+    rng,
+    gridSize,
+    startingRoadEdges
   })
 
   // The market and the goals are shuffled at the start (they were not, so the
@@ -86,6 +97,9 @@ export function createGame ({
   const cityDeck = createDeck({ id: 'city', cards: cityDeckCardIds.map(resolveCard), rng })
   if (shuffleMarkets) shuffle(cityDeck)
   const cityRow = createRow({ sourceDeck: cityDeck, size: cityRowSize })
+
+  // Cards always for sale beside the row (Roads): bought without leaving the supply.
+  const supply = supplyCardIds.map(resolveCard)
 
   const goalDeck = createDeck({ id: 'goal', cards: goalDeckCardIds.map(resolveCard), rng })
   if (shuffleMarkets) shuffle(goalDeck)
@@ -118,6 +132,13 @@ export function createGame ({
     cityTiers: cityTiers.map(t => ({ tier: t.tier, at: t.at, cards: t.cardIds.map(resolveCard) }))
   }
 
+  // A run: eras, mandates, patience (turn/run.js). Hooks the context so the
+  // end of turn can drain patience and hold elections.
+  if (run) {
+    context.run = run
+    state.run = createRun(context)
+  }
+
   function playCard (cardId, position) {
     assertPlaying(state)
     assertPhase(turnManager, 'build')
@@ -139,6 +160,7 @@ export function createGame ({
         if (!isEdgeInBounds(state.cityGrid, edge)) throw new Error(`Invalid edge: ${edge}`)
         if (state.cityGrid.roads.has(edge) || laid.includes(edge)) throw new Error(`Edge ${edge} already has a road`)
         if (!isEdgeConnected(state.cityGrid, edge, laid)) throw new Error(`Edge ${edge} does not touch a street`)
+        if (!isEdgeInLimits(state.cityGrid, edge)) throw new Error(`Edge ${edge} is outside the city limits`)
         laid.push(edge)
       }
       state.hand.splice(index, 1)
@@ -150,6 +172,7 @@ export function createGame ({
     if (!position || !isCellEmpty(state.cityGrid, position.x, position.y)) {
       throw new Error(`Invalid or occupied cell: ${JSON.stringify(position)}`)
     }
+    if (!isInLimits(state.cityGrid, position.x, position.y)) throw new Error('That plot is outside the city limits')
     if (card.unique && state.builtStructures.some(i => i.card.id === card.id)) {
       throw new Error(`There can only be one ${card.name}`)
     }
@@ -185,14 +208,15 @@ export function createGame ({
   function acquireCard (cardId) {
     assertPlaying(state)
     assertPhase(turnManager, 'acquire')
-    const card = cityRow.cards.find(c => c.id === cardId)
+    const inRow = cityRow.cards.find(c => c.id === cardId)
+    const card = inRow ?? supply.find(c => c.id === cardId)
     if (!card) throw new Error(`Card "${cardId}" is not in the city row`)
     if ((state.buys ?? 0) < 1) throw new Error('No buys left this turn')
     // The market charges a card's PRICE; its cost is paid again to build it.
     spendTreasury(state, card.price ?? card.cost ?? 0)
-    acquireFromRow(cityRow, cardId)
-    state.buys -= 1
+    if (inRow) acquireFromRow(cityRow, cardId) // a supply card (Roads) never runs out
     addToDiscardPile(state.deck, [card])
+    state.buys -= 1
     return card
   }
 
@@ -233,6 +257,22 @@ export function createGame ({
     return instance
   }
 
+  /** Choose one of the offered mandates for this era. */
+  function chooseMandate (mandateId) {
+    return chooseRunMandate(context, mandateId)
+  }
+
+  /** Hold the election now (the mandate must already be met). */
+  function callElection () {
+    assertPhase(turnManager, 'acquire')
+    return callRunElection(context)
+  }
+
+  /** After winning a run: keep building, no patience, no mandates. */
+  function keepBuilding () {
+    return goEndless(context)
+  }
+
   function advance () {
     return advancePhase(turnManager, context)
   }
@@ -241,9 +281,10 @@ export function createGame ({
     state,
     cityRow,
     goalRow,
+    supply,
     turnManager,
     catalog,
     log,
-    actions: { playCard, playCivicCard, acquireCard, claimGoal, clearStatus, advance }
+    actions: { playCard, playCivicCard, acquireCard, claimGoal, clearStatus, chooseMandate, callElection, keepBuilding, advance }
   }
 }

@@ -10,6 +10,7 @@ export const ROAD = {
   type: CARD_TYPES.BUILDING,
   name: 'Road',
   cost: 1,
+  price: 1, // always for sale beside the city row (the supply)
   placesRoad: true,
   roadSegments: 2, // two street segments a card (Matt: "road cards should lay two")
   tags: ['infrastructure']

@@ -27,6 +27,7 @@ const WHY = {
   status: `a dead draw about every ${CYCLE} turns until cleared`,
   draw: 'one more choice this turn',
   discard: 'thinning a bad draw',
+  patience: 'a point of Public Patience, the era\'s clock: a turn costs 3-4',
   buy: 'one more purchase at the city row this turn: a fair buy\'s surplus, a turn sooner',
   rollover: `about 2 kept a turn, for ${HORIZON} turns, at ${SPEND}`
 }

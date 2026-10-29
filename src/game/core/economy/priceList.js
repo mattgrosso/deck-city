@@ -7,7 +7,7 @@
 
 import {
   VALUE, HORIZON, CYCLE, CLEARS_PER_TURN, STRIKE_EVERY, FAIR, BARGAINS, TAGGED_PLAYS, CARD_SLOT,
-  valueOfStats, valueOfEffects, valueOfAdjacency, ratio
+  valueOfStats, valueOfEffects, valueOfEffect, valueOfAdjacency, ratio
 } from './economy'
 import { CITY_CARDS, TOKEN_CATALOG } from '../cards/cityCards'
 import { STARTER_CARD_CATALOG, STARTER_DECK_CARDS } from '../cards/starterCards'
@@ -18,9 +18,10 @@ import { DISASTER_CATALOG } from '../cards/disasterCards'
 const round2 = (n) => Math.round(n * 100) / 100
 const flag = (key, r) => (BARGAINS[key] ? 'bargain' : (r < FAIR.low ? 'loss' : (r > FAIR.high ? 'deal' : 'fair')))
 
-/** What a disaster card does to you over the horizon: its bite every draw, and the dead draw. */
+/** What a disaster card does to you: its bite, once, and a dead card in that hand. It is gone after. */
 export function valueOfDisaster (card) {
-  return round2(valueOfEffects(card.effects, CATALOG) + VALUE.status)
+  const once = Object.values(card.effects ?? {}).flat().reduce((n, e) => n + valueOfEffect(e, CATALOG), 0)
+  return round2(once + VALUE.status / 2)
 }
 const AVERAGE_DISASTER = () => DISASTER_CATALOG.reduce((n, c) => n + valueOfDisaster(c), 0) / DISASTER_CATALOG.length
 
@@ -44,6 +45,7 @@ export function valueOfBuild (card) {
     add(`clears ${kinds.join('/')}`, perTurn * HORIZON * -VALUE.status)
   }
   if (card.blocksDisasters) add('blocks disasters', Number(card.blocksDisasters) * (HORIZON / STRIKE_EVERY) * -AVERAGE_DISASTER())
+  if (card.patience) add('patience', card.patience * VALUE.patience * HORIZON)
   if (card.handSizeBonus) add('bigger hand', card.handSizeBonus * VALUE.draw * HORIZON)
   if (card.buysBonus) add('more buys', card.buysBonus * VALUE.buy * HORIZON)
   for (const d of (Array.isArray(card.discount) ? card.discount : (card.discount ? [card.discount] : []))) add(`${d.tag} cheaper`, d.amount * TAGGED_PLAYS * HORIZON)
@@ -110,7 +112,7 @@ export function priceGoals () {
 export function priceThreats () {
   return [
     ...STARTER_CARD_CATALOG.filter(c => c.type === 'status').map(c => ({ key: `threat:${c.id}`, name: `${c.name} card in your deck`, value: VALUE.status, note: 'a dead draw about every CYCLE turns until cleared' })),
-    ...DISASTER_CATALOG.map(c => ({ key: `threat:${c.id}`, name: `${c.name} card in your deck`, value: valueOfDisaster(c), note: `its bite every draw (${HORIZON / CYCLE} draws) and the dead draw` })),
+    ...DISASTER_CATALOG.map(c => ({ key: `threat:${c.id}`, name: `${c.name} card in your deck`, value: valueOfDisaster(c), note: 'its bite, once, when drawn, and a dead card in that hand; then it is gone' })),
     { key: 'threat:unemployment', name: 'A turn with more people than jobs', value: VALUE.status, note: 'one Crime card' }
   ]
 }

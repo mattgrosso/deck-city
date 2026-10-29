@@ -14,6 +14,8 @@ export * as facilityCards from './cards/facilityCards'
 export * as goalCards from './cards/goalCards'
 export * as disasterCards from './cards/disasterCards'
 export * as cityCards from './cards/cityCards'
+export { MANDATES, mandatesOfEra } from './cards/mandates'
+export { mandateMet, DEFAULT_DRAIN } from './turn/run'
 
 export { registerEffect, hasEffect, resolveEffect, resolveEffects, resolveTrigger } from './effects/effectRegistry'
 export { registerCondition, hasCondition, evaluateCondition } from './conditions/conditionRegistry'
@@ -67,6 +69,8 @@ export {
   edgeNodes,
   isEdgeConnected,
   listConnectedEdges,
+  isInLimits,
+  isEdgeInLimits,
   createCityGrid,
   isInBounds,
   isCellEmpty,

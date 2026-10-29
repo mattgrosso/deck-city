@@ -85,6 +85,7 @@ export function effectText (effect, catalog) {
     case 'gainCard': return `add ${amount === 1 ? 'a' : amount} ${catalog[effect.card]?.name ?? effect.card} card${amount === 1 ? '' : 's'} to your deck`
     case 'gainCardPerAdjacent': return `add a ${catalog[effect.card]?.name ?? effect.card} card per neighbouring ${tagWord(effect.targetTag, 1, catalog)}`
     case 'gainBuys': return `+${amount} buy at the city row this turn`
+    case 'gainPatience': return `+${amount} patience`
     case 'discardCards': return 'discard 2 cards'
     case 'expandSlots': return `+${amount} slot`
     case 'headOffDisaster': return 'the disaster clock stops for good'
@@ -105,6 +106,10 @@ export function conditionText (condition, catalog) {
       return condition.amount === 0
         ? `no ${nameOf(condition.tag, catalog)} in your deck`
         : `${condition.amount} or fewer ${nameOf(condition.tag, catalog)} in your deck`
+    case 'jobsAtLeast': return `${condition.amount} jobs or more`
+    case 'revenueAtLeast': return `${condition.amount} revenue a turn or more`
+    case 'employed': return 'a job for everyone'
+    case 'statusTotalAtMost': return condition.amount === 0 ? 'no bad cards in your deck' : `${condition.amount} or fewer bad cards in your deck`
     case 'adjacentPair': return `a ${nameOf(condition.tagA, catalog)} next to a ${nameOf(condition.tagB, catalog)}`
     case 'adjacentChain': return `${condition.length} ${nameOf(condition.tag, catalog)} in a row`
     case 'all': return condition.conditions.map(c => conditionText(c, catalog)).join(' and ')
@@ -141,6 +146,7 @@ export function rulesFor (card, catalog = {}) {
   for (const b of (card.adjacency?.statBonus ?? []).filter(b => b.scope === 'city')) {
     lines.push(`${sign(b)} for every ${tagWord(b.targetTag, 1, catalog)} in the city${b.max ? ` (up to ${b.max})` : ''}.`)
   }
+  if (card.patience) lines.push(card.patience > 0 ? `+${card.patience} patience every turn.` : `−${-card.patience} patience every turn.`)
   if (card.handSizeBonus) lines.push(`Draw ${plural(card.handSizeBonus, 'extra card')} every turn.`)
   if (card.buysBonus) lines.push(`+${card.buysBonus} buy every turn.`)
   for (const d of (Array.isArray(card.discount) ? card.discount : (card.discount ? [card.discount] : []))) lines.push(`${tagWord(d.tag, 2, catalog).replace(/^./, c => c.toUpperCase())} cost ${d.amount} less to build.`)
@@ -161,6 +167,7 @@ export function rulesFor (card, catalog = {}) {
 
 export const KEYWORDS = {
   buy: 'One purchase at the city row a turn. Some cards give you more.',
+  patience: 'Public Patience is the era\'s clock. It drains every turn, faster when the city is in trouble; at zero the election judges your mandate.',
   token: 'Tourists, Commuters, Volunteers and Investors are made by buildings and civic cards. Play one free; it is gone afterwards.',
   debt: 'A dead card from borrowing. A Bank Branch or Courthouse takes it.',
   unique: 'Landmarks marked “only one” can stand once in a city.',
@@ -169,7 +176,7 @@ export const KEYWORDS = {
   slot: 'Play a status card from your hand into a facility with a free slot and the card leaves the game. Slots refill every turn.',
   status: 'Crime, Trash and Pollution are dead cards. Play one into the right facility to be rid of it; otherwise it just clogs your hand.',
   monument: 'A claimed goal. Costs nothing to build, needs a street like anything else, and gives +1 population and +1 revenue.',
-  disaster: 'Every fourth turn a strike shuffles disaster cards into your deck, one more each time. Each Fire Station standing blocks one.',
+  disaster: 'Every fourth turn a strike shuffles disaster cards into your deck, one more each time (up to three), starting over each era. Each Fire Station blocks one. A disaster bites once when drawn, then it is gone.',
   population: 'The win condition. Reach the target and the city is finished.',
   neighbours: 'A building counts its four neighbours (not diagonals). Each “next door” line adds or takes away for every matching neighbour, never below zero.',
   revenue: 'Next turn\'s budget: the revenue of every building in the city.'
@@ -183,6 +190,7 @@ export function keywordsFor (card, catalog = {}) {
     if (needles.some(n => text.includes(n))) hits.push([key, KEYWORDS[key]])
   }
   want('buy', 'buy at the city row')
+  want('patience', 'patience')
   want('token', 'tourist', 'commuter', 'volunteer', 'investor')
   want('debt', 'debt')
   want('budget', 'budget')

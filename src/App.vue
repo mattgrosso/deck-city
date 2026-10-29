@@ -3,7 +3,8 @@
     <div class="stage" :style="{ transform: `scale(${scale})` }">
       <template v-if="screen === 'game'">
         <TopBar
-          :turn="turn" :population="population" :population-target="POPULATION_TARGET" :jobs="jobs" :revenue="nextBudget"
+          :turn="turn" :population="population" :jobs="jobs" :revenue="nextBudget"
+          :era="run ? run.era : 0" :patience="run ? run.patience : 0" :patience-start="run ? run.patienceStart : 0" :last-drain="run && run.lastDrain ? run.lastDrain.total : 0" :endless="run ? run.status === 'endless' : false"
           :statuses="statuses" :disaster-in="disasterIn" :headed-off="headedOff" :focus="mode === 'stats' ? STATS[statIndex].key : null"
         />
 
@@ -21,6 +22,7 @@
         <Market
           :city-row="cityRow" :goal-row="goalRow" :goal-timers="goalTimers" :catalog="game.catalog" :treasury="treasury" :state="game.state" :tick="tick" :buys="buys"
           :active="mode === 'market'" :focus="market" :goal-met="goalMet" :goals-left="goalsLeft"
+          :mandate="run && run.status === 'playing' ? run.mandate : null" :supply="supply"
           @focus="onMarketFocus" @select="onMarketSelect"
         />
 
@@ -71,12 +73,23 @@
         <PileView v-if="mode === 'pile'" :tabs="pileTabs" :tab-index="pileTab" :focus-index="pileIndex" :catalog="game.catalog" @tab="pileTab = $event; pileIndex = 0" @focus="pileIndex = $event" />
 
         <Overlay v-if="mode === 'summary'" kind="summary" eyebrow="Overnight" :title="summary.title" :lines="summary.lines" hint="Continue" :glyph="glyphs.select" />
-        <Overlay v-if="mode === 'over'" :kind="game.state.gameStatus" :eyebrow="`Turn ${turn}`" :title="game.state.gameStatus === 'won' ? 'City complete' : 'Out of goals'" :lines="overLines" hint="New game" :glyph="glyphs.select" />
+        <div v-if="mode === 'mandate'" class="overlay-mandate">
+          <div class="overlay-mandate__eyebrow">Era {{ ['I', 'II', 'III'][run.era - 1] }} · choose your mandate</div>
+          <div class="overlay-mandate__lede">The city will judge you on it at the election. Patience: {{ run.patienceStart }}. Fail it and you're out.</div>
+          <div class="overlay-mandate__row">
+            <div v-for="(m, i) in run.offer" :key="m.id" @mouseenter="mandateIndex = i" @click="mandateIndex = i; act('select', 'click')">
+              <MandateTile :mandate="m" :state="game.state" :catalog="game.catalog" :tick="tick" :focused="i === mandateIndex" big />
+            </div>
+          </div>
+          <div class="overlay-mandate__hint"><span class="btn-a">{{ glyphs.select }}</span> Choose</div>
+        </div>
+        <Overlay v-if="mode === 'election'" :kind="electionShown.passed ? 'won' : 'lost'" :eyebrow="`Era ${['I', 'II', 'III'][electionShown.era - 1]} · election${electionShown.early ? ' called early' : ''}`" :title="electionShown.passed ? 'Re-elected' : 'Voted out'" :lines="electionLines" hint="Continue" :glyph="glyphs.select" />
+        <Overlay v-if="mode === 'over'" :kind="game.state.run.status === 'won' ? 'won' : 'lost'" :eyebrow="`Turn ${turn}`" :title="game.state.run.status === 'won' ? 'Three eras. A great city.' : 'The run is over'" :lines="overLines" :items="overItems" :index="overIndex" hint="Choose" :glyph="glyphs.select" @pick="overIndex = $event; act('select', 'click')" />
         <Overlay v-if="mode === 'menu'" kind="plain" title="Paused" :items="MENU_ITEMS" :index="menuIndex" hint="Choose" :glyph="glyphs.select" @pick="menuIndex = $event; act('select', 'click')" />
         <HowTo v-if="mode === 'howto'" :page="howtoPage" :glyphs="glyphs" />
       </template>
 
-      <Overlay v-if="screen === 'title'" kind="title" eyebrow="A deck-building city builder" title="Deck City" :lines="[`Build a city of ${POPULATION_TARGET} people before the goals run out.`, 'Press Enter or click to start full screen.']" hint="Start" :glyph="glyphs.select" @click="act('select', 'click')" />
+      <Overlay v-if="screen === 'title'" kind="title" eyebrow="A deck-building city builder" title="Deck City" :lines="['Three eras. Choose a mandate for each and meet it before the public runs out of patience.', 'Press Enter or click to start full screen.']" hint="Start" :glyph="glyphs.select" @click="act('select', 'click')" />
 
       <ButtonLegend :items="legend" :pad="pad" />
       <p class="build-stamp" role="button" tabindex="0" title="Tap to reload" @click="stampTap">{{ refreshing ? 'reloading…' : stamp }}</p>
@@ -98,10 +111,12 @@ import ButtonLegend from '@/components/ButtonLegend.vue'
 import CardInfo from '@/components/CardInfo.vue'
 import InfoPanel from '@/components/InfoPanel.vue'
 import HowTo, { PAGES as HOWTO_PAGES } from '@/components/HowTo.vue'
+import MandateTile from '@/components/MandateTile.vue'
+import { runGameOptions } from '@/game/runSetup'
 import BugReportButton from '@/components/shared/BugReportButton.vue'
 import BugResolutionNotice from '@/components/shared/BugResolutionNotice.vue'
 import {
-  createGame, starterCards, facilityCards, goalCards, disasterCards, cityCards, effectiveCost, clearsOf,
+  createGame, effectiveCost, clearsOf, isInLimits,
   calcStatTotal, countCardsByTag, evaluateCondition, isCellEmpty, isBuildable, listConnectedEdges,
   previewPlacement, instanceStats
 } from '@/game/core'
@@ -113,47 +128,33 @@ import { firebaseConfigured } from '@/firebase'
 import { buildStamp, forceRefresh } from '@/utils/buildStamp'
 import { initUpdateCheck } from '@/utils/checkForUpdate'
 
-// The city you start with: two houses and a shop on the starting street.
-// Their revenue IS the first budget - there is no base income any more.
-// Matt: "the city at the beginning of the game [should] reflect what our
-// budget is" (the Suburbia opening: three tiles that add up to your start).
-const STARTING_BUILDINGS = [
-  { cardId: 'residential', x: 5, y: 3 }, // 2 people, +1
-  { cardId: 'commercial', x: 6, y: 3 }, // 2 jobs, +2, +1 for the house next door
-  { cardId: 'industrial', x: 6, y: 4 } // 3 jobs, +1, kept off the house - budget 5
-]
 // The clear part of the stage (left of the market, above the hand) the city is framed into.
 const VIEW_RECT = { x: 40, y: 90, w: 1130, h: 690 }
-const BASE_REVENUE = 0
 const SHORT = { population: 'pop', revenue: 'rev', jobs: 'jobs' }
-// 30 (was 20) now that tiers II and III exist: II reaches the market at 12
-// people, III at 22 (Matt: "a much larger base of buildings... tiered").
-const POPULATION_TARGET = 30
-const TIER_AT = { 2: 12, 3: 22 } // tuned by yarn selfplay: II ~turn 4, III ~turn 14, a win ~turn 20
 const MENU_ITEMS = ['Resume', 'How to play', 'New game']
 const HOWTO_SEEN = 'deck-city:howto-seen'
 
 // The numbers along the top, in cursor order, and what each one means.
 const STATS = [
-  { key: 'population', title: 'Population', explain: (a) => [`${a.population} of ${POPULATION_TARGET}. Reach ${POPULATION_TARGET} and the city is finished.`, 'Houses add 2 each. A claimed goal (a Monument) adds 1.'] },
+  { key: 'population', title: 'Population', explain: (a) => [`${a.population} people live here.`, 'Houses add 2 each, more beside other houses. A claimed goal (a Monument) adds 1.'] },
   { key: 'jobs', title: 'Jobs', explain: (a) => [`${a.jobs} jobs for ${a.population} people. Shops give 2, factories 3.`, a.population > a.jobs ? `${a.population - a.jobs} people have no work: a Crime card joins your deck at the end of every turn this stays true.` : 'Everyone has work. Keep it that way as the city grows, or crime follows.'] },
   { key: 'budget', title: 'Next budget', explain: (a) => [`${a.nextBudget} next turn, the revenue of every building you have.`, `Unspent budget is lost at the end of the turn${a.rolloverCap ? ` except up to ${a.rolloverCap} (City Bank)` : ''}.`] },
   { key: 'crime', title: 'Crime', explain: (a) => [`${a.crime} Crime card${a.crime === 1 ? '' : 's'} in your deck. A house adds one when built; unemployment adds one a turn.`, 'Play a Crime card from your hand into a Police Station with a free slot and it leaves the game.'] },
   { key: 'trash', title: 'Trash', explain: (a) => [`${a.trash} Trash card${a.trash === 1 ? '' : 's'} in your deck. A shop adds one when built.`, 'Play a Trash card from your hand into a Sanitation Center with a free slot and it leaves the game.'] },
   { key: 'pollution', title: 'Pollution', explain: (a) => [`${a.pollution} Pollution card${a.pollution === 1 ? '' : 's'} in your deck. A factory adds one when built.`, 'Play a Pollution card from your hand into a Clinic with a free slot and it leaves the game.'] },
+  { key: 'patience', title: 'Public patience', explain: (a) => a.run?.status === 'endless' ? ['The run is won. No more elections: build what you like.'] : [`${Math.max(0, a.run.patience)} of ${a.run.patienceStart} left. At zero the election is held and your mandate, ${a.run.mandate?.name ?? 'once chosen'}, is judged.`, a.run.lastDrain ? `Last turn: ${a.run.lastDrain.parts.map(([l, v]) => `${l} ${v > 0 ? '−' : '+'}${Math.abs(v)}`).join(', ')}.` : 'Time, bad cards, unemployment and disasters wear it down; parks, culture and civic buildings slow that.', 'Met the mandate already? Pick it in the market to call the election early and carry half the patience left into the next era.'] },
   { key: 'disaster', title: 'Disaster clock', explain: (a) => [`Strikes in ${a.disasterIn} turn${a.disasterIn === 1 ? '' : 's'}. Strike ${a.strikes + 1} will shuffle ${a.strikes + 1} disaster card${a.strikes ? 's' : ''} into your deck; each bites when drawn.`, a.blockers ? `${a.blockers} Fire Station${a.blockers === 1 ? '' : 's'} standing: each blocks one card per strike.` : 'A Fire Station blocks one card per strike. Strikes get bigger, so build more over time.'] }
 ]
 
 export default {
   name: 'App',
-  components: { TopBar, CityScene, Market, Hand, PileView, Overlay, ButtonLegend, CardInfo, InfoPanel, HowTo, BugReportButton, BugResolutionNotice },
+  components: { TopBar, CityScene, Market, Hand, PileView, Overlay, ButtonLegend, CardInfo, InfoPanel, HowTo, MandateTile, BugReportButton, BugResolutionNotice },
   // The house bug button has no store to read; it asks this for a snapshot.
   provide () {
     return { bugSnapshot: () => this.bugSnapshot() }
   },
   data () {
     return {
-      POPULATION_TARGET,
       VIEW_RECT,
       MENU_ITEMS,
       STATS,
@@ -180,6 +181,9 @@ export default {
       pileIndex: 0,
       pileReturn: 'hand',
       menuIndex: 0,
+      mandateIndex: 0,
+      overIndex: 0,
+      electionsSeen: 0,
       menuReturn: 'hand',
       howtoPage: 0,
       howtoReturn: 'hand',
@@ -221,7 +225,21 @@ export default {
     treasury () { void this.tick; return this.game.state.treasury },
     population () { void this.tick; return calcStatTotal(this.game.state, 'population') },
     jobs () { void this.tick; return calcStatTotal(this.game.state, 'jobs') },
-    nextBudget () { void this.tick; return calcStatTotal(this.game.state, 'revenue') + BASE_REVENUE },
+    nextBudget () { void this.tick; return calcStatTotal(this.game.state, 'revenue') },
+    run () { void this.tick; return this.game.state.run ?? null },
+    supply () { void this.tick; return this.game.supply ?? [] },
+    electionShown () { void this.tick; return this.game.state.run?.election ?? { era: 1, passed: false } },
+    electionLines () {
+      const e = this.electionShown
+      const run = this.game.state.run
+      if (!e.mandate) return []
+      const lines = [`Your mandate was ${e.mandate.name}. ${e.passed ? 'The city says you delivered.' : 'The city says you did not deliver.'}`]
+      if (!e.passed) lines.push(`Population ${this.population} on turn ${this.turn}.`)
+      else if (run.status === 'won') lines.push('That was the third era. The run is won.')
+      else lines.push(`Era ${['I', 'II', 'III'][run.era - 1]} begins: the city limits widen and tier ${['I', 'II', 'III'][run.era - 1]} buildings join the market.${e.early ? ' You called it early, so half the patience you had left carries over.' : ''}`)
+      return lines
+    },
+    overItems () { void this.tick; return this.game.state.run?.status === 'won' ? ['Keep building', 'New game'] : ['New game'] },
     statuses () {
       void this.tick
       return [
@@ -296,7 +314,7 @@ export default {
       const about = {
         population: this.population, jobs: this.jobs, nextBudget: this.nextBudget, rolloverCap: this.game.state.treasuryRolloverCap,
         crime: this.statuses[0].count, trash: this.statuses[1].count, pollution: this.statuses[2].count,
-        disasterIn: this.disasterIn, headedOff: this.headedOff,
+        disasterIn: this.disasterIn, headedOff: this.headedOff, run: this.game.state.run,
         strikes: this.game.state.disasterTimer.strikes ?? 0,
         blockers: this.game.state.builtStructures.filter(i => i.card.blocksDisasters).length
       }
@@ -315,9 +333,11 @@ export default {
     overLines () {
       void this.tick
       const s = this.game.state
-      return this.game.state.gameStatus === 'won'
-        ? [`Population ${this.population} with ${s.builtStructures.length} buildings on turn ${this.turn}.`]
-        : [`Population reached ${this.population} of ${POPULATION_TARGET} before the goal deck ran dry.`]
+      const passed = (s.run?.elections ?? []).filter(e => e.passed).map(e => e.mandate.name)
+      const lines = [`Population ${this.population} with ${s.builtStructures.length} buildings on turn ${this.turn}.`]
+      if (passed.length) lines.push(`Mandates delivered: ${passed.join(', ')}.`)
+      if (s.run?.status === 'won') lines.push('Keep building in an endless city, or start a new run.')
+      return lines
     },
     legend () {
       const L = (action, label) => ({ action, label })
@@ -332,6 +352,8 @@ export default {
         case 'pile': return [L('prevPile', 'Prev'), L('nextPile', 'Next'), L('dpad', 'Browse'), L('back', 'Close')]
         case 'menu': return [L('dpad', 'Choose'), L('select', 'Pick'), L('back', 'Resume')]
         case 'howto': return [L('lr', 'Page'), L('select', 'Next'), L('back', 'Close')]
+        case 'mandate': return [L('lr', 'Choose'), L('select', 'Take this mandate')]
+        case 'over': return [L('dpad', 'Choose'), L('select', 'Pick')]
         default: return [L('select', 'Continue')]
       }
     }
@@ -342,21 +364,7 @@ export default {
     },
     refresh () { this.tick++ },
     newGame () {
-      this.game = createGame({
-        cardCatalog: [
-          ...starterCards.STARTER_CARD_CATALOG, ...facilityCards.FACILITY_CATALOG,
-          ...goalCards.GOAL_CATALOG, ...disasterCards.DISASTER_CATALOG, ...cityCards.CITY_CATALOG
-        ],
-        startingDeckCardIds: starterCards.STARTER_DECK_CARDS,
-        // Tier I: the five services (two of each) and every tier-I city card.
-        cityDeckCardIds: [...facilityCards.CITY_DECK_CARDS, ...cityCards.cityCardsOfTier(1)],
-        cityTiers: [2, 3].map(tier => ({ tier, at: TIER_AT[tier], cardIds: cityCards.cityCardsOfTier(tier) })),
-        goalDeckCardIds: goalCards.GOAL_DECK_CARDS,
-        disasterCardIds: disasterCards.DISASTER_CARDS,
-        baseRevenue: BASE_REVENUE,
-        populationTarget: POPULATION_TARGET,
-        startingBuildings: STARTING_BUILDINGS
-      })
+      this.game = createGame(runGameOptions())
       // The engine starts on 'draw'; running it deals the first hand and
       // lands on 'build', the first phase the player acts in.
       this.game.actions.advance()
@@ -367,13 +375,17 @@ export default {
       this.pendingEdges = []
       this.picks = []
       this.market = { row: 1, index: 0 }
+      this.mandateIndex = 0
+      this.overIndex = 0
+      this.electionsSeen = 0
+      if (this.game.state.run?.status === 'choosing') this.mode = 'mandate'
       this.refresh()
     },
     startGame () {
       this.screen = 'game'
       let seen = false
       try { seen = window.localStorage.getItem(HOWTO_SEEN) === '1' } catch { /* no storage */ }
-      if (!seen) this.openHowTo('hand')
+      if (!seen) this.openHowTo(this.mode)
     },
 
     // ----- input -----------------------------------------------------
@@ -421,13 +433,17 @@ export default {
       else if (action === 'back') { this.mode = 'hand'; this.picks = []; this.handIndex = this.selectedIndex; this.selectedIndex = null }
     },
     in_market (action) {
-      const rows = [this.cityRow, this.goalRow]
+      const hasMandate = this.run?.status === 'playing'
+      const rows = [[...this.cityRow, ...this.supply], this.goalRow, hasMandate ? [this.run.mandate] : []]
       const { row, index } = this.market
       const len = rows[row].length
+      const clamp = (r, i) => Math.min(i, Math.max(0, rows[r].length - 1))
       if (action === 'left' && len) this.market = { row, index: (index - 1 + len) % len }
       else if (action === 'right' && len) this.market = { row, index: (index + 1) % len }
-      else if (action === 'up' && row === 0) this.market = { row: 1, index: Math.min(index, Math.max(0, rows[1].length - 1)) }
-      else if (action === 'down' && row === 1) this.market = { row: 0, index: Math.min(index, Math.max(0, rows[0].length - 1)) }
+      else if (action === 'up' && row === 0) this.market = { row: 1, index: clamp(1, index) }
+      else if (action === 'up' && row === 1 && hasMandate) this.market = { row: 2, index: 0 }
+      else if (action === 'down' && row === 2) this.market = { row: 1, index: 0 }
+      else if (action === 'down' && row === 1) this.market = { row: 0, index: clamp(0, index) }
       else if (action === 'up') this.openLook('market')
       else if (action === 'select') this.buyOrClaim()
       else if (action === 'confirm') this.endTurn()
@@ -459,7 +475,39 @@ export default {
       if (action === 'select' || action === 'confirm') this.afterSummary()
     },
     in_over (action) {
-      if (action === 'select' || action === 'confirm') this.newGame()
+      const n = this.overItems.length
+      if (action === 'up' || action === 'left') this.overIndex = (this.overIndex + n - 1) % n
+      else if (action === 'down' || action === 'right') this.overIndex = (this.overIndex + 1) % n
+      else if (action === 'select' || action === 'confirm') {
+        if (this.overItems[this.overIndex] === 'Keep building') {
+          this.game.actions.keepBuilding()
+          this.say('Endless city. No more elections: build what you like.', 'good')
+          this.mode = 'hand'
+          this.handIndex = 0
+          this.refresh()
+        } else this.newGame()
+      }
+    },
+    in_mandate (action) {
+      const n = this.game.state.run.offer.length
+      if (action === 'left' || action === 'up') this.mandateIndex = (this.mandateIndex + n - 1) % n
+      else if (action === 'right' || action === 'down') this.mandateIndex = (this.mandateIndex + 1) % n
+      else if (action === 'select' || action === 'confirm') {
+        const m = this.game.state.run.offer[this.mandateIndex]
+        this.game.actions.chooseMandate(m.id)
+        this.say(`Mandate: ${m.name}. Meet it before patience runs out.`, 'good')
+        this.mode = this.game.turnManager.phases[this.game.turnManager.currentPhaseIndex].name === 'acquire' ? 'market' : 'hand'
+        this.handIndex = 0
+        this.mandateIndex = 0
+        this.refresh()
+      } else if (action === 'menu') this.openMenu()
+    },
+    in_election (action) {
+      if (action !== 'select' && action !== 'confirm') return
+      this.electionsSeen = this.game.state.run.elections.length
+      const status = this.game.state.run.status
+      if (status === 'choosing') { this.mandateIndex = 0; this.mode = 'mandate' } else if (status === 'won' || status === 'lost') { this.overIndex = 0; this.mode = 'over' } else this.mode = 'hand'
+      this.refresh()
     },
     in_menu (action) {
       if (action === 'up') this.menuIndex = (this.menuIndex + MENU_ITEMS.length - 1) % MENU_ITEMS.length
@@ -669,8 +717,9 @@ export default {
     },
     buyOrClaim () {
       const { row, index } = this.market
+      if (row === 2) return this.callElection()
       if (row === 0) {
-        const card = this.cityRow[index]
+        const card = [...this.cityRow, ...this.supply][index]
         if (!card) return
         const price = card.price ?? card.cost ?? 0
         if ((this.game.state.buys ?? 0) < 1) return this.refuse('No buys left this turn. A Trade Fair gives another.')
@@ -685,8 +734,16 @@ export default {
         try { this.game.actions.claimGoal(goal.id) } catch (err) { return this.refuse(err.message) }
         this.say(`${goal.name} claimed. It's a Monument in your deck now.`, 'good')
       }
-      const rows = [this.cityRow, this.goalRow]
+      const rows = [[...this.cityRow, ...this.supply], this.goalRow]
       this.market = { row, index: Math.min(index, Math.max(0, rows[row].length - 1)) }
+      this.refresh()
+    },
+    callElection () {
+      const run = this.game.state.run
+      if (!run || run.status !== 'playing') return
+      if (!this.goalMet(run.mandate)) return this.refuse(`${run.mandate.name} isn't met yet. The election comes when patience runs out.`)
+      try { this.game.actions.callElection() } catch (err) { return this.refuse(err.message) }
+      this.mode = 'election'
       this.refresh()
     },
     endTurn () {
@@ -700,6 +757,8 @@ export default {
       this.mode = 'summary'
     },
     afterSummary () {
+      const run = this.game.state.run
+      if (run && run.elections.length > this.electionsSeen) { this.mode = 'election'; return }
       if (this.game.state.gameStatus !== 'playing') { this.mode = 'over'; return }
       this.mode = 'hand'
       this.handIndex = 0
@@ -719,7 +778,7 @@ export default {
     openLook (from) {
       const grid = this.game.state.cityGrid
       const targets = []
-      for (let y = 0; y < grid.height; y++) for (let x = 0; x < grid.width; x++) targets.push({ id: `${x},${y}`, kind: 'cell', x, y })
+      for (let y = 0; y < grid.height; y++) for (let x = 0; x < grid.width; x++) if (isInLimits(grid, x, y)) targets.push({ id: `${x},${y}`, kind: 'cell', x, y })
       this.lookReturn = from
       this.targets = this.withScreen(targets)
       // Start on a building if there is one, else the middle of the field.
@@ -752,6 +811,7 @@ export default {
           mode: this.mode,
           treasury: s.treasury,
           population: this.population,
+          run: s.run ? { era: s.run.era, status: s.run.status, patience: s.run.patience, mandate: s.run.mandate?.id ?? null } : null,
           hand: s.hand.map(c => c.id),
           drawPile: s.deck.drawPile.map(c => c.id),
           discardPile: s.deck.discardPile.map(c => c.id),
@@ -795,6 +855,14 @@ export default {
 </script>
 
 <style scoped>
+.overlay-mandate { position: absolute; inset: 0; z-index: 40; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; background: rgba(233,238,245,0.9); backdrop-filter: blur(6px); }
+.overlay-mandate__eyebrow { font-size: 20px; letter-spacing: 0.3em; text-transform: uppercase; color: #6b55c4; font-weight: 800; }
+.overlay-mandate__lede { font-size: 24px; color: var(--ink-2); font-weight: 500; }
+.overlay-mandate__row { display: flex; gap: 40px; align-items: stretch; }
+.overlay-mandate__row > div { cursor: pointer; display: flex; }
+.overlay-mandate__hint { font-size: 20px; color: var(--ink-2); font-weight: 600; display: flex; gap: 12px; align-items: center; }
+.btn-a { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; font-weight: 900; font-size: 17px; color: #000; background: #5fd36f; }
+
 .board-wrap { position: absolute; left: 0; top: 0; z-index: -1; } /* under every panel; the stage is a stacking context (transform), so still above its background */
 .phase-tag { position: absolute; left: 48px; top: 96px; z-index: 3; font-size: 14px; font-weight: 800; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-3); }
 .phase-tag--acquire { color: #b47a0a; }

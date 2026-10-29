@@ -23,6 +23,7 @@
 //   discount: { tag, amount }      cards with that tag cost less to build
 //   blocks                         disaster cards blocked per strike
 //   unique                         only one may stand
+//   patience: n                    +n Public Patience every turn (negative drains it)
 
 import { CARD_TYPES } from './cardSchema'
 
@@ -39,7 +40,7 @@ function B (id, name, tier, tags, cost, o = {}) {
   if (o.onClear) effects.onClear = o.onClear
   if (Object.keys(effects).length) card.effects = effects
   if (o.clears) { card.clears = o.clears; card.slots = { capacity: o.slots ?? 2 } }
-  for (const k of ['handSize', 'buysBonus', 'discount', 'blocks', 'unique', 'flavor']) if (o[k] !== undefined) card[k === 'handSize' ? 'handSizeBonus' : k === 'blocks' ? 'blocksDisasters' : k] = o[k]
+  for (const k of ['handSize', 'buysBonus', 'discount', 'blocks', 'unique', 'flavor', 'patience', 'placesRoad', 'roadSegments']) if (o[k] !== undefined) card[k === 'handSize' ? 'handSizeBonus' : k === 'blocks' ? 'blocksDisasters' : k] = o[k]
   return card
 }
 
@@ -93,7 +94,7 @@ export const RESIDENTIAL_CARDS = [
   B('loft-conversions', 'Loft Conversions', 2, ['residential', 'arts'], 9, { stats: { population: 3, revenue: 1 }, near: [nd('population', 1, 'industrial'), nd('revenue', 1, 'culture')], flavor: 'Exposed brick, exposed pipes.' }),
   B('gated-community', 'Gated Community', 2, ['residential'], 9, { stats: { population: 3, revenue: 3 }, near: [nd('revenue', -1, 'residential')], flavor: 'Members only.' }),
   B('mixed-use-tower', 'Mixed-Use Tower', 2, ['residential', 'commercial', 'dense'], 6, { stats: { population: 2, jobs: 2, revenue: 2 }, onBuild: [status('trash')], flavor: 'Counts as a house AND a shop.' }),
-  B('housing-project', 'Housing Project', 2, ['residential', 'dense'], 4, { stats: { population: 6 }, onBuild: [status('crime', 2)] }),
+  B('housing-project', 'Housing Project', 2, ['residential', 'dense'], 1, { patience: -1, stats: { population: 6 }, onBuild: [status('crime', 2)] }),
   B('brownstones', 'Brownstones', 2, ['residential'], 10, { stats: { population: 3, revenue: 2 }, near: [nd('revenue', 1, 'culture')] }),
   B('cul-de-sac', 'Cul-de-sac', 2, ['residential'], 6, { stats: { population: 4 }, near: [nd('population', 1, 'green'), nd('population', -1, 'commercial')], flavor: 'Kids play in the street.' }),
   B('high-rise', 'High-Rise', 3, ['residential', 'dense'], 11, { stats: { population: 7, revenue: 2 }, near: [nd('population', 1, 'transit')], onBuild: [status('crime'), status('trash')] }),
@@ -158,37 +159,39 @@ export const INDUSTRIAL_CARDS = [
 
 // ================================================================== GREEN
 export const GREEN_CARDS = [
-  B('pocket-park', 'Pocket Park', 1, ['green', 'park'], 4, { near: [nd('revenue', 1, 'residential')], onBuild: [clear(1)] }),
-  B('community-garden', 'Community Garden', 1, ['green', 'rural'], 5, { clears: 'pollution', slots: 1, near: [nd('population', 1, 'residential')] }),
-  B('playground', 'Playground', 1, ['green', 'park'], 3, { near: [nd('population', 1, 'residential'), nd('population', 1, 'education')], flavor: 'Families stay where kids play.' }),
+  B('pocket-park', 'Pocket Park', 1, ['green', 'park'], 7, { patience: 1, near: [nd('revenue', 1, 'residential')], onBuild: [clear(1)] }),
+  B('community-garden', 'Community Garden', 1, ['green', 'rural'], 8, { patience: 1, clears: 'pollution', slots: 1, near: [nd('population', 1, 'residential')] }),
+  B('playground', 'Playground', 1, ['green', 'park'], 6, { patience: 1, near: [nd('population', 1, 'residential'), nd('population', 1, 'education')], flavor: 'Families stay where kids play.' }),
   B('tree-lined-plaza', 'Tree-Lined Plaza', 1, ['green'], 2, { near: [nd('revenue', 1, 'commercial')] }),
-  B('botanical-garden', 'Botanical Garden', 2, ['green', 'tourism', 'landmark'], 6, { stats: { revenue: 2 }, near: [nd('revenue', 1, 'green')] }),
-  B('city-park', 'City Park', 2, ['green', 'park'], 11, { stats: { population: 1, revenue: 1 }, near: [nd('revenue', 1, 'residential'), nd('revenue', 1, 'commercial')], clears: 'pollution', slots: 1 }),
-  B('greenbelt', 'Greenbelt', 2, ['green'], 6, { clears: 'pollution', slots: 2, near: [nd('population', 1, 'residential')] }),
-  B('nature-reserve', 'Nature Reserve', 3, ['green', 'landmark'], 8, { stats: { revenue: 2 }, near: [city('population', 1, 'green', { max: 8 })], unique: true, flavor: '+1 population for every green space in the city.' })
+  B('botanical-garden', 'Botanical Garden', 2, ['green', 'tourism', 'landmark'], 13, { patience: 2, stats: { revenue: 2 }, near: [nd('revenue', 1, 'green')] }),
+  B('city-park', 'City Park', 2, ['green', 'park'], 15, { patience: 1, stats: { population: 1, revenue: 1 }, near: [nd('revenue', 1, 'residential'), nd('revenue', 1, 'commercial')], clears: 'pollution', slots: 1 }),
+  B('greenbelt', 'Greenbelt', 2, ['green'], 9, { patience: 1, clears: 'pollution', slots: 2, near: [nd('population', 1, 'residential')] }),
+  B('nature-reserve', 'Nature Reserve', 3, ['green', 'landmark'], 15, { patience: 2, stats: { revenue: 2 }, near: [city('population', 1, 'green', { max: 8 })], unique: true, flavor: '+1 population for every green space in the city.' })
 ]
 
 // =============================================================== SERVICES
 export const SERVICE_CARDS = [
-  B('school', 'School', 1, ['education', 'service'], 2, { stats: { jobs: 2 }, near: [nd('population', 1, 'residential')], flavor: 'Families move in next door.' }),
-  B('library', 'Library', 1, ['education', 'culture', 'service'], 4, { stats: { jobs: 1 }, handSize: 1, flavor: 'Draw a sixth card every turn.' }),
+  B('school', 'School', 1, ['education', 'service'], 6, { patience: 1, stats: { jobs: 2 }, near: [nd('population', 1, 'residential')], flavor: 'Families move in next door.' }),
+  B('library', 'Library', 1, ['education', 'culture', 'service'], 7, { patience: 1, stats: { jobs: 1 }, handSize: 1, flavor: 'Draw a sixth card every turn.' }),
   B('landfill', 'Landfill', 1, ['utility', 'service'], 3, { clears: 'trash', slots: 3, onBuild: [status('pollution')] }),
   B('water-tower', 'Water Tower', 1, ['utility', 'service'], 4, { onTurn: [perAdj('residential', 1)], flavor: 'Bills paid by the neighbours.' }),
   B('post-office', 'Post Office', 1, ['service'], 4, { stats: { jobs: 1 }, onTurn: [perCount('residential', 1, 3)], flavor: '+1 budget a turn for every three homes.' }),
-  B('community-center', 'Community Center', 1, ['service', 'civic'], 6, { stats: { population: 1 }, clears: 'crime', slots: 1, near: [nd('population', 1, 'residential')] }),
+  B('community-center', 'Community Center', 1, ['service', 'civic'], 10, { patience: 1, stats: { population: 1 }, clears: 'crime', slots: 1, near: [nd('population', 1, 'residential')] }),
   B('precinct', 'Police Precinct', 2, ['safety', 'service'], 6, { stats: { jobs: 2 }, clears: 'crime', slots: 3 }),
   B('hospital', 'Hospital', 2, ['health', 'service'], 8, { stats: { jobs: 4 }, clears: 'pollution', slots: 3, near: [nd('population', 1, 'residential')] }),
-  B('fire-department', 'Fire Department', 2, ['safety', 'service'], 13, { stats: { jobs: 2 }, blocks: 2, flavor: 'Blocks two disaster cards every strike.' }),
+  B('fire-department', 'Fire Department', 2, ['safety', 'service'], 7, { stats: { jobs: 2 }, blocks: 2, flavor: 'Blocks two disaster cards every strike.' }),
   B('high-school', 'High School', 2, ['education', 'service'], 3, { stats: { jobs: 3 }, near: [nd('revenue', 1, 'residential')] }),
   B('courthouse', 'Courthouse', 2, ['safety', 'service'], 10, { stats: { jobs: 2 }, clears: ['crime', 'debt'], slots: 2, onClear: [gain(1)], flavor: 'Fines: +1 budget for every card it takes.' }),
-  B('city-hall', 'City Hall', 2, ['service', 'landmark'], 11, { stats: { jobs: 3, revenue: 2 }, buysBonus: 1, unique: true, flavor: '+1 buy every turn.' }),
+  B('city-hall', 'City Hall', 2, ['service', 'landmark'], 18, { patience: 2, stats: { jobs: 3, revenue: 2 }, buysBonus: 1, unique: true, flavor: '+1 buy every turn.' }),
   B('university', 'University', 3, ['education', 'service', 'landmark'], 12, { stats: { jobs: 6, revenue: 2 }, handSize: 1, near: [nd('revenue', 1, 'education')], unique: true }),
-  B('prison', 'Prison', 3, ['safety', 'service'], 7, { stats: { jobs: 4 }, clears: 'crime', slots: 4 }),
-  B('emergency-services', 'Emergency Services', 3, ['safety', 'health', 'service'], 20, { stats: { jobs: 3 }, blocks: 2, clears: ['crime', 'pollution'], slots: 2 })
+  B('prison', 'Prison', 3, ['safety', 'service'], 4, { patience: -1, stats: { jobs: 4 }, clears: 'crime', slots: 4 }),
+  B('emergency-services', 'Emergency Services', 3, ['safety', 'health', 'service'], 15, { stats: { jobs: 3 }, blocks: 2, clears: ['crime', 'pollution'], slots: 2 })
 ]
 
 // ================================================================ TRANSIT
 export const TRANSIT_CARDS = [
+  B('boulevard', 'Boulevard', 2, ['infrastructure', 'transit-road'], 3, { placesRoad: true, roadSegments: 3, flavor: 'Three street segments, tree-lined.' }),
+  B('highway', 'Highway', 3, ['infrastructure', 'transit-road'], 4, { placesRoad: true, roadSegments: 4, flavor: 'Four street segments at once.' }),
   B('bus-stop', 'Bus Stop', 1, ['transit'], 4, { onTurn: [perAdj('commercial', 1)], onBuild: [draw(1)] }),
   B('parking-garage', 'Parking Garage', 1, ['transit'], 4, { stats: { revenue: 1 }, near: [nd('revenue', 1, 'commercial')] }),
   B('bike-share', 'Bike Share', 1, ['transit', 'green'], 4, { onTurn: [perAdj('residential', 1)] }),
@@ -201,18 +204,18 @@ export const TRANSIT_CARDS = [
 
 // ========================================================= LEISURE & CULTURE
 export const LEISURE_CARDS = [
-  B('movie-theater', 'Movie Theater', 1, ['leisure'], 5, { stats: { jobs: 2, revenue: 1 }, near: [nd('revenue', 1, 'commercial')] }),
-  B('bowling-alley', 'Bowling Alley', 1, ['leisure'], 6, { stats: { jobs: 1, revenue: 2 }, onNeighbor: [gain(1)] }),
-  B('art-gallery', 'Art Gallery', 1, ['culture', 'arts'], 6, { stats: { revenue: 1 }, near: [nd('revenue', 1, 'culture'), nd('revenue', 1, 'arts')] }),
-  B('museum', 'Museum', 2, ['culture', 'landmark', 'tourism'], 10, { stats: { jobs: 2, revenue: 1 }, onTurn: [token('tourist')] }),
-  B('concert-hall', 'Concert Hall', 2, ['culture', 'leisure'], 7, { stats: { jobs: 2, revenue: 2 }, near: [nd('revenue', 1, 'culture')] }),
-  B('casino', 'Casino', 2, ['leisure', 'tourism'], 3, { stats: { jobs: 3, revenue: 6 }, onBuild: [status('crime', 2)], onTurn: [status('crime')], flavor: 'The house always wins. So does crime.' }),
-  B('zoo', 'Zoo', 2, ['leisure', 'green', 'tourism'], 10, { stats: { jobs: 2, revenue: 1 }, onTurn: [token('tourist')] }),
-  B('stadium', 'Stadium', 3, ['leisure', 'landmark', 'tourism'], 18, { stats: { jobs: 4, revenue: 3 }, onTurn: [token('tourist', 2)], onBuild: [status('trash', 2)], unique: true }),
-  B('cathedral', 'Cathedral', 3, ['culture', 'landmark'], 10, { stats: { population: 2 }, onTurn: [clear(1)], unique: true, flavor: 'Absolves one bad card a turn.' }),
-  B('monument-plaza', 'Monument Plaza', 3, ['culture', 'landmark'], 4, { near: [city('population', 1, 'landmark', { max: 8 })], unique: true, flavor: '+1 population for every landmark in the city.' }),
-  B('theme-park', 'Theme Park', 3, ['leisure', 'landmark', 'tourism'], 17, { stats: { jobs: 5, revenue: 2 }, onTurn: [token('tourist', 2)], onBuild: [status('trash', 2)], unique: true }),
-  B('observation-tower', 'Observation Tower', 3, ['landmark', 'tourism'], 12, { stats: { revenue: 2 }, near: [city('revenue', 1, 'landmark', { max: 6 })], onBuild: [token('tourist')] })
+  B('movie-theater', 'Movie Theater', 1, ['leisure'], 9, { patience: 1, stats: { jobs: 2, revenue: 1 }, near: [nd('revenue', 1, 'commercial')] }),
+  B('bowling-alley', 'Bowling Alley', 1, ['leisure'], 9, { patience: 1, stats: { jobs: 1, revenue: 2 }, onNeighbor: [gain(1)] }),
+  B('art-gallery', 'Art Gallery', 1, ['culture', 'arts'], 10, { patience: 1, stats: { revenue: 1 }, near: [nd('revenue', 1, 'culture'), nd('revenue', 1, 'arts')] }),
+  B('museum', 'Museum', 2, ['culture', 'landmark', 'tourism'], 13, { patience: 1, stats: { jobs: 2, revenue: 1 }, onTurn: [token('tourist')] }),
+  B('concert-hall', 'Concert Hall', 2, ['culture', 'leisure'], 11, { patience: 1, stats: { jobs: 2, revenue: 2 }, near: [nd('revenue', 1, 'culture')] }),
+  B('casino', 'Casino', 2, ['leisure', 'tourism'], 2, { patience: -1, stats: { jobs: 3, revenue: 7 }, onBuild: [status('crime', 2)], onTurn: [status('crime')], flavor: 'The house always wins. So does crime.' }),
+  B('zoo', 'Zoo', 2, ['leisure', 'green', 'tourism'], 13, { patience: 1, stats: { jobs: 2, revenue: 1 }, onTurn: [token('tourist')] }),
+  B('stadium', 'Stadium', 3, ['leisure', 'landmark', 'tourism'], 25, { patience: 2, stats: { jobs: 4, revenue: 3 }, onTurn: [token('tourist', 2)], onBuild: [status('trash', 2)], unique: true }),
+  B('cathedral', 'Cathedral', 3, ['culture', 'landmark'], 20, { patience: 3, stats: { population: 2 }, onTurn: [clear(1)], unique: true, flavor: 'Absolves one bad card a turn.' }),
+  B('monument-plaza', 'Monument Plaza', 3, ['culture', 'landmark'], 11, { patience: 2, near: [city('population', 1, 'landmark', { max: 8 })], unique: true, flavor: '+1 population for every landmark in the city.' }),
+  B('theme-park', 'Theme Park', 3, ['leisure', 'landmark', 'tourism'], 24, { patience: 2, stats: { jobs: 5, revenue: 2 }, onTurn: [token('tourist', 2)], onBuild: [status('trash', 2)], unique: true }),
+  B('observation-tower', 'Observation Tower', 3, ['landmark', 'tourism'], 16, { patience: 1, stats: { revenue: 2 }, near: [city('revenue', 1, 'landmark', { max: 6 })], onBuild: [token('tourist')] })
 ]
 
 // ================================================================== CIVIC

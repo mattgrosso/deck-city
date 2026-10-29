@@ -5,9 +5,9 @@
       <div class="top__turn">Turn {{ turn }}</div>
     </div>
     <div class="top__mid">
-      <div class="pill pill--big" :class="{ 'pill--win': population >= populationTarget, 'focus-ring': focus === 'population' }">
+      <div class="pill pill--big" :class="{ 'focus-ring': focus === 'population' }">
         <svg viewBox="0 0 24 24"><path :d="icons.people" /></svg>
-        <span>{{ population }}</span><span class="muted">/ {{ populationTarget }}</span>
+        <span>{{ population }}</span><span class="muted">people</span>
       </div>
       <div class="pill" :class="{ 'focus-ring': focus === 'jobs' }"><svg viewBox="0 0 24 24"><path :d="icons.jobs" /></svg>{{ jobs }} <span class="muted">jobs</span></div>
       <div class="pill" :class="{ 'focus-ring': focus === 'budget' }"><svg viewBox="0 0 24 24"><path :d="icons.coin" /></svg>{{ revenue }} <span class="muted">next budget</span></div>
@@ -16,6 +16,13 @@
       </div>
     </div>
     <div class="top__right">
+      <div v-if="era" class="patience" :class="{ 'patience--low': patienceLow, 'patience--endless': endless, 'focus-ring': focus === 'patience' }">
+        <div class="patience__label">
+          <span class="patience__era">{{ endless ? 'Endless city' : `Era ${['I', 'II', 'III'][era - 1]}` }}</span>
+          <span v-if="!endless">Patience <b>{{ Math.max(0, patience) }}</b><span class="muted"> / {{ patienceStart }}</span><span v-if="lastDrain" class="patience__drain">{{ lastDrain > 0 ? `−${lastDrain}` : `+${-lastDrain}` }} last turn</span></span>
+        </div>
+        <div v-if="!endless" class="patience__bar"><div class="patience__fill" :style="{ width: `${pct}%` }" /></div>
+      </div>
       <div class="pill" :class="{ 'pill--danger': !headedOff && disasterIn <= 1, 'pill--safe': headedOff, 'focus-ring': focus === 'disaster' }">
         <svg viewBox="0 0 24 24"><path :d="icons.clock" /></svg>
         <span v-if="headedOff">Disaster headed off</span>
@@ -31,10 +38,14 @@ import { ICONS } from '@/ui/icons'
 export default {
   name: 'TopBar',
   props: {
-    turn: Number, population: Number, populationTarget: Number, jobs: Number, revenue: Number,
+    turn: Number, population: Number, era: { type: Number, default: 0 }, patience: Number, patienceStart: Number, lastDrain: { type: Number, default: 0 }, endless: Boolean, jobs: Number, revenue: Number,
     statuses: Array, disasterIn: Number, headedOff: Boolean, focus: { type: String, default: null }
   },
-  data () { return { icons: ICONS } }
+  data () { return { icons: ICONS } },
+  computed: {
+    pct () { return Math.max(0, Math.min(100, Math.round(100 * this.patience / Math.max(1, this.patienceStart)))) },
+    patienceLow () { return !this.endless && this.pct <= 20 }
+  }
 }
 </script>
 
@@ -44,11 +55,19 @@ export default {
 .top__title { font-size: 13px; font-weight: 800; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-3); }
 .top__turn { font-size: 30px; font-weight: 800; line-height: 1; }
 .top__mid { flex: 1; display: flex; gap: 10px; align-items: center; justify-content: center; white-space: nowrap; }
-.top__right { display: flex; justify-content: flex-end; white-space: nowrap; }
+.top__right { display: flex; justify-content: flex-end; align-items: center; gap: 14px; white-space: nowrap; }
+.patience { width: 300px; padding: 6px 12px 8px; border-radius: 12px; background: #fff; border: 1.5px solid #b9a8f0; }
+.patience__label { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 15px; color: var(--ink-2); }
+.patience__label b { font-size: 19px; color: var(--ink); }
+.patience__era { font-size: 12px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: #6b55c4; }
+.patience__drain { margin-left: 8px; font-size: 12px; color: var(--ink-3); }
+.patience__bar { height: 8px; margin-top: 5px; border-radius: 999px; background: #e2dcf7; overflow: hidden; }
+.patience__fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #7a62d9, #9a86ec); transition: width 400ms ease; }
+.patience--low { border-color: var(--red); }
+.patience--low .patience__fill { background: var(--red); }
+.patience--endless { width: auto; }
 .pill--big { font-size: 28px; padding: 6px 18px; border-color: var(--green); }
 .pill--big svg { width: 28px; height: 28px; }
-.pill--win { background: var(--green); color: #06261a; }
-.pill--win .muted { color: #06261a; }
 .pill--status { border-color: #ecc9cb; }
 .pill--zero { opacity: 0.5; }
 .pill--danger { border-color: var(--red); color: var(--red); animation: blink 1s steps(2) infinite; }

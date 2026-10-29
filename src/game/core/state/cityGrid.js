@@ -15,7 +15,24 @@ export const DEFAULT_CITY_GRID_SIZE = { width: 12, height: 8 }
  * @param {number} [options.height]
  */
 export function createCityGrid ({ width, height } = DEFAULT_CITY_GRID_SIZE) {
-  return { width, height, cells: Array(width * height).fill(null), roads: new Set() }
+  // `limits` is the part of the grid the city may use right now - the run
+  // widens it each era (turn/run.js). Defaults to the whole grid.
+  return { width, height, cells: Array(width * height).fill(null), roads: new Set(), limits: { x0: 0, y0: 0, x1: width, y1: height } }
+}
+
+/** Is a cell inside the current city limits? */
+export function isInLimits (grid, x, y) {
+  const l = grid.limits ?? { x0: 0, y0: 0, x1: grid.width, y1: grid.height }
+  return x >= l.x0 && x < l.x1 && y >= l.y0 && y < l.y1
+}
+
+/** Is an edge inside the current city limits (on or within the boundary)? */
+export function isEdgeInLimits (grid, key) {
+  const l = grid.limits ?? { x0: 0, y0: 0, x1: grid.width, y1: grid.height }
+  const { kind, x, y } = parseEdgeKey(key)
+  return kind === 'h'
+    ? x >= l.x0 && x < l.x1 && y >= l.y0 && y <= l.y1
+    : x >= l.x0 && x <= l.x1 && y >= l.y0 && y < l.y1
 }
 
 function indexOf (grid, x, y) {
@@ -98,7 +115,7 @@ export function hasRoadFrontage (grid, x, y) {
 
 /** @returns {boolean} true if the cell is in bounds and has road frontage */
 export function isBuildable (grid, x, y) {
-  return isInBounds(grid, x, y) && hasRoadFrontage(grid, x, y)
+  return isInBounds(grid, x, y) && isInLimits(grid, x, y) && hasRoadFrontage(grid, x, y)
 }
 
 /**
@@ -188,7 +205,7 @@ export function isEdgeConnected (grid, key, extra = []) {
 /** Every unroaded edge a new street may go on right now. */
 export function listConnectedEdges (grid, extra = []) {
   const laid = new Set(extra)
-  return listAllEdges(grid).filter(e => !e.roaded && !laid.has(e.key) && isEdgeConnected(grid, e.key, extra))
+  return listAllEdges(grid).filter(e => !e.roaded && !laid.has(e.key) && isEdgeInLimits(grid, e.key) && isEdgeConnected(grid, e.key, extra))
 }
 
 /**

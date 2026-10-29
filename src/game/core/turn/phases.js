@@ -15,6 +15,7 @@ import {
 import { resolveTrigger } from '../effects/effectRegistry'
 import { draw, discardCards, addToDrawPile, addToDiscardPile, shuffle } from '../piles/deck'
 import { expireOldest, expireLowestValue, tickTimers } from '../piles/row'
+import { drainPatience } from './run'
 
 /**
  * Shuffles a random disaster card (from ctx.disasterCards, resolved by
@@ -30,7 +31,8 @@ function triggerDisaster (ctx) {
   const timer = ctx.state.disasterTimer
   timer.strikes = (timer.strikes ?? 0) + 1
   const blockers = countDisasterBlockers(ctx.state)
-  const count = Math.max(0, timer.strikes - blockers)
+  // Escalates within an era, capped (ctx.maxDisasterCards, default 3); a run resets strikes each era.
+  const count = Math.max(0, Math.min(timer.strikes, ctx.maxDisasterCards ?? 3) - blockers)
   const cards = []
   for (let i = 0; i < count; i++) cards.push(pool[Math.floor(ctx.state.deck.rng() * pool.length)])
   if (cards.length) {
@@ -90,6 +92,8 @@ function unlockTiers (ctx) {
  */
 function checkGameStatus (ctx) {
   if (ctx.state.gameStatus !== 'playing') return
+  // In a run, elections decide (turn/run.js); the goal row is side projects.
+  if (ctx.run) return
 
   if (calcStatTotal(ctx.state, 'population') >= (ctx.populationTarget ?? 20)) {
     ctx.state.gameStatus = 'won'
@@ -188,20 +192,26 @@ export const DEFAULT_PHASES = [
       }
 
       unemployment(ctx)
-      unlockTiers(ctx)
+      if (!ctx.run) unlockTiers(ctx)
 
+      let struck = false
       if (tickDisasterTimer(ctx.state)) {
         triggerDisaster(ctx)
         resetDisasterTimer(ctx.state)
+        struck = true
       }
 
+      drainPatience(ctx, { struck })
       checkGameStatus(ctx)
     }
   },
   {
     name: 'cleanup',
     run: (ctx) => {
-      discardCards(ctx.state.deck, ctx.state.hand)
+      // A disaster card bites once, when drawn, and then it is gone: the
+      // city recovers. (When disasters stayed and bit again on every draw, a
+      // long run filled the deck with hundreds of them - yarn selfplay.)
+      discardCards(ctx.state.deck, ctx.state.hand.filter(c => c.type !== 'disaster'))
       ctx.state.hand = []
     }
   }

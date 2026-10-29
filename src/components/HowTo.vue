@@ -20,11 +20,11 @@
 // what the rules are." Opens on the first game and from the pause menu.
 export const PAGES = [
   {
-    title: 'Build a city of 20 people.',
+    title: 'Three eras, three elections.',
     lines: [
       'You start with a house, a shop, a factory and a street. Every turn you get a budget, draw five cards, and build.',
-      'Reach a population of 30 and the city is finished. You win.',
-      'Run the goal deck dry before that and the city stalls. You lose.'
+      'Each era you choose one of two Mandates: what the city must look like when the election comes. Meet all three and you win.',
+      'Public Patience, top right, is the clock. At zero the election is held. Miss the Mandate and you are voted out.'
     ]
   },
   {
@@ -60,9 +60,17 @@ export const PAGES = [
     ]
   },
   {
-    title: 'The city grows its own market.',
+    title: 'Patience, and a growing city.',
     lines: [
-      'Over a hundred buildings come to the City Row in three tiers: tier II at 12 people, tier III at 22.',
+      'Patience drains every turn: faster with bad cards in your deck, idle workers and disasters. Parks, culture and civic buildings slow it, never stop it.',
+      'Met the Mandate early? Pick it in the market to call the election now: half the patience left carries into the next era.',
+      'Each new era widens the city limits and brings a new tier of buildings to the City Row. Roads are always for sale beside it.'
+    ]
+  },
+  {
+    title: 'Look for combinations.',
+    lines: [
+      'Over a hundred buildings come to the City Row across the three eras.',
       'Some draw you extra cards, make others cheaper, or add Tourists and Commuters to your deck.',
       'Look for combinations: a Hotel beside a landmark, a Recycling Plant fed with Trash, a Coal Plant among factories.'
     ]
