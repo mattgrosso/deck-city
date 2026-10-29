@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { seedStructure } from '../state/playerState'
 import '../effects/coreEffects'
 import '../conditions/coreConditions'
 import { DEFAULT_PHASES } from './phases'
@@ -86,20 +87,48 @@ describe('endOfTurn phase', () => {
     })
 
     expect(state.deck.drawPile).toContain(flood)
-    expect(state.disasterTimer).toEqual({ turnsUntilDeadline: 4, headedOff: false })
+    expect(state.disasterTimer).toMatchObject({ turnsUntilDeadline: 4, strikes: 1 })
   })
 
-  it('does not trigger a disaster once the timer has been headed off', () => {
+  it('escalates: the Nth strike brings N cards, less one per standing Fire Station', () => {
     const state = createPlayerState()
-    state.disasterTimer = { turnsUntilDeadline: 1, headedOff: true }
     const flood = { id: 'flood', type: 'disaster', name: 'Flood' }
+    const station = { id: 'fire-station', type: 'building', name: 'Fire Station', blocksDisasters: true }
+    seedStructure(state, station, { x: 0, y: 0 })
+    const ctx = () => ({ state, log: [], turnManager: createTurnManager({ state }), disasterCards: [flood] })
 
-    phase('endOfTurn').run({
-      state, log: [], turnManager: createTurnManager({ state }), disasterCards: [flood]
-    })
+    state.disasterTimer.turnsUntilDeadline = 1
+    phase('endOfTurn').run(ctx())
+    expect(state.deck.drawPile.filter(c => c === flood)).toHaveLength(0) // strike 1, one station: held off
 
-    expect(state.deck.drawPile).not.toContain(flood)
-    expect(state.disasterTimer.headedOff).toBe(true)
+    state.disasterTimer.turnsUntilDeadline = 1
+    phase('endOfTurn').run(ctx())
+    expect(state.deck.drawPile.filter(c => c === flood)).toHaveLength(1) // strike 2: one gets through
+    expect(state.disasterTimer.strikes).toBe(2)
+  })
+
+  it('adds a Crime card when people outnumber jobs', () => {
+    const state = createPlayerState()
+    const crime = { id: 'crime', type: 'status', name: 'Crime', tags: ['crime'] }
+    seedStructure(state, { id: 'house', type: 'building', name: 'House', stats: { population: 2 } }, { x: 0, y: 0 })
+    const log = []
+    phase('endOfTurn').run({ state, log, turnManager: createTurnManager({ state }), catalog: { crime } })
+    expect(state.deck.discardPile).toContain(crime)
+    expect(log.join(' ')).toMatch(/Unemployment/)
+    seedStructure(state, { id: 'shop', type: 'building', name: 'Shop', stats: { jobs: 2 } }, { x: 1, y: 0 })
+    phase('endOfTurn').run({ state, log: [], turnManager: createTurnManager({ state }), catalog: { crime } })
+    expect(state.deck.discardPile.filter(c => c === crime)).toHaveLength(1)
+  })
+
+  it('counts every goal down and expires the ones at zero when the row has clocks', () => {
+    const state = createPlayerState()
+    const goalDeck = createDeck({ id: 'goal', cards: [{ id: 'g-next', tier: 1 }] })
+    const goalRow = { sourceDeck: goalDeck, size: 2, cards: [{ id: 'g-a', name: 'g-a', tier: 1 }, { id: 'g-b', name: 'g-b', tier: 2 }], timers: [1, 3], timerFor: (c) => 3 + c.tier }
+    const log = []
+    phase('endOfTurn').run({ state, goalRow, log, turnManager: createTurnManager({ state }) })
+    expect(goalRow.cards.map(c => c.id)).toEqual(['g-b', 'g-next'])
+    expect(goalRow.timers).toEqual([2, 4])
+    expect(log.join(' ')).toMatch(/time ran out: g-a/)
   })
 
   it('expires the lowest-tier unclaimed goal every 4 turns, backfilling from the source deck', () => {

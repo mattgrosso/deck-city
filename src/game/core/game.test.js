@@ -105,15 +105,18 @@ describe('createGame', () => {
     expect(() => game.actions.playCard('road', { x: 0, y: 0 })).toThrow(/no road access/)
   })
 
-  it('lets a road card be placed on any unroaded edge, never on a cell', () => {
+  it('lays one or two street segments that touch the network, never on a cell', () => {
     const game = createGame({ cardCatalog: [ROAD_CARD], startingDeckCardIds: ['test-road'], treasury: 5 })
     game.actions.advance() // draw -> build
-    expect(() => game.actions.playCard('test-road', { x: 0, y: 0 })).toThrow(/Invalid edge/)
-    expect(() => game.actions.playCard('test-road', { edge: 'h:2,2' })).toThrow(/already has a road/)
-    game.actions.playCard('test-road', { edge: 'h:0,0' })
-    expect(game.state.cityGrid.roads.has('h:0,0')).toBe(true)
+    expect(() => game.actions.playCard('test-road', { x: 0, y: 0 })).toThrow(/lays 1 to 2 segments/)
+    expect(() => game.actions.playCard('test-road', { edge: 'h:5,4' })).toThrow(/already has a road/)
+    expect(() => game.actions.playCard('test-road', { edge: 'h:0,0' })).toThrow(/does not touch a street/)
+    // Two segments: the first touches the starting street, the second touches the first.
+    game.actions.playCard('test-road', { edges: ['h:7,4', 'h:8,4'] })
+    expect(game.state.cityGrid.roads.has('h:7,4')).toBe(true)
+    expect(game.state.cityGrid.roads.has('h:8,4')).toBe(true)
     expect(game.state.builtStructures).toEqual([]) // never occupies a cell
-    expect(game.state.deck.discardPile.map(card => card.id)).toContain('test-road')
+    expect(game.state.deck.discardPile.filter(card => card.id === 'test-road')).toHaveLength(1) // one card, not two
   })
 
   it('a placed road grants frontage to neighboring cells', () => {
@@ -125,15 +128,14 @@ describe('createGame', () => {
     })
     game.actions.advance() // draw -> build
 
-    // (0,0) is not one of the seeded starting-road cells, so before placing
-    // a road there, its neighbor (1,0) has no frontage either.
-    expect(() => game.actions.playCard('test-building', { x: 1, y: 0 })).toThrow(/no road access/)
+    // (7,4) is just east of the starting street's end; it has no frontage yet.
+    expect(() => game.actions.playCard('test-building', { x: 7, y: 4 })).toThrow(/no road access/)
 
-    game.actions.playCard('test-road', { edge: 'v:1,0' }) // the edge between (0,0) and (1,0)
-    game.actions.playCard('test-building', { x: 1, y: 0 })
+    game.actions.playCard('test-road', { edge: 'h:7,4' }) // extends the starting street east
+    game.actions.playCard('test-building', { x: 7, y: 4 })
 
     expect(game.state.builtStructures).toHaveLength(1)
-    expect(game.state.builtStructures[0].position).toEqual({ x: 1, y: 0 })
+    expect(game.state.builtStructures[0].position).toEqual({ x: 7, y: 4 })
   })
 
   describe('playCivicCard', () => {
@@ -185,6 +187,7 @@ describe('createGame', () => {
     it('claims a goal whose condition is met, for free, moving it to the discard pile', () => {
       const game = createGame({ cardCatalog: EXAMPLE_CARDS, goalDeckCardIds: ['road'] }) // unused catalog card just to exercise the row
       game.goalRow.cards = [EASY_GOAL]
+      game.goalRow.timers = [4]
       game.actions.advance() // draw -> build
       game.actions.advance() // build -> acquire
       const treasuryBefore = game.state.treasury
@@ -197,9 +200,21 @@ describe('createGame', () => {
       expect(game.state.deck.discardPile).toContain(EASY_GOAL)
     })
 
+    it('allows one claim a turn', () => {
+      const game = createGame({ cardCatalog: EXAMPLE_CARDS })
+      const SECOND = { ...EASY_GOAL, id: 'goal-easy-2', name: 'Second Goal' }
+      game.goalRow.cards = [EASY_GOAL, SECOND]
+      game.goalRow.timers = [4, 4]
+      game.actions.advance() // draw -> build
+      game.actions.advance() // build -> acquire
+      game.actions.claimGoal('goal-easy')
+      expect(() => game.actions.claimGoal('goal-easy-2')).toThrow(/one goal/)
+    })
+
     it('rejects claiming a goal whose condition is not yet met', () => {
       const game = createGame({ cardCatalog: EXAMPLE_CARDS })
       game.goalRow.cards = [HARD_GOAL]
+      game.goalRow.timers = [4]
       game.actions.advance() // draw -> build
       game.actions.advance() // build -> acquire
 
@@ -210,12 +225,14 @@ describe('createGame', () => {
     it('rejects claiming outside the acquire phase', () => {
       const game = createGame({ cardCatalog: EXAMPLE_CARDS })
       game.goalRow.cards = [EASY_GOAL]
+      game.goalRow.timers = [4]
       expect(() => game.actions.claimGoal('goal-easy')).toThrow(/requires phase "acquire"/)
     })
 
     it('a claimed goal is buildable as a monument, skipping the road-frontage requirement', () => {
       const game = createGame({ cardCatalog: EXAMPLE_CARDS })
       game.goalRow.cards = [EASY_GOAL]
+      game.goalRow.timers = [4]
       game.actions.advance() // runs draw -> now in 'build'
       game.actions.advance() // runs build (no-op) -> now in 'acquire'
       game.actions.claimGoal('goal-easy')

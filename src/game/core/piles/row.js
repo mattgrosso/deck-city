@@ -11,10 +11,35 @@ import { draw, discardCards } from './deck'
  * @param {Object} options.sourceDeck - a Deck (see createDeck)
  * @param {number} [options.size]
  */
-export function createRow ({ sourceDeck, size = 4 }) {
-  const row = { sourceDeck, size, cards: [] }
+/**
+ * `timerFor(card)` gives a row per-card clocks: each card counts down a
+ * turn at a time (tickTimers) and expires at zero. The goal row uses it so
+ * every goal shows how long it has left (Matt: "a timer on each of them to
+ * make it clear what's at stake"). Without it, `timers` stays empty.
+ */
+export function createRow ({ sourceDeck, size = 4, timerFor = null }) {
+  const row = { sourceDeck, size, cards: [], timers: [], timerFor }
   fillRow(row)
   return row
+}
+
+const dropAt = (row, index) => {
+  const [card] = row.cards.splice(index, 1)
+  if (row.timerFor) row.timers.splice(index, 1)
+  return card
+}
+
+/** One turn passes: every timed card counts down; the ones at zero expire and are backfilled. */
+export function tickTimers (row) {
+  if (!row.timerFor) return []
+  const expired = []
+  for (let i = row.cards.length - 1; i >= 0; i--) {
+    row.timers[i] -= 1
+    if (row.timers[i] <= 0) expired.push(dropAt(row, i))
+  }
+  if (expired.length) discardCards(row.sourceDeck, expired)
+  fillRow(row)
+  return expired.reverse()
 }
 
 /**
@@ -26,7 +51,9 @@ export function createRow ({ sourceDeck, size = 4 }) {
 export function fillRow (row) {
   const needed = row.size - row.cards.length
   if (needed > 0) {
-    row.cards.push(...draw(row.sourceDeck, needed))
+    const drawn = draw(row.sourceDeck, needed)
+    row.cards.push(...drawn)
+    if (row.timerFor) row.timers.push(...drawn.map(card => row.timerFor(card)))
   }
   return row
 }
@@ -38,7 +65,7 @@ export function fillRow (row) {
  * @returns {Object|undefined} the expired card, if any
  */
 export function expireOldest (row) {
-  const [expired] = row.cards.splice(0, 1)
+  const expired = row.cards.length ? dropAt(row, 0) : undefined
   if (expired) discardCards(row.sourceDeck, [expired])
   fillRow(row)
   return expired
@@ -64,7 +91,7 @@ export function expireLowestValue (row, valueFn) {
     if (valueFn(row.cards[i]) < valueFn(row.cards[lowestIndex])) lowestIndex = i
   }
 
-  const [expired] = row.cards.splice(lowestIndex, 1)
+  const expired = dropAt(row, lowestIndex)
   discardCards(row.sourceDeck, [expired])
   fillRow(row)
   return expired
@@ -81,7 +108,7 @@ export function expireLowestValue (row, valueFn) {
 export function acquireFromRow (row, cardId) {
   const index = row.cards.findIndex(card => card.id === cardId)
   if (index === -1) return undefined
-  const [acquired] = row.cards.splice(index, 1)
+  const acquired = dropAt(row, index)
   fillRow(row)
   return acquired
 }

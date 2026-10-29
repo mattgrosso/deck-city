@@ -18,6 +18,8 @@
 
 import { CARD_TYPES } from './cardSchema'
 
+// A Monument is a building like any other: it needs a street (Matt: building one
+// anywhere "feels a little weird").
 const MONUMENT_STATS = { revenue: 1, population: 1 }
 
 export const GOAL_GRAND_OPENING = {
@@ -28,7 +30,6 @@ export const GOAL_GRAND_OPENING = {
   cost: 0,
   tags: ['monument'],
   stats: MONUMENT_STATS,
-  skipsRoadRequirement: true,
   condition: { type: 'populationAtLeast', amount: 6 },
   effects: { onComplete: [{ type: 'gainTreasury', amount: 5 }] }
 }
@@ -41,7 +42,6 @@ export const GOAL_FULL_EMPLOYMENT = {
   cost: 0,
   tags: ['monument'],
   stats: MONUMENT_STATS,
-  skipsRoadRequirement: true,
   condition: { type: 'buildingCountAtLeast', cardId: 'commercial', amount: 2 },
   effects: { onComplete: [{ type: 'gainTreasury', amount: 5 }] }
 }
@@ -54,7 +54,6 @@ export const GOAL_CLEAN_STREETS = {
   cost: 0,
   tags: ['monument'],
   stats: MONUMENT_STATS,
-  skipsRoadRequirement: true,
   condition: { type: 'statusCountAtMost', tag: 'trash', amount: 0 },
   effects: { onComplete: [{ type: 'gainTreasury', amount: 6 }] }
 }
@@ -67,7 +66,6 @@ export const GOAL_PARK_DISTRICT = {
   cost: 0,
   tags: ['monument'],
   stats: MONUMENT_STATS,
-  skipsRoadRequirement: true,
   condition: { type: 'adjacentPair', tagA: 'park', tagB: 'residential' },
   effects: { onComplete: [{ type: 'gainTreasury', amount: 6 }] }
 }
@@ -80,7 +78,6 @@ export const GOAL_NEIGHBORHOOD_WATCH = {
   cost: 0,
   tags: ['monument'],
   stats: MONUMENT_STATS,
-  skipsRoadRequirement: true,
   condition: {
     type: 'all',
     conditions: [
@@ -99,7 +96,6 @@ export const GOAL_CITY_BANK = {
   cost: 0,
   tags: ['monument'],
   stats: MONUMENT_STATS,
-  skipsRoadRequirement: true,
   condition: { type: 'treasuryAtLeast', amount: 8 },
   effects: { onComplete: [{ type: 'raiseTreasuryRolloverCap', amount: 10 }] }
 }
@@ -112,7 +108,6 @@ export const GOAL_HOUSING_ROW = {
   cost: 0,
   tags: ['monument'],
   stats: MONUMENT_STATS,
-  skipsRoadRequirement: true,
   condition: { type: 'adjacentChain', tag: 'residential', length: 3 },
   effects: { onComplete: [{ type: 'gainTreasury', amount: 8 }] }
 }

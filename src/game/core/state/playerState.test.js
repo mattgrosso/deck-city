@@ -171,8 +171,8 @@ describe('placeRoad', () => {
 describe('createPlayerState starting roads', () => {
   it('seeds a starting road patch so some cells are buildable turn one', () => {
     const state = createPlayerState()
-    expect(isBuildable(state.cityGrid, 2, 1)).toBe(true)
-    expect(isBuildable(state.cityGrid, 3, 1)).toBe(true)
+    expect(isBuildable(state.cityGrid, 5, 3)).toBe(true)
+    expect(isBuildable(state.cityGrid, 6, 3)).toBe(true)
   })
 })
 
@@ -312,6 +312,6 @@ describe('disaster timer', () => {
     state.disasterTimer.turnsUntilDeadline = 0
     state.disasterTimer.headedOff = true
     resetDisasterTimer(state)
-    expect(state.disasterTimer).toEqual({ turnsUntilDeadline: 4, headedOff: false })
+    expect(state.disasterTimer).toMatchObject({ turnsUntilDeadline: 4, headedOff: false })
   })
 })

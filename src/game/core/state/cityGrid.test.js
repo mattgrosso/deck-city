@@ -13,7 +13,9 @@ import {
   listRoadEdges,
   seedStartingRoads,
   addRoadEdge,
-  listAllEdges
+  listAllEdges,
+  isEdgeConnected,
+  listConnectedEdges
 } from './cityGrid'
 
 describe('createCityGrid', () => {
@@ -27,8 +29,8 @@ describe('createCityGrid', () => {
 
   it('defaults to DEFAULT_CITY_GRID_SIZE', () => {
     const grid = createCityGrid()
-    expect(grid.width).toBe(6)
-    expect(grid.height).toBe(4)
+    expect(grid.width).toBe(12)
+    expect(grid.height).toBe(8)
   })
 })
 
@@ -152,12 +154,12 @@ describe('seedStartingRoads', () => {
   it('lays a short street through the middle, with frontage on both sides', () => {
     const grid = createCityGrid()
     seedStartingRoads(grid)
-    expect(isBuildable(grid, 2, 1)).toBe(true)
-    expect(isBuildable(grid, 3, 1)).toBe(true)
-    expect(isBuildable(grid, 2, 2)).toBe(true)
-    expect(isBuildable(grid, 3, 2)).toBe(true)
-    expect(isBuildable(grid, 1, 1)).toBe(false)
-    expect(isBuildable(grid, 4, 1)).toBe(false)
+    expect(isBuildable(grid, 5, 3)).toBe(true)
+    expect(isBuildable(grid, 6, 3)).toBe(true)
+    expect(isBuildable(grid, 5, 4)).toBe(true)
+    expect(isBuildable(grid, 6, 4)).toBe(true)
+    expect(isBuildable(grid, 4, 3)).toBe(false)
+    expect(isBuildable(grid, 7, 3)).toBe(false)
   })
 
   it('accepts a custom list of edges', () => {
@@ -186,5 +188,22 @@ describe('addRoadEdge / listAllEdges', () => {
     expect(all.length).toBe(2 * 4 + 3 * 3)
     addRoadEdge(grid, 'h:0,0')
     expect(listAllEdges(grid).find(e => e.key === 'h:0,0').roaded).toBe(true)
+  })
+})
+
+describe('isEdgeConnected / listConnectedEdges', () => {
+  it('a new street must touch the network; the first street of an empty city may go anywhere', () => {
+    const grid = createCityGrid({ width: 4, height: 3 })
+    expect(isEdgeConnected(grid, 'h:0,0')).toBe(true)
+    addRoadEdge(grid, 'h:1,1')
+    expect(isEdgeConnected(grid, 'h:2,1')).toBe(true) // shares node (2,1)
+    expect(isEdgeConnected(grid, 'v:2,1')).toBe(true) // hangs off node (2,1)
+    expect(isEdgeConnected(grid, 'h:3,0')).toBe(false)
+    expect(isEdgeConnected(grid, 'h:3,0', ['h:3,1'])).toBe(false)
+    expect(isEdgeConnected(grid, 'h:3,1', ['h:2,1'])).toBe(true) // through an edge laid in the same play
+    const open = listConnectedEdges(grid).map(e => e.key)
+    expect(open).toContain('h:2,1')
+    expect(open).not.toContain('h:1,1')
+    expect(open).not.toContain('h:3,0')
   })
 })

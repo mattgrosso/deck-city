@@ -11,6 +11,7 @@ export const ROAD = {
   name: 'Road',
   cost: 1,
   placesRoad: true,
+  roadSegments: 2, // two street segments a card (Matt: "road cards should lay two")
   tags: ['infrastructure']
 }
 

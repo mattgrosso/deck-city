@@ -4,8 +4,8 @@
 // future Vue HUD or Phaser scene (or a test) drives the game with.
 
 import { CARD_TYPES, buildCardCatalog } from './cards/cardSchema'
-import { createPlayerState, buildStructure, placeRoad, spendTreasury } from './state/playerState'
-import { isCellEmpty, isBuildable, isEdgeInBounds } from './state/cityGrid'
+import { createPlayerState, buildStructure, placeRoad, spendTreasury, seedStructure, clearStatusCard } from './state/playerState'
+import { isCellEmpty, isBuildable, isEdgeInBounds, isEdgeConnected } from './state/cityGrid'
 import { createDeck, addToDiscardPile } from './piles/deck'
 import { createRow, acquireFromRow } from './piles/row'
 import { createTurnManager, advancePhase, assertPhase } from './turn/turnManager'
@@ -42,6 +42,8 @@ function assertPlaying (state) {
  * @param {number} [options.treasury] - starting treasury, before the first 'draw' phase's budget reset ever runs
  * @param {number} [options.baseRevenue] - flat municipal income added to building revenue every budget reset; see turn/phases.js for why this can't be 0
  * @param {number} [options.populationTarget] - win condition, checked every 'endOfTurn'
+ * @param {{cardId: string, x: number, y: number}[]} [options.startingBuildings] - stood in the city before turn one, no effects, no cards
+ * @param {(card: Object) => number} [options.goalTimerFor] - turns a goal stays on offer; default 3 + tier
  * @param {() => number} [options.rng]
  */
 export function createGame ({
@@ -56,6 +58,8 @@ export function createGame ({
   treasury = 0,
   baseRevenue = 4,
   populationTarget = 20,
+  startingBuildings = [],
+  goalTimerFor = (card) => 3 + (card.tier ?? 1),
   rng
 } = {}) {
   const catalog = buildCardCatalog(cardCatalog)
@@ -76,7 +80,9 @@ export function createGame ({
   const cityRow = createRow({ sourceDeck: cityDeck, size: cityRowSize })
 
   const goalDeck = createDeck({ id: 'goal', cards: goalDeckCardIds.map(resolveCard), rng })
-  const goalRow = createRow({ sourceDeck: goalDeck, size: goalRowSize })
+  const goalRow = createRow({ sourceDeck: goalDeck, size: goalRowSize, timerFor: goalTimerFor })
+
+  startingBuildings.forEach(({ cardId, x, y }) => seedStructure(state, resolveCard(cardId), { x, y }))
 
   const disasterCards = disasterCardIds.map(resolveCard)
 
@@ -109,15 +115,25 @@ export function createGame ({
 
     const card = state.hand[index]
 
-    // A Road card aims at an EDGE between two spaces ({ edge: 'h:2,2' }),
-    // never at a cell; everything else aims at a cell ({ x, y }).
+    // A Road card lays up to `roadSegments` (default 2) street segments,
+    // each an EDGE between two spaces ({ edges: ['h:2,2', 'h:3,2'] }); the
+    // first must touch the street network, each next one the network or
+    // the ones before it. Never a cell.
     if (card.placesRoad) {
-      const edge = position?.edge
-      if (!edge || !isEdgeInBounds(state.cityGrid, edge)) throw new Error(`Invalid edge: ${JSON.stringify(position)}`)
-      if (state.cityGrid.roads.has(edge)) throw new Error(`Edge ${edge} already has a road`)
+      const edges = position?.edges ?? (position?.edge ? [position.edge] : [])
+      const max = card.roadSegments ?? 2
+      if (!edges.length || edges.length > max) throw new Error(`A ${card.name} lays 1 to ${max} segments, got ${edges.length}`)
+      const laid = []
+      for (const edge of edges) {
+        if (!isEdgeInBounds(state.cityGrid, edge)) throw new Error(`Invalid edge: ${edge}`)
+        if (state.cityGrid.roads.has(edge) || laid.includes(edge)) throw new Error(`Edge ${edge} already has a road`)
+        if (!isEdgeConnected(state.cityGrid, edge, laid)) throw new Error(`Edge ${edge} does not touch a street`)
+        laid.push(edge)
+      }
       state.hand.splice(index, 1)
       spendTreasury(state, card.cost ?? 0)
-      return placeRoad(state, card, { ...context, edge })
+      edges.forEach((edge, i) => placeRoad(state, i === 0 ? card : { ...card, effects: {} }, { ...context, edge, intoDeck: i === 0 }))
+      return edges
     }
 
     if (!position || !isCellEmpty(state.cityGrid, position.x, position.y)) {
@@ -179,10 +195,22 @@ export function createGame ({
     if (!evaluateCondition(goal.condition, { state, catalog })) {
       throw new Error(`Goal "${goal.name}" condition is not yet met`)
     }
+    if ((state.goalsClaimedThisTurn ?? 0) >= 1) throw new Error('Only one goal may be claimed a turn')
 
     acquireFromRow(goalRow, goalId)
     addToDiscardPile(state.deck, [goal])
+    state.goalsClaimedThisTurn = (state.goalsClaimedThisTurn ?? 0) + 1
+    log.push(`Goal claimed: ${goal.name}. It is a Monument in your deck now.`)
     return goal
+  }
+
+  /** Trash a status card from the hand into a facility with a free slot (build phase). */
+  function clearStatus (cardId) {
+    assertPlaying(state)
+    assertPhase(turnManager, 'build')
+    const instance = clearStatusCard(state, cardId)
+    log.push(`${instance.card.name} took a ${catalog[cardId]?.name ?? cardId} card out of your deck.`)
+    return instance
   }
 
   function advance () {
@@ -196,6 +224,6 @@ export function createGame ({
     turnManager,
     catalog,
     log,
-    actions: { playCard, playCivicCard, acquireCard, claimGoal, advance }
+    actions: { playCard, playCivicCard, acquireCard, claimGoal, clearStatus, advance }
   }
 }

@@ -151,6 +151,44 @@ Commonwealth recipe: three.js inside the Vue app with Kenney's CC0 kits.
   today only Park (adjacency) and three goals (rows, pairs) care. A design
   conversation, not a bug.
 
+**Round four (same day; Matt played a game and talked).** This one changed
+RULES, all in `src/game/core/` with tests, plus the interface for them:
+- **A starting city** (Suburbia's opening: your first tiles ARE your income).
+  `createGame({ startingBuildings })` stands buildings with `seedStructure`
+  (no effects, no cards). The app starts a house, a shop and a factory on
+  the starting street: population 2, jobs 5, budget 5. `baseRevenue` is 0.
+- **Roads lay two segments** (`roadSegments: 2`; `playCard(id, { edges })`
+  takes 1-2) and **a street must touch a street** (`isEdgeConnected`,
+  `listConnectedEdges`; the first street of an empty city may go anywhere).
+  The UI aims the second segment from the first; B keeps just one.
+- **The field is 12×8** and the world canvas covers the whole stage: the
+  grass runs under every panel and the camera frames the city (plus
+  whatever is being aimed at) into the clear area, easing out as it grows.
+- **Status cards are cleared by hand**: facilities carry `clears: 'crime'`
+  etc. and slots; `game.actions.clearStatus(cardId)` trashes a Crime card
+  from your hand into a Police Station with a free slot. Nothing happens
+  on its own any more.
+- **Jobs matter**: at the end of a turn with more people than jobs, one
+  Crime card joins the deck (`unemployment` in phases.js).
+- **Goals have clocks**: `createRow({ timerFor })` gives each goal its own
+  countdown (3 + tier turns), `tickTimers` runs every end of turn, the
+  market shows "N turns left" per goal; the goals sit above the city row
+  in a gold box. **One claim a turn** (`goalsClaimedThisTurn`).
+  **Monuments need a street** like any building.
+- **Disasters escalate, Fire Stations block**: the Nth strike brings N
+  disaster cards; each standing Fire Station (`blocksDisasters`) blocks
+  one. `headOffDisaster` stays registered but no card uses it.
+- **The overnight card reads in words**: "Budget this turn: 5 (5 from
+  buildings).", "Unemployment: 4 people, 2 jobs. +1 Crime card.",
+  "Disaster 2: Flood and Blackout shuffled into your deck (1 blocked by
+  Fire Station)." Effects log "Lost 3 budget.", not "-3 treasury".
+- Status/disaster cards are light stock with a red band (the slate ones
+  were unreadable); the tutorial and keyword panel say the new rules.
+
+Open design threads from this round, not changed: whether unemployment
+should have a tolerance; one buy a turn too; the city row's price
+gradient (Suburbia); what else placement should matter for.
+
 **Not done / next:** nobody has played a full game on the TV yet — that's
 the point of all this. Then: tune every number (all still first guesses),
 decide whether Build and Acquire should be one phase, sound, the road-chain

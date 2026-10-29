@@ -26,7 +26,7 @@ describe('App', () => {
     expect(vm().mode).toBe('hand')
     expect(vm().phaseName).toBe('build')
     expect(vm().game.state.hand.length).toBe(5)
-    expect(vm().treasury).toBe(4)
+    expect(vm().treasury).toBe(5)
   })
 
   it('plays a Road from the hand onto an edge with A, the d-pad, and A', async () => {
@@ -42,15 +42,15 @@ describe('App', () => {
     await press('right', 'select')
     expect(vm().mode).toBe('hand')
     expect(vm().game.state.hand.length).toBe(4)
-    expect(vm().treasury).toBe(3)
+    expect(vm().treasury).toBe(4)
     expect(vm().game.state.cityGrid.roads.size).toBe(roadsBefore + 1)
   })
 
   it('Up from the hand looks at the city, Up again reaches the top bar, B comes back', async () => {
     await press('select', 'back', 'up')
     expect(vm().mode).toBe('look')
-    expect(vm().targets.length).toBe(24)
-    for (let i = 0; i < 6; i++) await press('up')
+    expect(vm().targets.length).toBe(96)
+    for (let i = 0; i < 12; i++) await press('up')
     expect(vm().mode).toBe('stats')
     await press('right')
     expect(vm().statIndex).toBe(1)
@@ -66,7 +66,7 @@ describe('App', () => {
     vm().handIndex = vm().game.state.hand.length - 1
     await press('select')
     expect(vm().mode).toBe('hand')
-    expect(vm().toast.text).toMatch(/can't be played/)
+    expect(vm().toast.text).toMatch(/No free slot/)
     vm().game.state.treasury = 0
     vm().refresh()
     vm().handIndex = vm().game.state.hand.findIndex(c => c.cost > 0)
@@ -80,7 +80,7 @@ describe('App', () => {
     expect(vm().phaseName).toBe('acquire')
     await press('confirm')
     expect(vm().mode).toBe('summary')
-    expect(vm().summary.lines.join(' ')).toMatch(/Budget reset/)
+    expect(vm().summary.lines.join(' ')).toMatch(/Budget this turn/)
     await press('select')
     expect(vm().mode).toBe('hand')
     expect(vm().turn).toBe(2)

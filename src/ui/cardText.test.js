@@ -16,10 +16,9 @@ describe('rulesFor', () => {
   })
 
   it('explains a road, a facility with slots, and an adjacency card', () => {
-    expect(rulesFor(starterCards.ROAD, catalog)[0]).toMatch(/one street between two plots/)
+    expect(rulesFor(starterCards.ROAD, catalog)[0]).toMatch(/up to 2 street segments/)
     expect(rulesFor(facilityCards.POLICE_STATION, catalog)).toEqual([
-      '2 slots, expandable',
-      'Each turn: remove Crime from your deck, one per free slot.'
+      'Play a Crime card from your hand into it: 2 slots a turn. The card is gone for good.'
     ])
     expect(rulesFor(facilityCards.PARK, catalog)).toEqual([
       '+1 revenue to each neighbouring Residential',
@@ -41,7 +40,7 @@ describe('rulesFor', () => {
 
   it('reads disasters and status cards honestly', () => {
     expect(rulesFor(disasterCards.FLOOD, catalog)).toEqual(['When drawn: lose 3 budget.'])
-    expect(rulesFor(starterCards.CRIME, catalog)).toEqual(['Does nothing. Takes up room in your hand.'])
+    expect(rulesFor(starterCards.CRIME, catalog)[0]).toMatch(/Play it into a Police Station/)
   })
 })
 

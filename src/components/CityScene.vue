@@ -8,15 +8,14 @@
     <!-- Crisp HTML labels over the canvas: a chip under each building. -->
     <div class="scene__labels">
       <div v-for="label in labels" :key="label.id" class="chip" :class="{ 'chip--monument': label.monument }" :style="{ left: `${label.x}px`, top: `${label.y}px` }">
-        <span class="chip__name">{{ label.name }}</span>
-        <span v-if="label.stats" class="chip__stats">{{ label.stats }}</span>
+        <span class="chip__name">{{ label.name }}</span><span v-if="label.stats" class="chip__stats">{{ label.stats }}</span>
       </div>
     </div>
   </div>
 </template>
 
 <script>
-import { layoutCity, LOT } from '@/world/cityLayout'
+import { layoutCity, cellCentre, edgeCentre, LOT } from '@/world/cityLayout'
 
 const STAT_SHORT = { population: 'pop', jobs: 'jobs', revenue: 'rev' }
 
@@ -34,9 +33,12 @@ export default {
     cursor: { type: Object, default: null },
     validEdges: { type: Array, default: () => [] }, // edge keys a Road may go on
     cursorEdge: { type: String, default: null },
+    plannedEdges: { type: Array, default: () => [] }, // segments already aimed by the Road card in hand
     previewCard: { type: Object, default: null },
-    width: { type: Number, default: 900 },
-    height: { type: Number, default: 580 },
+    width: { type: Number, default: 1920 },
+    height: { type: Number, default: 1080 },
+    // Where on the canvas the city is framed (canvas pixels); the rest is grass under the UI.
+    rect: { type: Object, default: null },
     // The stage's CSS scale, so the canvas renders at true screen pixels.
     stageScale: { type: Number, default: 1 }
   },
@@ -53,8 +55,10 @@ export default {
     cursor () { this.sync() },
     validEdges () { this.sync() },
     cursorEdge () { this.sync() },
+    plannedEdges () { this.sync() },
     previewCard () { this.sync() },
-    stageScale () { this.resize() }
+    stageScale () { this.resize() },
+    rect () { this.resize() }
   },
   async mounted () {
     try {
@@ -76,7 +80,7 @@ export default {
   beforeUnmount () { this.world?.dispose() },
   methods: {
     resize () {
-      this.world?.resize(this.width, this.height, (window.devicePixelRatio || 1) * this.stageScale)
+      this.world?.resize(this.width, this.height, (window.devicePixelRatio || 1) * this.stageScale, this.rect)
       this.placeLabels()
     },
     sync (opts = {}) {
@@ -92,7 +96,9 @@ export default {
         cursor: this.targeting ? this.cursor : null,
         ghost: this.targeting && this.cursor ? this.world.ghostFor(this.previewCard, cursorLot) : [],
         validEdges: this.targeting ? this.validEdges : [],
-        cursorEdge: this.targeting ? this.cursorEdge : null
+        cursorEdge: this.targeting ? this.cursorEdge : null,
+        plannedEdges: this.targeting ? this.plannedEdges : [],
+        extraPoints: this.targeting ? this.aimPoints() : []
       }, opts)
       this.placeLabels()
     },
@@ -106,6 +112,15 @@ export default {
         const p = this.world.project(lot.wx + LOT / 2, 0, lot.wz + LOT / 2)
         return { id: lot.id, x: p.x, y: p.y, name: inst.card.name, stats: stats.join(' · '), monument: inst.card.type === 'goal' }
       })
+    },
+    /** Where the player may aim or is looking: the camera keeps these in frame. */
+    aimPoints () {
+      const pts = []
+      const cells = this.validCells.length ? this.validCells : (this.cursor ? [this.cursor] : [])
+      for (const c of cells) pts.push(cellCentre(this.grid, c.x, c.y))
+      for (const key of [...this.validEdges, ...this.plannedEdges]) pts.push(edgeCentre(this.grid, key))
+      if (this.cursor) pts.push(cellCentre(this.grid, this.cursor.x, this.cursor.y))
+      return pts
     },
     /** Stage-pixel positions, so the app can move the cursor in SCREEN directions on an isometric board. */
     screenOfCell (x, y) { return this.world ? this.world.screenOfCell(this.grid, x, y) : { x: x * 100, y: y * 100 } },
@@ -122,18 +137,18 @@ export default {
 
 <style scoped>
 .scene { position: relative; }
-.scene__canvas { display: block; width: 100%; height: 100%; opacity: 0; transition: opacity 400ms ease; border-radius: 18px; }
+.scene__canvas { display: block; width: 100%; height: 100%; opacity: 0; transition: opacity 400ms ease; }
 .scene__canvas--ready { opacity: 1; }
-.scene__loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--ink-3); font-size: 22px; }
-.scene__flat { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; padding: 8px; }
+.scene__loading { position: absolute; left: 400px; top: 400px; color: var(--ink-3); font-size: 22px; }
+.scene__flat { position: absolute; left: 40px; top: 100px; width: 1100px; height: 660px; display: grid; grid-template-columns: repeat(12, 1fr); gap: 6px; padding: 8px; background: #8ccf7a; border-radius: 18px; }
 .flat-lot { background: #8ccf7a; border: 2px solid #6fb55f; border-radius: 10px; }
 .flat-lot--built { background: #dfe3ea; }
 .flat-lot--valid { border-color: #3dd68c; }
 .flat-lot--cursor { border-color: #fff; }
 .scene__labels { position: absolute; inset: 0; pointer-events: none; }
-.chip { position: absolute; transform: translate(-50%, 0); display: flex; flex-direction: column; align-items: center; padding: 2px 8px; border-radius: 8px; background: rgba(255,255,255,0.92); border: 1px solid var(--line); white-space: nowrap; box-shadow: 0 2px 6px rgba(27,33,48,0.15); }
-.chip__name { font-size: 12px; font-weight: 800; letter-spacing: 0.02em; }
-.chip__stats { font-size: 10.5px; font-weight: 700; color: var(--ink-2); }
+.chip { position: absolute; transform: translate(-50%, 0); display: flex; gap: 6px; align-items: baseline; padding: 1px 7px; border-radius: 7px; background: rgba(255,255,255,0.92); border: 1px solid var(--line); white-space: nowrap; box-shadow: 0 2px 6px rgba(27,33,48,0.15); }
+.chip__name { font-size: 11px; font-weight: 800; letter-spacing: 0.02em; }
+.chip__stats { font-size: 10px; font-weight: 700; color: var(--ink-2); }
 .chip--monument { border-color: var(--gold); }
 .chip--monument .chip__name { color: #b47a0a; }
 </style>

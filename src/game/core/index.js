@@ -21,7 +21,7 @@ export {
   createDeck, shuffle, draw, discardCards, addToDrawPile, addToDiscardPile
 } from './piles/deck'
 export {
-  createRow, fillRow, expireOldest, expireLowestValue, acquireFromRow
+  createRow, fillRow, expireOldest, expireLowestValue, acquireFromRow, tickTimers
 } from './piles/row'
 
 export {
@@ -43,7 +43,10 @@ export {
   resetDisasterTimer,
   getAdjacentInstances,
   headOffDisaster,
-  raiseTreasuryRolloverCap
+  raiseTreasuryRolloverCap,
+  seedStructure,
+  countDisasterBlockers,
+  clearStatusCard
 } from './state/playerState'
 export {
   DEFAULT_CITY_GRID_SIZE,
@@ -54,6 +57,9 @@ export {
   isEdgeInBounds,
   addRoadEdge,
   listAllEdges,
+  edgeNodes,
+  isEdgeConnected,
+  listConnectedEdges,
   createCityGrid,
   isInBounds,
   isCellEmpty,

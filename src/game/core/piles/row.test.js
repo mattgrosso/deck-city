@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { createDeck } from './deck'
-import { createRow, fillRow, expireOldest, expireLowestValue, acquireFromRow } from './row'
+import { createRow, fillRow, expireOldest, expireLowestValue, acquireFromRow, tickTimers } from './row'
 
 const cards = (...ids) => ids.map(id => ({ id }))
 
@@ -84,5 +84,28 @@ describe('acquireFromRow', () => {
     const sourceDeck = createDeck({ id: 'city', cards: cards('a', 'b', 'c', 'd') })
     const row = createRow({ sourceDeck, size: 4 })
     expect(acquireFromRow(row, 'not-there')).toBeUndefined()
+  })
+})
+
+describe('tickTimers', () => {
+  it('counts every timed card down a turn, expires the ones at zero and backfills with fresh clocks', () => {
+    const sourceDeck = createDeck({ id: 'goal', cards: [{ id: 'a', tier: 1 }, { id: 'b', tier: 3 }, { id: 'c', tier: 2 }] })
+    const row = createRow({ sourceDeck, size: 2, timerFor: (card) => card.tier })
+    expect(row.timers).toEqual([2, 3]) // c (tier 2) and b (tier 3) drawn from the end
+    expect(tickTimers(row)).toEqual([])
+    expect(row.timers).toEqual([1, 2])
+    const expired = tickTimers(row)
+    expect(expired.map(c => c.id)).toEqual(['c'])
+    expect(row.cards.map(c => c.id)).toEqual(['b', 'a'])
+    expect(row.timers).toEqual([1, 1])
+    expect(sourceDeck.discardPile.map(c => c.id)).toEqual(['c'])
+  })
+
+  it('keeps timers lined up with cards through an acquire', () => {
+    const sourceDeck = createDeck({ id: 'goal', cards: [{ id: 'a', tier: 1 }, { id: 'b', tier: 3 }, { id: 'c', tier: 2 }] })
+    const row = createRow({ sourceDeck, size: 2, timerFor: (card) => card.tier })
+    acquireFromRow(row, 'c')
+    expect(row.cards.map(c => c.id)).toEqual(['b', 'a'])
+    expect(row.timers).toEqual([3, 1])
   })
 })

@@ -92,12 +92,14 @@ export function rulesFor (card, catalog = {}) {
   const lines = []
   if (!card) return lines
 
-  if (card.placesRoad) lines.push('Lays one street between two plots. A building needs a street on one side.')
+  if (card.placesRoad) lines.push(`Lays up to ${card.roadSegments ?? 2} street segments, joined to a street you have. Buildings need a street on one side.`)
 
   const stats = Object.entries(card.stats ?? {}).filter(([, v]) => v)
   if (stats.length) lines.push(stats.map(([k, v]) => `+${v} ${k}`).join(', '))
 
-  if (card.slots) lines.push(`${plural(card.slots.capacity, 'slot')}${card.slots.expandable ? ', expandable' : ''}`)
+  if (card.clears) lines.push(`Play a ${nameOf(card.clears, catalog)} card from your hand into it: ${plural(card.slots?.capacity ?? 1, 'slot')} a turn. The card is gone for good.`)
+  else if (card.slots) lines.push(`${plural(card.slots.capacity, 'slot')}${card.slots.expandable ? ', expandable' : ''}`)
+  if (card.blocksDisasters) lines.push('While it stands, blocks one disaster card every strike.')
 
   for (const bonus of card.adjacency?.statBonus ?? []) {
     lines.push(`+${bonus.amount} ${bonus.stat} to each neighbouring ${nameOf(bonus.targetTag, catalog)}`)
@@ -111,19 +113,19 @@ export function rulesFor (card, catalog = {}) {
     lines.push(`${when}: ${what}.`)
   }
 
-  if (card.type === 'status') lines.push('Does nothing. Takes up room in your hand.')
+  if (card.type === 'status') lines.push(`Dead weight in your hand. Play it into a ${{ crime: 'Police Station', trash: 'Sanitation Center', pollution: 'Clinic' }[card.id] ?? 'facility'} with a free slot to be rid of it.`)
   return lines.map(cap)
 }
 
 export const KEYWORDS = {
-  budget: 'Budget resets every turn to what your city earns. Unspent budget is lost unless a card says otherwise.',
-  road: 'A building can only go on a plot that touches a street. A Road card lays one street segment between two plots.',
-  slot: 'A facility removes one status card per free slot each turn. Slots refill every turn.',
-  status: 'Crime, Trash and Pollution are dead cards. They sit in your hand and do nothing until a facility removes them.',
-  monument: 'A claimed goal. Costs nothing, needs no road, and gives +1 population and +1 revenue.',
-  disaster: 'When the clock runs out a disaster card is shuffled into your deck. It hurts when you draw it.',
+  budget: 'Your budget each turn is the revenue of every building you have. Unspent budget is lost unless a card says otherwise.',
+  road: 'A building can only go on a plot that touches a street. A Road card lays up to two segments, each joined to a street you already have.',
+  slot: 'Play a status card from your hand into a facility with a free slot and the card leaves the game. Slots refill every turn.',
+  status: 'Crime, Trash and Pollution are dead cards. Play one into the right facility to be rid of it; otherwise it just clogs your hand.',
+  monument: 'A claimed goal. Costs nothing to build, needs a street like anything else, and gives +1 population and +1 revenue.',
+  disaster: 'Every fourth turn a strike shuffles disaster cards into your deck, one more each time. Each Fire Station standing blocks one.',
   population: 'The win condition. Reach the target and the city is finished.',
-  revenue: 'Next turn\'s budget: the revenue of every building, plus the city\'s base income.'
+  revenue: 'Next turn\'s budget: the revenue of every building in the city.'
 }
 
 /** The keywords a card's text touches, as [word, definition] pairs. */

@@ -22,7 +22,7 @@ export const PAGES = [
   {
     title: 'Build a city of 20 people.',
     lines: [
-      'Every turn you get a budget, draw five cards, and build what you can.',
+      'You start with a house, a shop, a factory and a street. Every turn you get a budget, draw five cards, and build.',
       'Reach a population of 20 and the city is finished. You win.',
       'Run the goal deck dry before that and the city stalls. You lose.'
     ]
@@ -30,7 +30,7 @@ export const PAGES = [
   {
     title: 'The budget resets every turn.',
     lines: [
-      'Your budget is the revenue of everything you have built, plus 4 for the city itself.',
+      'Your budget is the revenue of everything you have built. The starting city earns 5.',
       'Spend it or lose it: nothing carries over unless a goal says so.',
       'Buildings cost budget to place. The number on the coin is the price.'
     ]
@@ -38,25 +38,25 @@ export const PAGES = [
   {
     title: 'Roads first, then buildings.',
     lines: [
-      'A Road card lays one street segment between two plots.',
+      'A Road card lays up to two street segments, each joined to a street you already have.',
       'A building can only go on a plot that touches a street.',
-      'Houses bring people. Shops and factories bring jobs and revenue.'
+      'Houses bring people. Shops and factories bring jobs. People without jobs turn to crime.'
     ]
   },
   {
     title: 'Growth makes a mess.',
     lines: [
       'A house adds a Crime card to your deck. A shop adds Trash. A factory adds Pollution.',
-      'Those cards do nothing. They clog your hand and crowd out real cards.',
-      'A Police Station, Sanitation Center or Clinic eats one each turn.'
+      'Those cards clog your hand and crowd out real cards.',
+      'Build a Police Station, Sanitation Center or Clinic, then play the card from your hand into it. It is gone for good.'
     ]
   },
   {
     title: 'The market, then the clock.',
     lines: [
       'After building, buy a card from the City Row with what budget is left.',
-      'Goals are free. Meet the condition and claim it: it becomes a Monument you can build anywhere.',
-      'Every four turns the cheapest unclaimed goal expires. Every four turns a disaster strikes unless a Fire Station stands.'
+      'Goals are free, one a turn. Meet the condition and claim it: it becomes a Monument to build.',
+      'Each goal has a clock and expires when it runs out. Every four turns a disaster strikes, harder each time; each Fire Station blocks one card.'
     ]
   },
   {

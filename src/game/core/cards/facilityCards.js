@@ -17,9 +17,9 @@ export const POLICE_STATION = {
   tags: ['consumer'],
   stats: {},
   slots: { capacity: 2, expandable: true, maxMultiplier: 2 },
-  effects: {
-    onTurnStart: [{ type: 'consumeStatus', card: CRIME.id, amount: 1, requiresSlot: true, buildingId: 'self' }]
-  }
+  // Cleared BY HAND: play a Crime card from your hand into a free slot and it
+  // leaves the game (game.js clearStatus). Nothing happens on its own.
+  clears: CRIME.id
 }
 
 export const SANITATION_CENTER = {
@@ -30,9 +30,9 @@ export const SANITATION_CENTER = {
   tags: ['consumer'],
   stats: {},
   slots: { capacity: 2, expandable: true, maxMultiplier: 2 },
-  effects: {
-    onTurnStart: [{ type: 'consumeStatus', card: TRASH.id, amount: 1, requiresSlot: true, buildingId: 'self' }]
-  }
+  // Cleared BY HAND: play a Trash card from your hand into a free slot and it
+  // leaves the game (game.js clearStatus). Nothing happens on its own.
+  clears: TRASH.id
 }
 
 export const CLINIC = {
@@ -43,9 +43,9 @@ export const CLINIC = {
   tags: ['consumer'],
   stats: {},
   slots: { capacity: 2, expandable: true, maxMultiplier: 2 },
-  effects: {
-    onTurnStart: [{ type: 'consumeStatus', card: POLLUTION.id, amount: 1, requiresSlot: true, buildingId: 'self' }]
-  }
+  // Cleared BY HAND: play a Pollution card from your hand into a free slot and it
+  // leaves the game (game.js clearStatus). Nothing happens on its own.
+  clears: POLLUTION.id
 }
 
 export const FIRE_STATION = {
@@ -55,11 +55,10 @@ export const FIRE_STATION = {
   cost: 5,
   tags: ['civic'],
   stats: {},
-  effects: {
-    // Permanent, one-time - see playerState.js's headOffDisaster. A second
-    // copy built later is a harmless no-op, not a stacking effect.
-    onBuild: [{ type: 'headOffDisaster' }]
-  }
+  // Each standing Fire Station blocks one disaster card per strike, and
+  // strikes escalate (the Nth strike brings N cards) - so a second station
+  // matters later. Matt: "why would I ever build more than one?"
+  blocksDisasters: true
 }
 
 export const PARK = {

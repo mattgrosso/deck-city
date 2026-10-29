@@ -6,7 +6,8 @@
 // "road frontage" is having a road on any of its 4 bordering edges, which
 // is what makes it buildable (see isBuildable / hasRoadFrontage below).
 
-export const DEFAULT_CITY_GRID_SIZE = { width: 6, height: 4 }
+// 12×8 (was 6×4; Matt filled it in nine turns: "I should be able to expand much further").
+export const DEFAULT_CITY_GRID_SIZE = { width: 12, height: 8 }
 
 /**
  * @param {Object} [options]
@@ -157,9 +158,38 @@ export function listAllEdges (grid) {
 }
 
 /** A short street through the middle, so a new game has somewhere legal to build. */
-export const DEFAULT_STARTING_ROAD_EDGES = ['h:2,2', 'h:3,2']
+export const DEFAULT_STARTING_ROAD_EDGES = ['h:5,4', 'h:6,4']
 /** The cells that street gives frontage to (either side of it). */
-export const DEFAULT_STARTING_ROAD_CELLS = [{ x: 2, y: 1 }, { x: 3, y: 1 }, { x: 2, y: 2 }, { x: 3, y: 2 }]
+export const DEFAULT_STARTING_ROAD_CELLS = [{ x: 5, y: 3 }, { x: 6, y: 3 }, { x: 5, y: 4 }, { x: 6, y: 4 }]
+
+/** The two corner nodes an edge runs between. */
+export function edgeNodes (key) {
+  const { kind, x, y } = parseEdgeKey(key)
+  return kind === 'h' ? [[x, y], [x + 1, y]] : [[x, y], [x, y + 1]]
+}
+
+/**
+ * Does this edge touch the existing street network? A new street has to
+ * start from one that is already there (Matt: "it's dumb that I can build
+ * a road not attached to any other roads"). `extra` are edges being laid
+ * in the same play, which count as already there.
+ */
+export function isEdgeConnected (grid, key, extra = []) {
+  const have = new Set([...grid.roads, ...extra])
+  if (have.size === 0) return true // the very first street of a city may go anywhere
+  const touches = new Set(edgeNodes(key).map(([x, y]) => `${x},${y}`))
+  for (const other of have) {
+    if (other === key) continue
+    if (edgeNodes(other).some(([x, y]) => touches.has(`${x},${y}`))) return true
+  }
+  return false
+}
+
+/** Every unroaded edge a new street may go on right now. */
+export function listConnectedEdges (grid, extra = []) {
+  const laid = new Set(extra)
+  return listAllEdges(grid).filter(e => !e.roaded && !laid.has(e.key) && isEdgeConnected(grid, e.key, extra))
+}
 
 /**
  * @param {Object} grid

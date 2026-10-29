@@ -20,12 +20,12 @@ import { draw } from '../piles/deck'
 
 registerEffect('gainTreasury', (effect, { state, log }) => {
   addTreasury(state, effect.amount)
-  log?.push(`+${effect.amount} treasury`)
+  log?.push(`+${effect.amount} budget.`)
 })
 
 registerEffect('spendTreasury', (effect, { state, log }) => {
   spendTreasury(state, effect.amount)
-  log?.push(`-${effect.amount} treasury`)
+  log?.push(`Lost ${effect.amount} budget.`)
 })
 
 /**
@@ -36,7 +36,7 @@ registerEffect('spendTreasury', (effect, { state, log }) => {
 registerEffect('gainStatus', (effect, { state, catalog, log }) => {
   const card = catalog[effect.card]
   addStatusCard(state, card, effect.amount ?? 1)
-  log?.push(`+${effect.amount ?? 1} ${card.name}`)
+  log?.push(`+${effect.amount ?? 1} ${card.name} card${(effect.amount ?? 1) === 1 ? '' : 's'} in your deck.`)
 })
 
 /**
@@ -53,7 +53,7 @@ registerEffect('consumeStatus', (effect, { state, catalog, log, instanceId }) =>
     requiresSlot: effect.requiresSlot,
     buildingId
   })
-  log?.push(`-${removed} ${card.name}`)
+  log?.push(`${removed} ${card.name} card${removed === 1 ? '' : 's'} cleared.`)
   return removed
 })
 
@@ -101,7 +101,7 @@ registerEffect('gainStatusPerAdjacent', (effect, { state, catalog, log, instance
 
   const card = catalog[effect.card]
   addStatusCard(state, card, count)
-  log?.push(`+${count} ${card.name} (adjacency)`)
+  log?.push(`+${count} ${card.name} from a Park beside ${count} house${count === 1 ? '' : 's'}.`)
   return count
 })
 
@@ -120,5 +120,5 @@ registerEffect('headOffDisaster', (effect, { state, log }) => {
  */
 registerEffect('raiseTreasuryRolloverCap', (effect, { state, log }) => {
   raiseTreasuryRolloverCap(state, effect.amount)
-  log?.push(`Treasury rollover cap raised to ${effect.amount}`)
+  log?.push(`You may now keep up to ${effect.amount} unspent budget between turns.`)
 })

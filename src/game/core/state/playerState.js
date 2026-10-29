@@ -30,7 +30,12 @@ export function createPlayerState ({ startingDeckCards = [], treasury = 0, rng }
     structureSeq: 0,
     cityGrid,
     goals: { active: [], completed: [] },
-    disasterTimer: { turnsUntilDeadline: 4, headedOff: false },
+    // Every fourth turn a disaster strikes, harder each time: the Nth strike
+    // shuffles N disaster cards in, less one per Fire Station standing
+    // (`blocksDisasters`). `headedOff` is kept for old saves; nothing sets it.
+    disasterTimer: { turnsUntilDeadline: 4, headedOff: false, strikes: 0 },
+    // One goal may be claimed a turn (Matt: "I was able to buy like 5 of the goals").
+    goalsClaimedThisTurn: 0,
     turnNumber: 0,
     // 'playing' | 'won' | 'lost' — set by turn/phases.js's 'endOfTurn'
     // phase. Player actions (build/acquire/claim) are gated on this once
@@ -222,6 +227,50 @@ export function buildStructure (state, card, context = {}) {
 }
 
 /**
+ * Stands a building in the city at game start: an instance and a grid
+ * cell, nothing else - no onBuild effects (a starting house brings no
+ * Crime), no card into the deck. Matt: "at the start of the game, you
+ * start with a few buildings already, and those add up to the resources
+ * that you start with."
+ */
+export function seedStructure (state, card, position) {
+  const instance = {
+    instanceId: `${card.id}#${state.structureSeq++}`,
+    card,
+    position,
+    slots: card.slots ? { capacity: card.slots.capacity, used: 0 } : undefined
+  }
+  state.builtStructures.push(instance)
+  placeInstance(state.cityGrid, position.x, position.y, instance.instanceId)
+  return instance
+}
+
+/** How many standing buildings block disasters (Fire Stations). */
+export function countDisasterBlockers (state) {
+  return state.builtStructures.filter(i => i.card.blocksDisasters).length
+}
+
+/**
+ * Trashes one status card from the hand into a facility that clears that
+ * kind (`card.clears`, e.g. 'crime') and has a free slot this turn. The
+ * card leaves the game for good. Returns the instance that took it.
+ * Matt: "I've never actually put a crime card into it... it'd be more fun
+ * if I was doing it myself."
+ */
+export function clearStatusCard (state, cardId) {
+  const index = state.hand.findIndex(c => c.id === cardId)
+  if (index === -1) throw new Error(`Card "${cardId}" is not in hand`)
+  const card = state.hand[index]
+  if (card.type !== 'status') throw new Error(`${card.name} is not a status card`)
+  const tag = card.id
+  const instance = state.builtStructures.find(i => i.card.clears === tag && i.slots && i.slots.used < i.slots.capacity)
+  if (!instance) throw new Error(`No free slot for ${card.name}`)
+  state.hand.splice(index, 1)
+  instance.slots.used += 1
+  return instance
+}
+
+/**
  * Places a road card: paints ONE edge (context.edge, an edge key - see
  * cityGrid.js) onto the city grid, resolves the card's onBuild effects (if
  * any), then returns the card itself to the discard pile. Unlike
@@ -236,7 +285,7 @@ export function buildStructure (state, card, context = {}) {
 export function placeRoad (state, card, context = {}) {
   addRoadEdge(state.cityGrid, context.edge)
   resolveTrigger(card, 'onBuild', { ...context, state })
-  addToDiscardPile(state.deck, [card])
+  if (context.intoDeck !== false) addToDiscardPile(state.deck, [card])
 }
 
 /**

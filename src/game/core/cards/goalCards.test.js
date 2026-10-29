@@ -16,10 +16,10 @@ describe('GOAL_CATALOG', () => {
     expect(new Set(ids).size).toBe(ids.length)
   })
 
-  it('every goal is a claimable-then-buildable monument: free, skips road requirement', () => {
+  it('every goal is a claimable-then-buildable monument: free, needs a street like any building', () => {
     GOAL_CATALOG.forEach(card => {
       expect(card.cost).toBe(0)
-      expect(card.skipsRoadRequirement).toBe(true)
+      expect(card.skipsRoadRequirement).toBeUndefined()
       expect(card.tags).toContain('monument')
     })
   })

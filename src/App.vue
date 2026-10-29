@@ -12,15 +12,15 @@
             ref="scene"
             :grid="game.state.cityGrid" :structures="game.state.builtStructures" :tick="tick"
             :targeting="mode === 'target' || mode === 'look'" :valid-cells="validCells" :cursor="cursorCell"
-            :valid-edges="validEdges" :cursor-edge="cursorEdge" :preview-card="mode === 'target' ? selectedCard : null"
-            :width="1130" :height="690" :stage-scale="scale"
+            :valid-edges="validEdges" :cursor-edge="cursorEdge" :planned-edges="pendingEdges" :preview-card="mode === 'target' ? selectedCard : null"
+            :width="1920" :height="1080" :rect="VIEW_RECT" :stage-scale="scale"
             @cell="onCellClick"
           />
         </div>
 
         <Market
-          :city-row="cityRow" :goal-row="goalRow" :catalog="game.catalog" :treasury="treasury"
-          :active="mode === 'market'" :focus="market" :goal-met="goalMet" :goal-expires-in="goalExpiresIn" :goals-left="goalsLeft"
+          :city-row="cityRow" :goal-row="goalRow" :goal-timers="goalTimers" :catalog="game.catalog" :treasury="treasury"
+          :active="mode === 'market'" :focus="market" :goal-met="goalMet" :goals-left="goalsLeft"
           @focus="onMarketFocus" @select="onMarketSelect"
         />
 
@@ -100,7 +100,7 @@ import BugReportButton from '@/components/shared/BugReportButton.vue'
 import BugResolutionNotice from '@/components/shared/BugResolutionNotice.vue'
 import {
   createGame, starterCards, facilityCards, goalCards, disasterCards,
-  calcStatTotal, countCardsByTag, evaluateCondition, isCellEmpty, isBuildable, listAllEdges
+  calcStatTotal, countCardsByTag, evaluateCondition, isCellEmpty, isBuildable, listConnectedEdges
 } from '@/game/core'
 import { attachInput, GLYPHS } from '@/ui/input'
 import { stepCursor, nearestCell } from '@/ui/layout'
@@ -110,7 +110,18 @@ import { firebaseConfigured } from '@/firebase'
 import { buildStamp, forceRefresh } from '@/utils/buildStamp'
 import { initUpdateCheck } from '@/utils/checkForUpdate'
 
-const BASE_REVENUE = 4
+// The city you start with: two houses and a shop on the starting street.
+// Their revenue IS the first budget - there is no base income any more.
+// Matt: "the city at the beginning of the game [should] reflect what our
+// budget is" (the Suburbia opening: three tiles that add up to your start).
+const STARTING_BUILDINGS = [
+  { cardId: 'residential', x: 5, y: 3 }, // 2 people, +1
+  { cardId: 'commercial', x: 6, y: 3 }, // 2 jobs, +2
+  { cardId: 'industrial', x: 5, y: 4 } // 3 jobs, +2 - everyone employed, budget 5
+]
+// The clear part of the stage (left of the market, above the hand) the city is framed into.
+const VIEW_RECT = { x: 40, y: 90, w: 1130, h: 690 }
+const BASE_REVENUE = 0
 const POPULATION_TARGET = 20
 const MENU_ITEMS = ['Resume', 'How to play', 'New game']
 const HOWTO_SEEN = 'deck-city:howto-seen'
@@ -118,12 +129,12 @@ const HOWTO_SEEN = 'deck-city:howto-seen'
 // The numbers along the top, in cursor order, and what each one means.
 const STATS = [
   { key: 'population', title: 'Population', explain: (a) => [`${a.population} of ${POPULATION_TARGET}. Reach ${POPULATION_TARGET} and the city is finished.`, 'Houses add 2 each. A claimed goal (a Monument) adds 1.'] },
-  { key: 'jobs', title: 'Jobs', explain: (a) => [`${a.jobs} jobs. Shops give 2, factories 3.`, 'Jobs do nothing yet on their own: some goals ask for them.'] },
-  { key: 'budget', title: 'Next budget', explain: (a) => [`${a.nextBudget} next turn: ${a.nextBudget - BASE_REVENUE} revenue from buildings plus ${BASE_REVENUE} base income.`, `Unspent budget is lost at the end of the turn${a.rolloverCap ? ` except up to ${a.rolloverCap} (City Bank)` : ''}.`] },
-  { key: 'crime', title: 'Crime', explain: (a) => [`${a.crime} Crime card${a.crime === 1 ? '' : 's'} in your deck. A house adds one when built; a Park adds one per neighbouring house each turn.`, 'A Police Station removes one per free slot each turn.'] },
-  { key: 'trash', title: 'Trash', explain: (a) => [`${a.trash} Trash card${a.trash === 1 ? '' : 's'} in your deck. A shop adds one when built.`, 'A Sanitation Center removes one per free slot each turn.'] },
-  { key: 'pollution', title: 'Pollution', explain: (a) => [`${a.pollution} Pollution card${a.pollution === 1 ? '' : 's'} in your deck. A factory adds one when built.`, 'A Clinic removes one per free slot each turn.'] },
-  { key: 'disaster', title: 'Disaster clock', explain: (a) => [a.headedOff ? 'Headed off for good by a Fire Station.' : `Strikes in ${a.disasterIn} turn${a.disasterIn === 1 ? '' : 's'}: a Flood or Blackout card is shuffled into your deck and bites when drawn.`, 'A Fire Station stops the clock permanently.'] }
+  { key: 'jobs', title: 'Jobs', explain: (a) => [`${a.jobs} jobs for ${a.population} people. Shops give 2, factories 3.`, a.population > a.jobs ? `${a.population - a.jobs} people have no work: a Crime card joins your deck at the end of every turn this stays true.` : 'Everyone has work. Keep it that way as the city grows, or crime follows.'] },
+  { key: 'budget', title: 'Next budget', explain: (a) => [`${a.nextBudget} next turn, the revenue of every building you have.`, `Unspent budget is lost at the end of the turn${a.rolloverCap ? ` except up to ${a.rolloverCap} (City Bank)` : ''}.`] },
+  { key: 'crime', title: 'Crime', explain: (a) => [`${a.crime} Crime card${a.crime === 1 ? '' : 's'} in your deck. A house adds one when built; a Park adds one per neighbouring house each turn; unemployment adds one a turn.`, 'Play a Crime card from your hand into a Police Station with a free slot and it leaves the game.'] },
+  { key: 'trash', title: 'Trash', explain: (a) => [`${a.trash} Trash card${a.trash === 1 ? '' : 's'} in your deck. A shop adds one when built.`, 'Play a Trash card from your hand into a Sanitation Center with a free slot and it leaves the game.'] },
+  { key: 'pollution', title: 'Pollution', explain: (a) => [`${a.pollution} Pollution card${a.pollution === 1 ? '' : 's'} in your deck. A factory adds one when built.`, 'Play a Pollution card from your hand into a Clinic with a free slot and it leaves the game.'] },
+  { key: 'disaster', title: 'Disaster clock', explain: (a) => [`Strikes in ${a.disasterIn} turn${a.disasterIn === 1 ? '' : 's'}. Strike ${a.strikes + 1} will shuffle ${a.strikes + 1} disaster card${a.strikes ? 's' : ''} into your deck; each bites when drawn.`, a.blockers ? `${a.blockers} Fire Station${a.blockers === 1 ? '' : 's'} standing: each blocks one card per strike.` : 'A Fire Station blocks one card per strike. Strikes get bigger, so build more over time.'] }
 ]
 
 export default {
@@ -136,6 +147,7 @@ export default {
   data () {
     return {
       POPULATION_TARGET,
+      VIEW_RECT,
       MENU_ITEMS,
       STATS,
       icons: ICONS,
@@ -152,6 +164,7 @@ export default {
       // positions, so the d-pad moves in SCREEN directions on an isometric board.
       targets: [],
       targetIndex: 0,
+      pendingEdges: [], // street segments laid so far by the Road card in hand
       lastAim: { x: 560, y: 420 },
       picks: [],
       market: { row: 0, index: 0 },
@@ -215,7 +228,7 @@ export default {
     cityRow () { void this.tick; return this.game.cityRow.cards },
     goalRow () { void this.tick; return this.game.goalRow.cards },
     goalsLeft () { void this.tick; return this.game.goalRow.sourceDeck.drawPile.length },
-    goalExpiresIn () { void this.tick; const r = (this.game.turnManager.turnNumber + 1) % 4; return r === 0 ? 0 : 4 - r },
+    goalTimers () { void this.tick; return [...this.game.goalRow.timers] },
     handKeys () {
       void this.tick
       const seen = {}
@@ -248,7 +261,9 @@ export default {
       const about = {
         population: this.population, jobs: this.jobs, nextBudget: this.nextBudget, rolloverCap: this.game.state.treasuryRolloverCap,
         crime: this.statuses[0].count, trash: this.statuses[1].count, pollution: this.statuses[2].count,
-        disasterIn: this.disasterIn, headedOff: this.headedOff
+        disasterIn: this.disasterIn, headedOff: this.headedOff,
+        strikes: this.game.state.disasterTimer.strikes ?? 0,
+        blockers: this.game.state.builtStructures.filter(i => i.card.blocksDisasters).length
       }
       return { eyebrow: 'What this means', title: stat.title, lines: stat.explain(about) }
     },
@@ -274,7 +289,7 @@ export default {
       switch (this.screen === 'title' ? 'title' : this.mode) {
         case 'title': return [L('select', 'Start')]
         case 'hand': return [L('lr', 'Choose card'), L('select', 'Play'), L('up', 'Look at the city'), L('confirm', this.endLabel), L('deck', 'Deck'), L('menu', 'Menu')]
-        case 'target': return [L('dpad', 'Aim'), L('select', 'Place'), L('back', 'Back')]
+        case 'target': return this.pendingEdges.length ? [L('dpad', 'Aim the second segment'), L('select', 'Place'), L('back', 'Keep just one')] : [L('dpad', 'Aim'), L('select', 'Place'), L('back', 'Back')]
         case 'civic': return [L('lr', 'Choose'), L('select', 'Mark to discard'), L('back', 'Back')]
         case 'market': return [L('dpad', 'Browse'), L('select', 'Buy / Claim'), L('up', 'Look at the city'), L('confirm', 'End turn'), L('deck', 'Deck'), L('menu', 'Menu')]
         case 'look': return [L('dpad', 'Move'), L('up', 'Top bar'), L('back', 'Back')]
@@ -302,7 +317,8 @@ export default {
         goalDeckCardIds: goalCards.GOAL_DECK_CARDS,
         disasterCardIds: disasterCards.DISASTER_CARDS,
         baseRevenue: BASE_REVENUE,
-        populationTarget: POPULATION_TARGET
+        populationTarget: POPULATION_TARGET,
+        startingBuildings: STARTING_BUILDINGS
       })
       // The engine starts on 'draw'; running it deals the first hand and
       // lands on 'build', the first phase the player acts in.
@@ -311,8 +327,9 @@ export default {
       this.handIndex = 0
       this.selectedIndex = null
       this.targets = []
+      this.pendingEdges = []
       this.picks = []
-      this.market = { row: 0, index: 0 }
+      this.market = { row: 1, index: 0 }
       this.refresh()
     },
     startGame () {
@@ -350,7 +367,11 @@ export default {
     in_target (action) {
       if (['up', 'down', 'left', 'right'].includes(action)) this.moveAim(action)
       else if (action === 'select') this.placeAt(this.currentTarget)
-      else if (action === 'back') { this.mode = 'hand'; this.selectedIndex = null; this.targets = [] }
+      else if (action === 'back') {
+        // A Road with one segment already aimed: B keeps that one and plays the card.
+        if (this.pendingEdges.length) return this.commitRoad(this.pendingEdges)
+        this.mode = 'hand'; this.selectedIndex = null; this.targets = []
+      }
     },
     in_civic (action) {
       const n = this.game.state.hand.length
@@ -368,8 +389,8 @@ export default {
       const len = rows[row].length
       if (action === 'left' && len) this.market = { row, index: (index - 1 + len) % len }
       else if (action === 'right' && len) this.market = { row, index: (index + 1) % len }
-      else if (action === 'down' && row === 0) this.market = { row: 1, index: Math.min(index, Math.max(0, rows[1].length - 1)) }
-      else if (action === 'up' && row === 1) this.market = { row: 0, index: Math.min(index, Math.max(0, rows[0].length - 1)) }
+      else if (action === 'up' && row === 0) this.market = { row: 1, index: Math.min(index, Math.max(0, rows[1].length - 1)) }
+      else if (action === 'down' && row === 1) this.market = { row: 0, index: Math.min(index, Math.max(0, rows[0].length - 1)) }
       else if (action === 'up') this.openLook('market')
       else if (action === 'select') this.buyOrClaim()
       else if (action === 'confirm') this.endTurn()
@@ -466,13 +487,31 @@ export default {
     // ----- play ------------------------------------------------------
     canPlay (card) {
       if (this.phaseName !== 'build') return false
-      if (card.type === 'status' || card.type === 'disaster') return false
+      if (card.type === 'status') return !!this.slotFor(card)
+      if (card.type === 'disaster') return false
       return (card.cost ?? 0) <= this.treasury
+    },
+    /** The built facility that could take this status card right now, if any. */
+    slotFor (card) {
+      void this.tick
+      return this.game.state.builtStructures.find(i => i.card.clears === card.id && i.slots && i.slots.used < i.slots.capacity) ?? null
+    },
+    clearerName (card) {
+      return { crime: 'Police Station', trash: 'Sanitation Center', pollution: 'Clinic' }[card.id] ?? 'facility'
     },
     tryPlay (index) {
       const card = this.game.state.hand[index]
       if (!card) return
-      if (card.type === 'status' || card.type === 'disaster') return this.refuse(`${card.name} can't be played. A facility has to clear it.`)
+      if (card.type === 'disaster') return this.refuse(`${card.name} can't be played. It already bit when you drew it.`)
+      if (card.type === 'status') {
+        const slot = this.slotFor(card)
+        if (!slot) return this.refuse(`No free slot for ${card.name}. Build a ${this.clearerName(card)} or wait a turn.`)
+        try { this.game.actions.clearStatus(card.id) } catch (err) { return this.refuse(err.message) }
+        this.say(`${slot.card.name} took the ${card.name} card. It's gone for good.`, 'good')
+        this.handIndex = Math.min(this.handIndex, Math.max(0, this.game.state.hand.length - 1))
+        this.refresh()
+        return
+      }
       if ((card.cost ?? 0) > this.treasury) return this.refuse(`${card.name} costs ${card.cost}. You have ${this.treasury}.`, 'orb')
       if (card.type === 'civic') {
         if (this.game.state.hand.length < 2) return this.refuse('Nothing else in hand to discard.')
@@ -485,7 +524,8 @@ export default {
       const grid = this.game.state.cityGrid
       let targets
       if (card.placesRoad) {
-        targets = listAllEdges(grid).filter(e => !e.roaded).map(e => ({ id: e.key, kind: 'edge', key: e.key }))
+        this.pendingEdges = []
+        targets = listConnectedEdges(grid).map(e => ({ id: e.key, kind: 'edge', key: e.key }))
       } else {
         targets = []
         for (let y = 0; y < grid.height; y++) {
@@ -495,7 +535,7 @@ export default {
           }
         }
       }
-      if (!targets.length) return this.refuse(card.placesRoad ? 'Every street is laid.' : 'No empty plot beside a street. Lay a Road first.', 'board')
+      if (!targets.length) return this.refuse(card.placesRoad ? 'Nowhere left to lay a street.' : 'No empty plot beside a street. Lay a Road first.', 'board')
       this.selectedIndex = index
       this.targets = this.withScreen(targets)
       this.aimNearest(this.lastAim)
@@ -504,15 +544,45 @@ export default {
     placeAt (target) {
       const card = this.selectedCard
       if (!card || !target) return
+      if (target.kind === 'edge') {
+        // A Road lays up to two segments: aim the next one from the streets
+        // so far, or commit when the card is spent.
+        const edges = [...this.pendingEdges, target.key]
+        this.lastAim = { x: target.sx, y: target.sy }
+        if (edges.length < (card.roadSegments ?? 2)) {
+          const more = listConnectedEdges(this.game.state.cityGrid, edges).map(e => ({ id: e.key, kind: 'edge', key: e.key }))
+          if (more.length) {
+            this.pendingEdges = edges
+            this.targets = this.withScreen(more)
+            this.aimNearest(this.lastAim)
+            return
+          }
+        }
+        return this.commitRoad(edges)
+      }
       try {
-        this.game.actions.playCard(card.id, target.kind === 'edge' ? { edge: target.key } : { x: target.x, y: target.y })
+        this.game.actions.playCard(card.id, { x: target.x, y: target.y })
       } catch (err) {
         return this.refuse(err.message, 'board')
       }
       this.lastAim = { x: target.sx, y: target.sy }
+      this.afterPlay(card, `${card.name} built.`)
+    },
+    commitRoad (edges) {
+      const card = this.selectedCard
+      try {
+        this.game.actions.playCard(card.id, { edges })
+      } catch (err) {
+        this.pendingEdges = []
+        return this.refuse(err.message, 'board')
+      }
+      this.pendingEdges = []
+      this.afterPlay(card, edges.length === 1 ? 'One street segment laid.' : 'Two street segments laid.')
+    },
+    afterPlay (card, message) {
       if (card.cost) this.pop(`-${card.cost}`, 'orb')
       if (card.stats?.population) this.pop(`+${card.stats.population} pop`, 'board', 'var(--green)')
-      this.say(card.placesRoad ? 'Street laid.' : `${card.name} built.`)
+      this.say(message)
       this.mode = 'hand'
       this.selectedIndex = null
       this.targets = []
@@ -677,7 +747,7 @@ export default {
 </script>
 
 <style scoped>
-.board-wrap { position: absolute; left: 24px; top: 84px; }
+.board-wrap { position: absolute; left: 0; top: 0; z-index: 0; }
 .phase-tag { position: absolute; left: 48px; top: 96px; z-index: 3; font-size: 14px; font-weight: 800; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-3); }
 .phase-tag--acquire { color: #b47a0a; }
 

@@ -10,11 +10,11 @@
 // active. TurnManager.assertPhase() is what enforces that gating.
 
 import {
-  resetAllSlotUsage, calcStatTotal, tickDisasterTimer, resetDisasterTimer
+  resetAllSlotUsage, calcStatTotal, tickDisasterTimer, resetDisasterTimer, countDisasterBlockers
 } from '../state/playerState'
 import { resolveTrigger } from '../effects/effectRegistry'
-import { draw, discardCards, addToDrawPile, shuffle } from '../piles/deck'
-import { expireOldest, expireLowestValue } from '../piles/row'
+import { draw, discardCards, addToDrawPile, addToDiscardPile, shuffle } from '../piles/deck'
+import { expireOldest, expireLowestValue, tickTimers } from '../piles/row'
 
 /**
  * Shuffles a random disaster card (from ctx.disasterCards, resolved by
@@ -26,13 +26,39 @@ import { expireOldest, expireLowestValue } from '../piles/row'
  */
 function triggerDisaster (ctx) {
   const pool = ctx.disasterCards ?? []
-  if (!pool.length) return undefined
+  if (!pool.length) return []
+  const timer = ctx.state.disasterTimer
+  timer.strikes = (timer.strikes ?? 0) + 1
+  const blockers = countDisasterBlockers(ctx.state)
+  const count = Math.max(0, timer.strikes - blockers)
+  const cards = []
+  for (let i = 0; i < count; i++) cards.push(pool[Math.floor(ctx.state.deck.rng() * pool.length)])
+  if (cards.length) {
+    addToDrawPile(ctx.state.deck, cards)
+    shuffle(ctx.state.deck)
+  }
+  const names = cards.map(c => c.name).join(' and ')
+  const blocked = Math.min(blockers, timer.strikes)
+  ctx.log?.push(
+    count === 0
+      ? `Disaster ${timer.strikes}: ${blockers} Fire Station${blockers === 1 ? '' : 's'} held it off.`
+      : `Disaster ${timer.strikes}: ${names} shuffled into your deck${blocked ? ` (${blocked} blocked by Fire Station${blocked === 1 ? '' : 's'})` : ''}.`
+  )
+  return cards
+}
 
-  const card = pool[Math.floor(ctx.state.deck.rng() * pool.length)]
-  addToDrawPile(ctx.state.deck, [card])
-  shuffle(ctx.state.deck)
-  ctx.log?.push(`A disaster looms: ${card.name} has been shuffled into your deck`)
-  return card
+/**
+ * People without work turn to crime: at the end of a turn with more
+ * population than jobs, one Crime card joins the deck. This is what jobs
+ * are FOR (Matt: "I'm not sure what jobs means. Why do I care?").
+ */
+function unemployment (ctx) {
+  const population = calcStatTotal(ctx.state, 'population')
+  const jobs = calcStatTotal(ctx.state, 'jobs')
+  const crime = ctx.catalog?.crime
+  if (population <= jobs || !crime) return
+  addToDiscardPile(ctx.state.deck, [crime])
+  ctx.log?.push(`Unemployment: ${population} people, ${jobs} jobs. +1 Crime card.`)
 }
 
 /**
@@ -91,14 +117,16 @@ export const DEFAULT_PHASES = [
       // revenue - without it, turn 1 (zero buildings, zero revenue) resets
       // straight to 0 before the player can ever afford a first Road, which
       // a pure production-based reset can never recover from on its own.
-      const revenue = calcStatTotal(ctx.state, 'revenue') + (ctx.baseRevenue ?? 0)
+      const fromBuildings = calcStatTotal(ctx.state, 'revenue')
+      const base = ctx.baseRevenue ?? 0
+      const revenue = fromBuildings + base
       const rollover = Math.min(ctx.state.treasury, ctx.state.treasuryRolloverCap ?? 0)
       ctx.state.treasury = revenue + rollover
-      ctx.log?.push(
-        rollover > 0
-          ? `Budget reset: ${revenue} revenue + ${rollover} rollover = ${ctx.state.treasury}`
-          : `Budget reset: ${revenue} revenue`
-      )
+      ctx.state.goalsClaimedThisTurn = 0
+      const parts = [`${fromBuildings} from buildings`]
+      if (base) parts.push(`${base} base income`)
+      if (rollover > 0) parts.push(`${rollover} kept from last turn`)
+      ctx.log?.push(`Budget this turn: ${ctx.state.treasury} (${parts.join(' + ')}).`)
 
       const handSize = ctx.handSize ?? 5
       const needed = Math.max(0, handSize - ctx.state.hand.length)
@@ -129,14 +157,17 @@ export const DEFAULT_PHASES = [
     run: (ctx) => {
       if (ctx.cityRow) expireOldest(ctx.cityRow)
 
-      // "Every 4 turns" = after turns 4, 8, 12, ... turnManager.turnNumber
-      // is still this (about-to-complete) turn's number here - it only
-      // increments once the cycle wraps back to 'draw' (see
-      // turn/turnManager.js's advancePhase).
-      if (ctx.goalRow && (ctx.turnManager.turnNumber + 1) % 4 === 0) {
+      // Goals carry their own clocks (createRow's timerFor): each counts
+      // down a turn and expires at zero. A row without clocks keeps the old
+      // rule - the lowest tier goes every fourth turn.
+      if (ctx.goalRow && ctx.goalRow.timerFor) {
+        for (const expired of tickTimers(ctx.goalRow)) ctx.log?.push(`Goal expired, time ran out: ${expired.name}.`)
+      } else if (ctx.goalRow && (ctx.turnManager.turnNumber + 1) % 4 === 0) {
         const expired = expireLowestValue(ctx.goalRow, card => card.tier ?? Infinity)
         if (expired) ctx.log?.push(`Goal expired unclaimed: ${expired.name}`)
       }
+
+      unemployment(ctx)
 
       if (tickDisasterTimer(ctx.state)) {
         triggerDisaster(ctx)

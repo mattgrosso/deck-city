@@ -14,14 +14,17 @@ describe('FACILITY_CATALOG', () => {
     expect(new Set(ids).size).toBe(ids.length)
   })
 
-  it('each consumer facility targets a distinct status via onTurnStart', () => {
-    expect(POLICE_STATION.effects.onTurnStart[0].card).toBe('crime')
-    expect(SANITATION_CENTER.effects.onTurnStart[0].card).toBe('trash')
-    expect(CLINIC.effects.onTurnStart[0].card).toBe('pollution')
+  it('each consumer facility clears a distinct status by hand, into its slots', () => {
+    expect(POLICE_STATION.clears).toBe('crime')
+    expect(SANITATION_CENTER.clears).toBe('trash')
+    expect(CLINIC.clears).toBe('pollution')
+    expect(POLICE_STATION.effects).toBeUndefined()
+    expect(POLICE_STATION.slots.capacity).toBe(2)
   })
 
-  it('Fire Station heads off the disaster timer onBuild rather than consuming a status', () => {
-    expect(FIRE_STATION.effects.onBuild).toEqual([{ type: 'headOffDisaster' }])
+  it('Fire Station blocks disasters by standing, rather than consuming a status', () => {
+    expect(FIRE_STATION.blocksDisasters).toBe(true)
+    expect(FIRE_STATION.effects).toBeUndefined()
     expect(FIRE_STATION.slots).toBeUndefined()
   })
 

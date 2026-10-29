@@ -68,8 +68,8 @@ export function createCityWorld (canvas, { reducedMotion = false } = {}) {
   sun.shadow.mapSize.set(2048, 2048)
   sun.shadow.camera.near = 0.5
   sun.shadow.camera.far = 40
-  sun.shadow.camera.left = -8; sun.shadow.camera.right = 8
-  sun.shadow.camera.top = 8; sun.shadow.camera.bottom = -8
+  sun.shadow.camera.left = -16; sun.shadow.camera.right = 16
+  sun.shadow.camera.top = 16; sun.shadow.camera.bottom = -16
   sun.shadow.bias = -0.0004
   sun.shadow.radius = 4
   scene.add(sun)
@@ -122,11 +122,12 @@ export function createCityWorld (canvas, { reducedMotion = false } = {}) {
     const xs = lots.map(l => l.wx); const zs = lots.map(l => l.wz)
     const minX = Math.min(...xs) - PITCH / 2; const maxX = Math.max(...xs) + PITCH / 2
     const minZ = Math.min(...zs) - PITCH / 2; const maxZ = Math.max(...zs) + PITCH / 2
-    const margin = 0.9
-    const w = maxX - minX + margin * 2; const h = maxZ - minZ + margin * 2
-    const ground = new THREE.Mesh(new THREE.ExtrudeGeometry(roundedRect(w, h, 0.5), { depth: 0.22, bevelEnabled: false }), mat(PALETTE.field))
+    // Endless: the grass runs far past anything the camera can frame, so
+    // the city never sits on a visible slab (Matt: "I shouldn't be able to
+    // see the edges of it").
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), mat(PALETTE.field))
     ground.rotation.x = -Math.PI / 2
-    ground.position.set((minX + maxX) / 2, -0.22, (minZ + maxZ) / 2)
+    ground.position.set((minX + maxX) / 2, -0.001, (minZ + maxZ) / 2)
     ground.receiveShadow = true
     field.add(ground)
     // Faint plot lines along every lot boundary (the gap centre lines).
@@ -170,7 +171,7 @@ export function createCityWorld (canvas, { reducedMotion = false } = {}) {
   }
   const now = () => performance.now()
 
-  function update ({ grid = null, lots = [], placements = [], roadEdges = [], roadNodes = [], valid = new Set(), cursor = null, ghost = null, validEdges = [], cursorEdge = null } = {}, { instant = false } = {}) {
+  function update ({ grid = null, lots = [], placements = [], roadEdges = [], roadNodes = [], valid = new Set(), cursor = null, ghost = null, validEdges = [], cursorEdge = null, plannedEdges = [], extraPoints = [] } = {}, { instant = false } = {}) {
     if (!fieldBuilt && lots.length && grid) buildField(lots, grid)
     const aiming = valid.size > 0 || validEdges.length > 0
     // A plain field at rest; the plot lines show only while aiming.
@@ -280,29 +281,51 @@ export function createCityWorld (canvas, { reducedMotion = false } = {}) {
       }
     }
     if (ghostStreetMesh) { world.remove(ghostStreetMesh); ghostStreetMesh = null }
-    if (cursorEdge && grid) {
-      const e = edgeCentre(grid, cursorEdge)
-      ghostStreetMesh = makeStreetEdge({ axis: e.axis })
-      ghostStreetMesh.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); o.material.transparent = true; o.material.opacity = 0.7 } })
-      ghostStreetMesh.position.set(e.x, 0.03, e.z)
+    const ghostKeys = [...plannedEdges, ...(cursorEdge ? [cursorEdge] : [])]
+    if (ghostKeys.length && grid) {
+      ghostStreetMesh = new THREE.Group()
+      for (const key of ghostKeys) {
+        const e = edgeCentre(grid, key)
+        const m = makeStreetEdge({ axis: e.axis })
+        const solid = plannedEdges.includes(key)
+        m.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); o.material.transparent = true; o.material.opacity = solid ? 0.9 : 0.7 } })
+        m.position.set(e.x, 0.03, e.z)
+        ghostStreetMesh.add(m)
+      }
       world.add(ghostStreetMesh)
     }
 
-    if (!framed && lots.length) frame(lots)
+    if (lots.length && grid) frame(placements, roadEdges, extraPoints, instant)
   }
 
+  // The camera frames what the city IS - buildings and streets, plus
+  // whatever the player is aiming at or looking at (extraPoints), plus a
+  // margin, never less than a 4×3 block of plots - and eases there as it
+  // grows. The grass runs on past the frame in every direction.
   let bounds = null
-  function frame (lots) {
-    const xs = lots.map(l => l.wx); const zs = lots.map(l => l.wz)
-    bounds = { minX: Math.min(...xs) - PITCH * 0.5 - 0.6, maxX: Math.max(...xs) + PITCH * 0.5 + 0.6, minZ: Math.min(...zs) - PITCH * 0.5 - 0.6, maxZ: Math.max(...zs) + PITCH * 0.5 + 0.6 }
-    framed = true
-    fit()
+  let targetBounds = null
+  function frame (placements, roadEdges, extraPoints, instant) {
+    const pts = [...placements.filter(p => p.kind !== 'tree').map(p => [p.x, p.z]), ...roadEdges.map(e => [e.x, e.z]), ...extraPoints.map(p => [p.x, p.z])]
+    if (!pts.length) pts.push([0, 0])
+    let minX = Math.min(...pts.map(p => p[0])); let maxX = Math.max(...pts.map(p => p[0]))
+    let minZ = Math.min(...pts.map(p => p[1])); let maxZ = Math.max(...pts.map(p => p[1]))
+    const minW = PITCH * 4; const minH = PITCH * 3
+    if (maxX - minX < minW) { const c = (minX + maxX) / 2; minX = c - minW / 2; maxX = c + minW / 2 }
+    if (maxZ - minZ < minH) { const c = (minZ + maxZ) / 2; minZ = c - minH / 2; maxZ = c + minH / 2 }
+    const pad = PITCH * 0.7
+    targetBounds = { minX: minX - pad, maxX: maxX + pad, minZ: minZ - pad, maxZ: maxZ + pad }
+    if (!framed || instant || reducedMotion) { bounds = { ...targetBounds }; framed = true; fit() }
   }
+
   let size = { w: 1, h: 1 }
+  // The part of the canvas the city is framed INTO, in canvas pixels. The
+  // canvas covers the whole stage so the grass runs under every panel; the
+  // city itself keeps to the clear area left of the market and above the hand.
+  let viewRect = null
   function fit () {
     if (!bounds) return
     const corners = []
-    for (const x of [bounds.minX, bounds.maxX]) for (const z of [bounds.minZ, bounds.maxZ]) for (const y of [-0.2, 1.3]) corners.push(new THREE.Vector3(x, y, z))
+    for (const x of [bounds.minX, bounds.maxX]) for (const z of [bounds.minZ, bounds.maxZ]) for (const y of [-0.1, 1.2]) corners.push(new THREE.Vector3(x, y, z))
     camera.updateMatrixWorld()
     const view = camera.matrixWorldInverse
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
@@ -311,16 +334,22 @@ export function createCityWorld (canvas, { reducedMotion = false } = {}) {
       minX = Math.min(minX, v.x); maxX = Math.max(maxX, v.x); minY = Math.min(minY, v.y); maxY = Math.max(maxY, v.y)
     }
     const w = (maxX - minX); const h = (maxY - minY)
-    const aspect = size.w / size.h
-    let halfW = w / 2; let halfH = h / 2
-    if (halfW / halfH < aspect) halfW = halfH * aspect; else halfH = halfW / aspect
-    const cx = (minX + maxX) / 2; const cy = (minY + maxY) / 2
+    const rect = viewRect ?? { x: 0, y: 0, w: size.w, h: size.h }
+    // Pixels per world unit that fit the city into the rect, then the full
+    // frustum is the whole canvas at that scale, shifted so the city's
+    // centre lands on the rect's centre.
+    const k = Math.min(rect.w / w, rect.h / h)
+    const halfW = size.w / 2 / k; const halfH = size.h / 2 / k
+    const dx = ((rect.x + rect.w / 2) - size.w / 2) / k
+    const dy = -((rect.y + rect.h / 2) - size.h / 2) / k
+    const cx = (minX + maxX) / 2 - dx; const cy = (minY + maxY) / 2 - dy
     camera.left = cx - halfW; camera.right = cx + halfW; camera.top = cy + halfH; camera.bottom = cy - halfH
     camera.updateProjectionMatrix()
   }
 
-  function resize (w, h, pixelRatio = 1) {
+  function resize (w, h, pixelRatio = 1, rect = null) {
     size = { w, h }
+    viewRect = rect
     renderer.setPixelRatio(Math.min(pixelRatio, 3))
     renderer.setSize(w, h, false)
     fit()
@@ -358,6 +387,15 @@ export function createCityWorld (canvas, { reducedMotion = false } = {}) {
       const p = entry.placement
       entry.group.scale.set(p.scale * s, p.scale * s, (p.scaleZ ?? p.scale) * s)
       if (k >= 1) { world.remove(entry.group); dying.delete(id) }
+    }
+    // The camera eases toward the city's current extent.
+    if (bounds && targetBounds) {
+      let moved = false
+      for (const k of ['minX', 'maxX', 'minZ', 'maxZ']) {
+        const d = targetBounds[k] - bounds[k]
+        if (Math.abs(d) > 0.002) { bounds[k] += d * 0.08; moved = true }
+      }
+      if (moved) fit()
     }
     // The cursor ring breathes.
     const pulse = 0.75 + 0.25 * Math.sin(t / 220)

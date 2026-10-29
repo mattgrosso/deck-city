@@ -72,7 +72,7 @@ export default {
 .card--dim { filter: brightness(0.82) saturate(0.6); }
 .card--cant { filter: grayscale(0.7) brightness(0.9); }
 .card--picked { border-color: var(--red); }
-.card--dark { background: #2a2f3d; color: #f4f6fb; border-color: #11141c; box-shadow: inset 0 0 0 3px #3a4052, inset 0 0 0 4px #1d2130, 0 6px 18px rgba(0,0,0,0.35); }
+.card--dark { background: #fbf3f3; border-color: #a85a60; box-shadow: inset 0 0 0 3px #fff, inset 0 0 0 4px #efd9db, 0 6px 18px rgba(27,33,48,0.22); }
 
 .card__band {
   position: relative;
@@ -83,7 +83,7 @@ export default {
   background: var(--c-soft);
   border: 1px solid color-mix(in srgb, var(--c) 55%, #fff);
 }
-.card--dark .card__band { background: color-mix(in srgb, var(--c) 45%, #2a2f3d); border-color: color-mix(in srgb, var(--c) 60%, #000); }
+.card--dark .card__band { background: var(--c-soft); border-color: color-mix(in srgb, var(--c) 55%, #fff); }
 .card__cost {
   flex: none;
   width: 34px; height: 34px; border-radius: 50%;
@@ -106,7 +106,7 @@ export default {
   display: grid; place-items: center;
   overflow: hidden;
 }
-.card--dark .card__window { background: linear-gradient(180deg, #3b4152 0%, #22262f 100%); border-color: #15181f; }
+.card--dark .card__window { background: linear-gradient(180deg, #e9e4e6 0%, #cfc8cc 100%); border-color: #d4c3c6; }
 .card__window svg { width: 56px; height: 56px; fill: var(--c); }
 .card__pic { width: 110%; height: 110%; object-fit: contain; margin-bottom: -6px; filter: drop-shadow(0 6px 6px rgba(0,0,0,0.3)); }
 
@@ -115,14 +115,12 @@ export default {
   font-size: 11.5px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase;
   color: color-mix(in srgb, var(--c) 70%, #000);
 }
-.card--dark .card__type { color: color-mix(in srgb, var(--c) 60%, #fff); }
 .card__rules {
   margin: 3px 2px 0;
   font-size: 14.5px; line-height: 1.22; font-weight: 500;
   color: var(--ink-2);
   overflow: hidden;
 }
-.card--dark .card__rules { color: #d6dbe6; }
 .card__rules p { margin: 0 0 3px; }
 .card__badge {
   position: absolute; inset: auto 0 0 0; padding: 5px;
