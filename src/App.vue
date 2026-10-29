@@ -69,7 +69,7 @@
         <Overlay v-if="mode === 'menu'" kind="plain" title="Paused" :items="MENU_ITEMS" :index="menuIndex" hint="Choose" @pick="menuIndex = $event; act('select')" />
       </template>
 
-      <Overlay v-if="screen === 'title'" kind="title" eyebrow="A deck-building city builder" title="Deck City" :lines="['Build a city of 20 people before the goals run out.']" hint="Start" />
+      <Overlay v-if="screen === 'title'" kind="title" eyebrow="A deck-building city builder" title="Deck City" :lines="['Build a city of 20 people before the goals run out.', 'Press Enter or click to start full screen.']" hint="Start" @click="act('select', 'click')" />
 
       <ButtonLegend :items="legend" :pad-connected="padConnected" />
       <p class="build-stamp" role="button" tabindex="0" title="Tap to reload" @click="stampTap">{{ refreshing ? 'reloading…' : stamp }}</p>
@@ -270,9 +270,16 @@ export default {
     },
 
     // ----- input -----------------------------------------------------
-    act (action) {
+    act (action, source = 'pad') {
       if (this.screen === 'title') {
-        if (action === 'select' || action === 'confirm') this.screen = 'game'
+        if (action === 'select' || action === 'confirm') {
+          // A browser on a TV wants its chrome gone. Browsers only grant
+          // full screen on a real user gesture, which a gamepad press is
+          // not (Chrome, Safari), so this fires for the keyboard and the
+          // mouse; a controller player presses Enter once, or taps Start.
+          if (source !== 'pad') document.documentElement.requestFullscreen?.().catch(() => {})
+          this.screen = 'game'
+        }
         return
       }
       const handler = this[`in_${this.mode}`]
