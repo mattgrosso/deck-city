@@ -101,9 +101,8 @@ export function rulesFor (card, catalog = {}) {
   else if (card.slots) lines.push(`${plural(card.slots.capacity, 'slot')}${card.slots.expandable ? ', expandable' : ''}`)
   if (card.blocksDisasters) lines.push('While it stands, blocks one disaster card every strike.')
 
-  for (const bonus of card.adjacency?.statBonus ?? []) {
-    lines.push(`+${bonus.amount} ${bonus.stat} to each neighbouring ${nameOf(bonus.targetTag, catalog)}`)
-  }
+  const near = (card.adjacency?.statBonus ?? []).map(b => `${b.amount > 0 ? '+' : '−'}${Math.abs(b.amount)} ${b.stat} per ${nameOf(b.targetTag, catalog)}`)
+  if (near.length) lines.push(`Next door: ${near.join(', ')}.`)
 
   if (card.type === 'goal' && card.condition) lines.push(`Needs ${conditionText(card.condition, catalog)}.`)
 
@@ -125,6 +124,7 @@ export const KEYWORDS = {
   monument: 'A claimed goal. Costs nothing to build, needs a street like anything else, and gives +1 population and +1 revenue.',
   disaster: 'Every fourth turn a strike shuffles disaster cards into your deck, one more each time. Each Fire Station standing blocks one.',
   population: 'The win condition. Reach the target and the city is finished.',
+  neighbours: 'A building counts its four neighbours (not diagonals). Each “next door” line adds or takes away for every matching neighbour, never below zero.',
   revenue: 'Next turn\'s budget: the revenue of every building in the city.'
 }
 
@@ -141,6 +141,7 @@ export function keywordsFor (card, catalog = {}) {
   want('status', 'crime', 'trash', 'pollution')
   want('monument', 'monument')
   want('disaster', 'disaster')
+  want('neighbours', 'next door')
   want('population', 'population')
   want('revenue', 'revenue')
   return hits

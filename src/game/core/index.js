@@ -32,6 +32,8 @@ export {
   addStatusCard,
   removeStatusCard,
   calcStatTotal,
+  instanceStats,
+  previewPlacement,
   countCardsByTag,
   buildStructure,
   placeRoad,

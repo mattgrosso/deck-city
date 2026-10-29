@@ -13,7 +13,7 @@
             :grid="game.state.cityGrid" :structures="game.state.builtStructures" :tick="tick"
             :targeting="mode === 'target' || mode === 'look'" :valid-cells="validCells" :cursor="cursorCell"
             :valid-edges="validEdges" :cursor-edge="cursorEdge" :planned-edges="pendingEdges" :preview-card="mode === 'target' ? selectedCard : null"
-            :width="1920" :height="1080" :rect="VIEW_RECT" :stage-scale="scale" :show-labels="mode === 'look'"
+            :width="1920" :height="1080" :rect="VIEW_RECT" :stage-scale="scale" :show-labels="mode === 'look'" :marks="aimPreview ? aimPreview.marks : []"
             @cell="onCellClick"
           />
         </div>
@@ -26,7 +26,8 @@
 
         <div class="phase-tag" :class="`phase-tag--${phaseName}`">{{ phaseLabel }}</div>
 
-        <CardInfo v-if="mode === 'hand' || mode === 'civic' || mode === 'target'" :card="focusedHandCard" :catalog="game.catalog" />
+        <CardInfo v-if="mode === 'hand' || mode === 'civic' || (mode === 'target' && !aimPreview)" :card="focusedHandCard" :catalog="game.catalog" />
+        <InfoPanel v-if="mode === 'target' && aimPreview" v-bind="aimPreview.panel" />
         <InfoPanel v-if="mode === 'look' && lookInfo" v-bind="lookInfo" />
         <InfoPanel v-if="mode === 'stats'" v-bind="statInfo" />
 
@@ -86,6 +87,7 @@
 </template>
 
 <script>
+import { toRaw } from 'vue'
 import TopBar from '@/components/TopBar.vue'
 import CityScene from '@/components/CityScene.vue'
 import Market from '@/components/Market.vue'
@@ -100,7 +102,8 @@ import BugReportButton from '@/components/shared/BugReportButton.vue'
 import BugResolutionNotice from '@/components/shared/BugResolutionNotice.vue'
 import {
   createGame, starterCards, facilityCards, goalCards, disasterCards,
-  calcStatTotal, countCardsByTag, evaluateCondition, isCellEmpty, isBuildable, listConnectedEdges
+  calcStatTotal, countCardsByTag, evaluateCondition, isCellEmpty, isBuildable, listConnectedEdges,
+  previewPlacement, instanceStats
 } from '@/game/core'
 import { attachInput, GLYPHS } from '@/ui/input'
 import { stepCursor, nearestCell } from '@/ui/layout'
@@ -116,12 +119,13 @@ import { initUpdateCheck } from '@/utils/checkForUpdate'
 // budget is" (the Suburbia opening: three tiles that add up to your start).
 const STARTING_BUILDINGS = [
   { cardId: 'residential', x: 5, y: 3 }, // 2 people, +1
-  { cardId: 'commercial', x: 6, y: 3 }, // 2 jobs, +2
-  { cardId: 'industrial', x: 5, y: 4 } // 3 jobs, +2 - everyone employed, budget 5
+  { cardId: 'commercial', x: 6, y: 3 }, // 2 jobs, +2, +1 for the house next door
+  { cardId: 'industrial', x: 6, y: 4 } // 3 jobs, +2, kept off the house - budget 6
 ]
 // The clear part of the stage (left of the market, above the hand) the city is framed into.
 const VIEW_RECT = { x: 40, y: 90, w: 1130, h: 690 }
 const BASE_REVENUE = 0
+const SHORT = { population: 'pop', revenue: 'rev', jobs: 'jobs' }
 const POPULATION_TARGET = 20
 const MENU_ITEMS = ['Resume', 'How to play', 'New game']
 const HOWTO_SEEN = 'deck-city:howto-seen'
@@ -251,9 +255,36 @@ export default {
       const id = this.game.state.cityGrid.cells[t.y * this.game.state.cityGrid.width + t.x]
       const inst = this.game.state.builtStructures.find(s => s.instanceId === id)
       if (!inst) return { eyebrow: 'Empty plot', title: `Plot ${t.x + 1}, ${t.y + 1}`, lines: [isBuildable(this.game.state.cityGrid, t.x, t.y) ? 'Touches a street: you can build here.' : 'No street yet. Lay a Road beside it first.'] }
-      const lines = rulesFor(inst.card, this.game.catalog)
+      const st = instanceStats(this.game.state, inst)
+      const now = Object.entries(st.total).filter(([, v]) => v).map(([k, v]) => `${v} ${k}`).join(', ')
+      const lines = [now ? `Gives ${now} here.` : 'Gives nothing here.']
+      for (const r of st.reasons) lines.push(`${r.amount > 0 ? '+' : '−'}${Math.abs(r.amount)} ${r.stat}: ${r.count} ${this.game.catalog[r.tag]?.name ?? r.tag} next door.`)
+      lines.push(...rulesFor(inst.card, this.game.catalog).slice(1))
       if (inst.slots) lines.push(`${inst.slots.used} of ${inst.slots.capacity} slots used this turn.`)
       return { eyebrow: FAMILIES[familyOf(inst.card)].label, title: inst.card.name, lines, tone: inst.card.type === 'goal' ? 'gold' : 'plain' }
+    },
+    /** What the aimed spot is worth and what changes next door (the adjacency decision). */
+    aimPreview () {
+      void this.tick
+      const card = this.selectedCard
+      const t = this.currentTarget
+      if (this.mode !== 'target' || !card || card.placesRoad || !t || t.kind !== 'cell') return null
+      // toRaw: the preview stands the building in for a moment; on the reactive
+      // proxy that write would re-run this computed forever.
+      const p = previewPlacement(toRaw(this.game).state, toRaw(card), { x: t.x, y: t.y })
+      const stat = (o) => Object.entries(o).filter(([, v]) => v).map(([k, v]) => `${v > 0 ? '+' : '−'}${Math.abs(v)} ${SHORT[k] ?? k}`).join(', ')
+      const lines = []
+      const own = Object.entries(p.own).filter(([, v]) => v).map(([k, v]) => `${v} ${k}`).join(', ')
+      lines.push(own ? `Here it gives ${own}.` : 'Here it gives nothing.')
+      for (const r of p.ownReasons) lines.push(`${r.amount > 0 ? '+' : '−'}${Math.abs(r.amount)} ${r.stat}: ${r.count} ${this.game.catalog[r.tag]?.name ?? r.tag} next door.`)
+      for (const n of p.neighbours) lines.push(`${n.name} next door: ${stat(n.delta)}.`)
+      const net = stat(p.delta)
+      if (net) lines.push(`City: ${net}.`)
+      const good = (p.delta.population ?? 0) + (p.delta.revenue ?? 0) + (p.delta.jobs ?? 0)
+      const base = Object.values(card.stats ?? {}).reduce((a, b) => a + b, 0)
+      const tone = good > base ? 'good' : good < base ? 'bad' : 'plain'
+      const marks = p.neighbours.map(n => ({ x: n.position.x, y: n.position.y, text: stat(n.delta), tone: Object.values(n.delta).some(v => v < 0) ? 'bad' : 'good' }))
+      return { panel: { eyebrow: 'This spot', title: `${card.name} here`, lines, tone: tone === 'good' ? 'gold' : 'plain' }, marks }
     },
     statInfo () {
       void this.tick

@@ -43,6 +43,13 @@ export const RESIDENTIAL = {
   cost: 3,
   tags: ['residential'],
   stats: { population: 2, revenue: 1 },
+  // Neighbourhoods grow; nobody wants to live next to a factory.
+  adjacency: {
+    statBonus: [
+      { stat: 'population', amount: 1, targetTag: 'residential' },
+      { stat: 'population', amount: -1, targetTag: 'industrial' }
+    ]
+  },
   effects: {
     onBuild: [{ type: 'gainStatus', card: CRIME.id, amount: 1 }]
   }
@@ -55,6 +62,13 @@ export const COMMERCIAL = {
   cost: 3,
   tags: ['commercial'],
   stats: { jobs: 2, revenue: 2 },
+  // Shops want customers next door, not competitors.
+  adjacency: {
+    statBonus: [
+      { stat: 'revenue', amount: 1, targetTag: 'residential' },
+      { stat: 'revenue', amount: -1, targetTag: 'commercial' }
+    ]
+  },
   effects: {
     onBuild: [{ type: 'gainStatus', card: TRASH.id, amount: 1 }]
   }
@@ -67,6 +81,10 @@ export const INDUSTRIAL = {
   cost: 4,
   tags: ['industrial'],
   stats: { jobs: 3, revenue: 2 },
+  // Industry clusters.
+  adjacency: {
+    statBonus: [{ stat: 'revenue', amount: 1, targetTag: 'industrial' }]
+  },
   effects: {
     onBuild: [{ type: 'gainStatus', card: POLLUTION.id, amount: 1 }]
   }

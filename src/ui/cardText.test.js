@@ -11,6 +11,7 @@ describe('rulesFor', () => {
   it('says what a zone gives and what it costs you', () => {
     expect(rulesFor(starterCards.RESIDENTIAL, catalog)).toEqual([
       '+2 population, +1 revenue',
+      'Next door: +1 population per Residential, −1 population per Industrial.',
       'When built: add 1 Crime to your deck.'
     ])
   })
@@ -21,7 +22,7 @@ describe('rulesFor', () => {
       'Play a Crime card from your hand into it: 2 slots a turn. The card is gone for good.'
     ])
     expect(rulesFor(facilityCards.PARK, catalog)).toEqual([
-      '+1 revenue to each neighbouring Residential',
+      'Next door: +1 revenue per Residential.',
       'Each turn: add 1 Crime per neighbouring Residential.'
     ])
   })

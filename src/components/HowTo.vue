@@ -30,7 +30,7 @@ export const PAGES = [
   {
     title: 'The budget resets every turn.',
     lines: [
-      'Your budget is the revenue of everything you have built. The starting city earns 5.',
+      'Your budget is the revenue of everything you have built. The starting city earns 6.',
       'Spend it or lose it: nothing carries over unless a goal says so.',
       'Buildings cost budget to place. The number on the coin is the price.'
     ]
@@ -62,9 +62,9 @@ export const PAGES = [
   {
     title: 'Where you build matters.',
     lines: [
-      'A Park pays its neighbouring houses, and invites crime there too.',
-      'Some goals want three houses in a row, or a park beside a house.',
-      'Pick a card, aim at a plot, place it. Done building, then the market, then end the turn.'
+      'Every building counts its four neighbours. Houses grow beside houses and shrink beside factories.',
+      'Shops earn more beside houses and less beside other shops. Factories earn more in a cluster.',
+      'While you aim, the panel shows what the spot is worth and what changes next door.'
     ]
   }
 ]

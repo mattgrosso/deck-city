@@ -152,32 +152,93 @@ export function removeStatusCard (state, cardId, amount = 1, opts = {}) {
 }
 
 /**
- * Sums stats[statKey] across all built structures, plus any adjacency stat
- * bonuses currently in effect (e.g. Park's "+1 revenue to adjacent
- * Residential" - see cards/facilityCards.js). Generic — adding a new base
- * stat needs no changes here; adding a new adjacency-granting card is just
- * card data (card.adjacency.statBonus), not new engine code.
+ * One building's stats with its neighbours counted in: its card's base
+ * stats plus every adjacency bonus on its card (card.adjacency.statBonus:
+ * { stat, amount, targetTag } = `amount` of `stat` for EACH orthogonal
+ * neighbour tagged `targetTag`; amounts may be negative). No stat drops
+ * below zero - a bad spot hurts, it never subtracts from the rest of the
+ * city. Matt: "I really want to add a layer of decision around what gets
+ * built next to what."
+ * @returns {{ base: Object, bonus: Object, total: Object, reasons: {stat: string, amount: number, tag: string, count: number}[] }}
+ */
+export function instanceStats (state, instance) {
+  const base = { ...(instance.card.stats ?? {}) }
+  const bonus = {}
+  const reasons = []
+  const rules = instance.card.adjacency?.statBonus ?? []
+  if (rules.length) {
+    const neighbors = getAdjacentInstances(state, instance.instanceId)
+    for (const rule of rules) {
+      const count = neighbors.filter(n => n.card.tags?.includes(rule.targetTag)).length
+      if (!count) continue
+      bonus[rule.stat] = (bonus[rule.stat] ?? 0) + count * rule.amount
+      reasons.push({ stat: rule.stat, amount: count * rule.amount, tag: rule.targetTag, count })
+    }
+  }
+  const total = {}
+  for (const key of new Set([...Object.keys(base), ...Object.keys(bonus)])) {
+    total[key] = Math.max(0, (base[key] ?? 0) + (bonus[key] ?? 0))
+  }
+  return { base, bonus, total, reasons }
+}
+
+/**
+ * Sums a stat across every built structure, neighbours counted in (see
+ * instanceStats). Adding a new adjacency-aware card is card data, not code.
  * @param {Object} state
  * @param {string} statKey
  */
 export function calcStatTotal (state, statKey) {
-  const base = state.builtStructures.reduce(
-    (total, instance) => total + (instance.card.stats?.[statKey] ?? 0),
-    0
-  )
+  return state.builtStructures.reduce((total, instance) => total + (instanceStats(state, instance).total[statKey] ?? 0), 0)
+}
 
-  const adjacencyBonus = state.builtStructures.reduce((total, instance) => {
-    const bonuses = instance.card.adjacency?.statBonus?.filter(bonus => bonus.stat === statKey)
-    if (!bonuses?.length) return total
+/**
+ * What placing `card` at `position` would do, without doing it: the new
+ * building's own stats there, and how every neighbour's stats would change.
+ * For the aiming preview. Temporarily stands the building in the grid and
+ * always takes it back out.
+ * @returns {{ own: Object, ownReasons: Object[], neighbours: {instanceId: string, position: Object, name: string, delta: Object}[], delta: Object }}
+ */
+export function previewPlacement (state, card, position) {
+  const before = new Map(state.builtStructures.map(i => [i.instanceId, instanceStats(state, i).total]))
+  const totalsBefore = sumTotals([...before.values()])
+  const probe = { instanceId: '__preview__', card, position }
+  const index = position.y * state.cityGrid.width + position.x
+  const prevCell = state.cityGrid.cells[index]
+  state.builtStructures.push(probe)
+  state.cityGrid.cells[index] = probe.instanceId
+  try {
+    const own = instanceStats(state, probe)
+    const neighbours = []
+    const totalsAfter = []
+    for (const inst of state.builtStructures) {
+      const after = instanceStats(state, inst).total
+      totalsAfter.push(after)
+      if (inst === probe) continue
+      const was = before.get(inst.instanceId) ?? {}
+      const delta = diffStats(was, after)
+      if (Object.keys(delta).length) neighbours.push({ instanceId: inst.instanceId, position: inst.position, name: inst.card.name, delta })
+    }
+    return { own: own.total, ownReasons: own.reasons, neighbours, delta: diffStats(totalsBefore, sumTotals(totalsAfter)) }
+  } finally {
+    state.builtStructures.pop()
+    state.cityGrid.cells[index] = prevCell
+  }
+}
 
-    const neighbors = getAdjacentInstances(state, instance.instanceId)
-    return total + bonuses.reduce((sum, bonus) => {
-      const matches = neighbors.filter(neighbor => neighbor.card.tags?.includes(bonus.targetTag)).length
-      return sum + matches * bonus.amount
-    }, 0)
-  }, 0)
+function sumTotals (list) {
+  const out = {}
+  for (const t of list) for (const [k, v] of Object.entries(t)) out[k] = (out[k] ?? 0) + v
+  return out
+}
 
-  return base + adjacencyBonus
+function diffStats (was, now) {
+  const out = {}
+  for (const key of new Set([...Object.keys(was), ...Object.keys(now)])) {
+    const d = (now[key] ?? 0) - (was[key] ?? 0)
+    if (d) out[key] = d
+  }
+  return out
 }
 
 /**

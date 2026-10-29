@@ -26,7 +26,7 @@ describe('App', () => {
     expect(vm().mode).toBe('hand')
     expect(vm().phaseName).toBe('build')
     expect(vm().game.state.hand.length).toBe(5)
-    expect(vm().treasury).toBe(5)
+    expect(vm().treasury).toBe(6)
   })
 
   it('plays a Road from the hand onto an edge with A, the d-pad, and A', async () => {
@@ -42,7 +42,7 @@ describe('App', () => {
     await press('right', 'select')
     expect(vm().mode).toBe('hand')
     expect(vm().game.state.hand.length).toBe(4)
-    expect(vm().treasury).toBe(4)
+    expect(vm().treasury).toBe(5)
     expect(vm().game.state.cityGrid.roads.size).toBe(roadsBefore + 1)
   })
 

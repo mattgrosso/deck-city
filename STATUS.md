@@ -199,6 +199,23 @@ your deck. The goal deck and Monument cards are unchanged underneath.
 Building chips on the map show only in look mode (Matt: "only when I am
 inspecting the map").
 
+**Adjacency is the decision now** (Matt: "I really want to add a layer of
+decision around what gets built next to what"). `instanceStats(state,
+instance)` in playerState.js is a building's stats with its four
+neighbours counted in (`card.adjacency.statBonus`: `amount` of `stat` per
+neighbour tagged `targetTag`, negatives allowed, never below zero per
+stat); `calcStatTotal` sums it, so budget, population, jobs, the win
+check and unemployment all see it. The first rules: houses +1 pop per
+neighbouring house, −1 per neighbouring factory; shops +1 revenue per
+neighbouring house, −1 per neighbouring shop; factories +1 revenue per
+neighbouring factory; parks unchanged. `previewPlacement` stands a
+building in for a moment (on `toRaw` state - on the reactive proxy it
+loops) and reports its own stats, the reasons, each neighbour's change and
+the city's net change; the aiming panel shows it and green/red chips sit
+over the neighbours that change. Look mode explains a building's number
+the same way. The starting city now earns 6 (the shop is beside the house;
+the factory is kept off it).
+
 **Not done / next:** nobody has played a full game on the TV yet — that's
 the point of all this. Then: tune every number (all still first guesses),
 decide whether Build and Acquire should be one phase, sound, the road-chain

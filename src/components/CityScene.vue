@@ -6,6 +6,9 @@
       <div v-for="lot in lots" :key="lot.id" class="flat-lot" :class="{ 'flat-lot--built': lot.instanceId, 'flat-lot--valid': validSet.has(`${lot.x},${lot.y}`), 'flat-lot--cursor': cursor && cursor.x === lot.x && cursor.y === lot.y }" @click="$emit('cell', { x: lot.x, y: lot.y })" />
     </div>
     <!-- Crisp HTML labels over the canvas: a chip under each building. -->
+    <div class="scene__labels">
+      <div v-for="m in placedMarks" :key="m.key" class="mark" :class="`mark--${m.tone}`" :style="{ left: `${m.sx}px`, top: `${m.sy}px` }">{{ m.text }}</div>
+    </div>
     <div v-if="showLabels" class="scene__labels">
       <div v-for="label in labels" :key="label.id" class="chip" :class="{ 'chip--monument': label.monument }" :style="{ left: `${label.x}px`, top: `${label.y}px` }">
         <span class="chip__name">{{ label.name }}</span><span v-if="label.stats" class="chip__stats">{{ label.stats }}</span>
@@ -38,6 +41,8 @@ export default {
     // Building chips show only while inspecting the map (Matt: "those should
     // only appear when I am inspecting").
     showLabels: { type: Boolean, default: false },
+    // Change chips over neighbouring plots while aiming: [{ x, y, text, tone }].
+    marks: { type: Array, default: () => [] },
     width: { type: Number, default: 1920 },
     height: { type: Number, default: 1080 },
     // Where on the canvas the city is framed (canvas pixels); the rest is grass under the UI.
@@ -50,7 +55,12 @@ export default {
   computed: {
     layout () { void this.tick; return layoutCity(this.grid, this.structures) },
     lots () { return this.layout.lots },
-    validSet () { return new Set(this.validCells.map(c => `${c.x},${c.y}`)) }
+    validSet () { return new Set(this.validCells.map(c => `${c.x},${c.y}`)) },
+    placedMarks () {
+      void this.tick
+      if (!this.world || !this.ready) return []
+      return this.marks.map(m => { const c = cellCentre(this.grid, m.x, m.y); const p = this.world.project(c.x, 0.9, c.z); return { ...m, key: `${m.x},${m.y}`, sx: p.x, sy: p.y } })
+    }
   },
   watch: {
     layout () { this.sync() },
@@ -152,6 +162,10 @@ export default {
 .chip { position: absolute; transform: translate(-50%, 0); display: flex; gap: 6px; align-items: baseline; padding: 1px 7px; border-radius: 7px; background: rgba(255,255,255,0.92); border: 1px solid var(--line); white-space: nowrap; box-shadow: 0 2px 6px rgba(27,33,48,0.15); }
 .chip__name { font-size: 11px; font-weight: 800; letter-spacing: 0.02em; }
 .chip__stats { font-size: 10px; font-weight: 700; color: var(--ink-2); }
+.mark { position: absolute; transform: translate(-50%, -100%); padding: 3px 9px; border-radius: 999px; font-size: 14px; font-weight: 800; white-space: nowrap; box-shadow: 0 4px 12px rgba(27,33,48,0.2); animation: mark-in 180ms ease-out; }
+.mark--good { background: #2fb36a; color: #fff; }
+.mark--bad { background: #e0434b; color: #fff; }
+@keyframes mark-in { from { opacity: 0; transform: translate(-50%, -80%); } }
 .chip--monument { border-color: var(--gold); }
 .chip--monument .chip__name { color: #b47a0a; }
 </style>

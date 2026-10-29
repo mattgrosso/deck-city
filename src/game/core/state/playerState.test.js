@@ -20,7 +20,10 @@ import {
   resetDisasterTimer,
   getAdjacentInstances,
   headOffDisaster,
-  raiseTreasuryRolloverCap
+  raiseTreasuryRolloverCap,
+  seedStructure,
+  instanceStats,
+  previewPlacement
 } from './playerState'
 
 const BUILDING = { id: 'residential', type: 'building', name: 'Residential', stats: { population: 2, revenue: 1 } }
@@ -313,5 +316,36 @@ describe('disaster timer', () => {
     state.disasterTimer.headedOff = true
     resetDisasterTimer(state)
     expect(state.disasterTimer).toMatchObject({ turnsUntilDeadline: 4, headedOff: false })
+  })
+})
+
+describe('instanceStats / previewPlacement', () => {
+  const HOUSE = { id: 'h', type: 'building', name: 'House', tags: ['residential'], stats: { population: 2 }, adjacency: { statBonus: [{ stat: 'population', amount: 1, targetTag: 'residential' }, { stat: 'population', amount: -1, targetTag: 'industrial' }] } }
+  const FACTORY = { id: 'f', type: 'building', name: 'Factory', tags: ['industrial'], stats: { jobs: 3 } }
+
+  it('counts neighbours into a building, never below zero', () => {
+    const state = createPlayerState()
+    const a = seedStructure(state, HOUSE, { x: 0, y: 0 })
+    seedStructure(state, HOUSE, { x: 1, y: 0 })
+    expect(instanceStats(state, a).total.population).toBe(3)
+    seedStructure(state, FACTORY, { x: 0, y: 1 })
+    expect(instanceStats(state, a).total.population).toBe(2)
+    const lonely = seedStructure(state, { ...HOUSE, stats: { population: 0 } }, { x: 5, y: 5 })
+    seedStructure(state, FACTORY, { x: 5, y: 6 })
+    expect(instanceStats(state, lonely).total.population).toBe(0)
+    expect(calcStatTotal(state, 'population')).toBe(5) // first house 2+1-1, second 2+1, lonely house 0
+  })
+
+  it('previews a placement without changing the city', () => {
+    const state = createPlayerState()
+    seedStructure(state, HOUSE, { x: 0, y: 0 })
+    const before = calcStatTotal(state, 'population')
+    const p = previewPlacement(state, HOUSE, { x: 1, y: 0 })
+    expect(p.own.population).toBe(3)
+    expect(p.neighbours).toEqual([{ instanceId: expect.any(String), position: { x: 0, y: 0 }, name: 'House', delta: { population: 1 } }])
+    expect(p.delta.population).toBe(4)
+    expect(calcStatTotal(state, 'population')).toBe(before)
+    expect(state.builtStructures).toHaveLength(1)
+    expect(state.cityGrid.cells[1]).toBeNull()
   })
 })
