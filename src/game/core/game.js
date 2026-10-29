@@ -51,6 +51,7 @@ function assertPlaying (state) {
  * @param {string[]} [options.startingRoadEdges]
  * @param {string[]} [options.supplyCardIds] - always for sale beside the city row, never sold out (Roads)
  * @param {Object} [options.run] - a run of eras, mandates and patience (turn/run.js); without it the old population-target game
+ * @param {boolean} [options.shuffleStartingDeck] - default true; tests turn it off to deal in list order
  * @param {() => number} [options.rng]
  */
 export function createGame ({
@@ -69,6 +70,7 @@ export function createGame ({
   buysPerTurn = 1,
   cityTiers = [],
   shuffleMarkets = true,
+  shuffleStartingDeck = true,
   gridSize,
   startingRoadEdges,
   run = null,
@@ -91,6 +93,9 @@ export function createGame ({
     gridSize,
     startingRoadEdges
   })
+  // Matt: "I start with exactly the same five cards every time." The starting
+  // deck was dealt in list order; it is shuffled like every reshuffle after.
+  if (shuffleStartingDeck) shuffle(state.deck)
 
   // The market and the goals are shuffled at the start (they were not, so the
   // city row dealt in list order and the same three goals opened every game).

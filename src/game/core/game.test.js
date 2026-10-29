@@ -18,7 +18,7 @@ const CIVIC_CARD = {
 
 describe('createGame', () => {
   it('drives one full turn using only the example cards', () => {
-    // No rng is passed, and createDeck never shuffles on creation, so the
+    // shuffleStartingDeck: false deals in list order, so the
     // starting deck's draw order is just its input array consumed from the
     // end — i.e. drawing 3 from ['road', 'residential', 'clinic'] yields
     // clinic, then residential, then road.
@@ -32,7 +32,8 @@ describe('createGame', () => {
       cardCatalog: EXAMPLE_CARDS,
       startingDeckCardIds: ['road', 'residential', 'clinic'],
       baseRevenue: 10,
-      handSize: 3
+      handSize: 3,
+      shuffleStartingDeck: false
     })
 
     // 'draw' phase runs (budget resets to 10, hand is populated); current
@@ -147,7 +148,8 @@ describe('createGame', () => {
       const game = createGame({
         cardCatalog: [CIVIC_CARD, ...EXAMPLE_CARDS],
         startingDeckCardIds: ['road', 'road', 'road', 'road', 'road', 'road', 'test-civic'],
-        handSize: 5
+        handSize: 5,
+        shuffleStartingDeck: false
       })
       game.actions.advance() // draw -> build
 

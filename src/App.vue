@@ -29,7 +29,7 @@
         <div class="phase-tag" :class="`phase-tag--${phaseName}`">{{ phaseLabel }}</div>
 
         <CardInfo v-if="mode === 'hand' || mode === 'civic' || (mode === 'target' && !aimPreview)" :card="focusedHandCard" :catalog="game.catalog" />
-        <InfoPanel v-if="mode === 'target' && aimPreview" v-bind="aimPreview.panel" />
+        <PlacementPreview v-if="mode === 'target' && aimPreview" v-bind="aimPreview.panel" />
         <InfoPanel v-if="mode === 'look' && lookInfo" v-bind="lookInfo" />
         <InfoPanel v-if="mode === 'stats'" v-bind="statInfo" />
 
@@ -63,7 +63,8 @@
         <Hand
           :hand="game.state.hand" :keys="handKeys" :catalog="game.catalog"
           :focused-index="handActive ? handIndex : null" :picks="picks" :dim="!handActive" :can-play="canPlay" :cost-of="costOf"
-          @focus="onHandFocus" @select="onHandSelect"
+          :lifted="mode === 'civic' ? selectedIndex : null" :need="mode === 'civic' ? civicNeed : 0" :prompt="civicPrompt" :confirm-glyph="glyphs.confirm"
+          @focus="onHandFocus" @select="onHandSelect" @confirm="confirmPicks"
         />
 
         <transition name="toast">
@@ -89,8 +90,12 @@
         <HowTo v-if="mode === 'howto'" :page="howtoPage" :glyphs="glyphs" />
       </template>
 
-      <Overlay v-if="screen === 'title'" kind="title" eyebrow="A deck-building city builder" title="Deck City" :lines="['Three eras. Choose a mandate for each and meet it before the public runs out of patience.', 'Press Enter or click to start full screen.']" hint="Start" :glyph="glyphs.select" @click="act('select', 'click')" />
+      <Overlay v-if="screen === 'title'" kind="title" eyebrow="A deck-building city builder" title="Deck City" :lines="['Three eras. Choose a mandate for each and meet it before the public runs out of patience.', 'Press A, Enter or click to start.']" hint="Start" :glyph="glyphs.select" @click="act('select', 'click')" />
 
+      <button v-if="!isFullscreen" class="fs-btn" :class="{ 'fs-btn--title': screen === 'title' }" type="button" @click.stop="toggleFullscreen('click')">
+        <svg viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" /></svg>
+        Full screen <span class="fs-btn__key">F</span>
+      </button>
       <ButtonLegend :items="legend" :pad="pad" />
       <p class="build-stamp" role="button" tabindex="0" title="Tap to reload" @click="stampTap">{{ refreshing ? 'reloading…' : stamp }}</p>
     </div>
@@ -112,6 +117,7 @@ import CardInfo from '@/components/CardInfo.vue'
 import InfoPanel from '@/components/InfoPanel.vue'
 import HowTo, { PAGES as HOWTO_PAGES } from '@/components/HowTo.vue'
 import MandateTile from '@/components/MandateTile.vue'
+import PlacementPreview from '@/components/PlacementPreview.vue'
 import { runGameOptions } from '@/game/runSetup'
 import BugReportButton from '@/components/shared/BugReportButton.vue'
 import BugResolutionNotice from '@/components/shared/BugResolutionNotice.vue'
@@ -122,7 +128,7 @@ import {
 } from '@/game/core'
 import { attachInput, GLYPHS } from '@/ui/input'
 import { stepCursor, nearestCell } from '@/ui/layout'
-import { rulesFor, FAMILIES, familyOf } from '@/ui/cardText'
+import { rulesFor, FAMILIES, familyOf, effectText } from '@/ui/cardText'
 import { ICONS } from '@/ui/icons'
 import { firebaseConfigured } from '@/firebase'
 import { buildStamp, forceRefresh } from '@/utils/buildStamp'
@@ -131,7 +137,7 @@ import { initUpdateCheck } from '@/utils/checkForUpdate'
 // The clear part of the stage (left of the market, above the hand) the city is framed into.
 const VIEW_RECT = { x: 40, y: 90, w: 1130, h: 690 }
 const SHORT = { population: 'pop', revenue: 'rev', jobs: 'jobs' }
-const MENU_ITEMS = ['Resume', 'How to play', 'New game']
+const MENU_ITEMS = ['Resume', 'Full screen', 'How to play', 'New game']
 const HOWTO_SEEN = 'deck-city:howto-seen'
 
 // The numbers along the top, in cursor order, and what each one means.
@@ -148,7 +154,7 @@ const STATS = [
 
 export default {
   name: 'App',
-  components: { TopBar, CityScene, Market, Hand, PileView, Overlay, ButtonLegend, CardInfo, InfoPanel, HowTo, MandateTile, BugReportButton, BugResolutionNotice },
+  components: { TopBar, CityScene, Market, Hand, PileView, Overlay, ButtonLegend, CardInfo, InfoPanel, HowTo, MandateTile, PlacementPreview, BugReportButton, BugResolutionNotice },
   // The house bug button has no store to read; it asks this for a snapshot.
   provide () {
     return { bugSnapshot: () => this.bugSnapshot() }
@@ -196,7 +202,8 @@ export default {
       shakeOrb: false,
       firebaseConfigured,
       stamp: buildStamp(),
-      refreshing: false
+      refreshing: false,
+      isFullscreen: false
     }
   },
   created () {
@@ -205,6 +212,9 @@ export default {
   mounted () {
     this.fit()
     window.addEventListener('resize', this.fit)
+    this.onFsChange = () => { this.isFullscreen = !!document.fullscreenElement }
+    document.addEventListener('fullscreenchange', this.onFsChange)
+    this.onFsChange()
     this.detach = attachInput({ onAction: this.act, onPadChange: (kind) => { this.pad = kind } })
     // Auto-update (house standard): a reload only on the title screen or a
     // finished game - a game in progress lives in memory and nowhere else.
@@ -213,6 +223,7 @@ export default {
   },
   beforeUnmount () {
     window.removeEventListener('resize', this.fit)
+    document.removeEventListener('fullscreenchange', this.onFsChange)
     this.detach?.()
   },
   computed: {
@@ -260,6 +271,12 @@ export default {
       const seen = {}
       return this.game.state.hand.map(card => { seen[card.id] = (seen[card.id] ?? 0) + 1; return `${card.id}#${seen[card.id]}` })
     },
+    civicNeed () { void this.tick; return Math.min(2, this.game.state.hand.length - 1) },
+    civicPrompt () {
+      if (this.mode !== 'civic' || !this.selectedCard) return ''
+      const left = this.civicNeed - this.picks.length
+      return left > 0 ? `${this.selectedCard.name}: pick ${left} more to discard` : `${this.selectedCard.name}: discard these, then draw ${(this.selectedCard.effects?.onPlay ?? []).find(e => e.type === 'drawCards')?.amount ?? 0}`
+    },
     handActive () { return this.mode === 'hand' || this.mode === 'civic' || this.mode === 'target' },
     focusedHandCard () { void this.tick; return this.game.state.hand[this.handIndex] ?? null },
     selectedCard () { void this.tick; return this.selectedIndex === null ? null : this.game.state.hand[this.selectedIndex] ?? null },
@@ -295,18 +312,16 @@ export default {
       // proxy that write would re-run this computed forever.
       const p = previewPlacement(toRaw(this.game).state, toRaw(card), { x: t.x, y: t.y })
       const stat = (o) => Object.entries(o).filter(([, v]) => v).map(([k, v]) => `${v > 0 ? '+' : '−'}${Math.abs(v)} ${SHORT[k] ?? k}`).join(', ')
-      const lines = []
-      const own = Object.entries(p.own).filter(([, v]) => v).map(([k, v]) => `${v} ${k}`).join(', ')
-      lines.push(own ? `Here it gives ${own}.` : 'Here it gives nothing.')
-      for (const r of p.ownReasons) lines.push(`${r.amount > 0 ? '+' : '−'}${Math.abs(r.amount)} ${r.stat}: ${r.count} ${this.game.catalog[r.tag]?.name ?? r.tag} next door.`)
-      for (const n of p.neighbours) lines.push(`${n.name} next door: ${stat(n.delta)}.`)
-      const net = stat(p.delta)
-      if (net) lines.push(`City: ${net}.`)
-      const good = (p.delta.population ?? 0) + (p.delta.revenue ?? 0) + (p.delta.jobs ?? 0)
-      const base = Object.values(card.stats ?? {}).reduce((a, b) => a + b, 0)
-      const tone = good > base ? 'good' : good < base ? 'bad' : 'plain'
+      const tagName = (tag) => this.game.catalog[tag]?.name ?? tag
+      const reasons = p.ownReasons.map(r => ({
+        stat: r.stat,
+        amount: r.amount,
+        label: r.scope === 'city' ? `${r.count} ${tagName(r.tag)} in the city` : `${r.count} ${tagName(r.tag)} next door`
+      }))
       const marks = p.neighbours.map(n => ({ x: n.position.x, y: n.position.y, text: stat(n.delta), tone: Object.values(n.delta).some(v => v < 0) ? 'bad' : 'good' }))
-      return { panel: { eyebrow: 'This spot', title: `${card.name} here`, lines, tone: tone === 'good' ? 'gold' : 'plain' }, marks }
+      // The panel sits top-left; it drops lower when the cursor is under it.
+      const low = t.sx < 470 && t.sy < 640
+      return { panel: { name: card.name, base: card.stats ?? {}, reasons, neighbours: p.neighbours.map(n => ({ name: n.name, delta: n.delta })), own: p.own, delta: p.delta, also: (card.effects?.onBuild ?? []).map(e => effectText(e, this.game.catalog)), low }, marks }
     },
     statInfo () {
       void this.tick
@@ -345,7 +360,7 @@ export default {
         case 'title': return [L('select', 'Start')]
         case 'hand': return [L('lr', 'Choose card'), L('select', 'Play'), L('up', 'Look at the city'), L('confirm', this.endLabel), L('deck', 'Deck'), L('menu', 'Menu')]
         case 'target': return this.pendingEdges.length ? [L('dpad', 'Aim the second segment'), L('select', 'Place'), L('back', 'Keep just one')] : [L('dpad', 'Aim'), L('select', 'Place'), L('back', 'Back')]
-        case 'civic': return [L('lr', 'Choose'), L('select', 'Mark to discard'), L('back', 'Back')]
+        case 'civic': return [L('lr', 'Choose'), L('select', 'Pick / put back'), ...(this.picks.length >= this.civicNeed ? [L('confirm', 'Discard these')] : []), L('back', 'Back')]
         case 'market': return [L('dpad', 'Browse'), L('select', 'Buy / Claim'), L('up', 'Look at the city'), L('confirm', 'End turn'), L('deck', 'Deck'), L('menu', 'Menu')]
         case 'look': return [L('dpad', 'Move'), L('up', 'Top bar'), L('back', 'Back')]
         case 'stats': return [L('lr', 'Next number'), L('back', 'Back')]
@@ -381,6 +396,18 @@ export default {
       if (this.game.state.run?.status === 'choosing') this.mode = 'mandate'
       this.refresh()
     },
+    enterFullscreen (source) {
+      const el = document.documentElement
+      if (!el.requestFullscreen) return
+      el.requestFullscreen().catch(() => {
+        const msg = source === 'pad' ? 'The browser won\'t go full screen from a controller. Press F or click Full screen.' : 'The browser refused full screen.'
+        this.say(msg, 'bad') // the game has started by the time the browser answers
+      })
+    },
+    toggleFullscreen (source) {
+      if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {})
+      else this.enterFullscreen(source)
+    },
     startGame () {
       this.screen = 'game'
       let seen = false
@@ -390,12 +417,16 @@ export default {
 
     // ----- input -----------------------------------------------------
     act (action, source = 'pad') {
+      this.lastSource = source
+      if (action === 'fullscreen') return this.toggleFullscreen(source)
       if (this.screen === 'title') {
         if (action === 'select' || action === 'confirm') {
-          // Browsers only grant full screen on a real user gesture, which a
-          // gamepad press is not (Chrome, Safari): the keyboard and the mouse
-          // get it here; a controller player presses Enter once.
-          if (source !== 'pad') document.documentElement.requestFullscreen?.().catch(() => {})
+          // Matt: "if I hit the button with a controller, it doesn't go to
+          // full screen. If I click the mouse, it does." Browsers grant full
+          // screen only to a click or a key press; a controller button is not
+          // one (Chrome, Safari). Ask anyway - a browser that allows it wins -
+          // and say so plainly when it refuses.
+          if (!this.isFullscreen) this.enterFullscreen(source)
           this.startGame()
         }
         return
@@ -430,6 +461,7 @@ export default {
       if (action === 'left') this.handIndex = others[(pos - 1 + others.length) % others.length]
       else if (action === 'right') this.handIndex = others[(pos + 1) % others.length]
       else if (action === 'select') this.togglePick(this.handIndex)
+      else if (action === 'confirm') this.confirmPicks()
       else if (action === 'back') { this.mode = 'hand'; this.picks = []; this.handIndex = this.selectedIndex; this.selectedIndex = null }
     },
     in_market (action) {
@@ -516,7 +548,7 @@ export default {
       else if (action === 'select') {
         const item = MENU_ITEMS[this.menuIndex]
         if (item === 'New game') this.newGame()
-        else if (item === 'How to play') this.openHowTo(this.menuReturn)
+        else if (item === 'Full screen') { this.mode = this.menuReturn; this.toggleFullscreen(this.lastSource) } else if (item === 'How to play') this.openHowTo(this.menuReturn)
         else this.mode = this.menuReturn
       }
     },
@@ -686,9 +718,12 @@ export default {
     togglePick (i) {
       const at = this.picks.indexOf(i)
       if (at !== -1) { this.picks.splice(at, 1); return }
+      if (this.picks.length >= this.civicNeed) return this.refuse(`That's ${this.civicNeed}. Press ${this.glyphs.select} on a picked card to put it back, or ${this.glyphs.confirm} to discard.`)
       this.picks.push(i)
-      const need = Math.min(2, this.game.state.hand.length - 1)
-      if (this.picks.length < need) return
+    },
+    /** Play the civic card with the cards picked to discard (Y, or the button). */
+    confirmPicks () {
+      if (this.mode !== 'civic' || this.picks.length < this.civicNeed) return
       const civic = this.game.state.hand[this.selectedIndex]
       const ids = this.picks.map(p => this.game.state.hand[p].id)
       try {
@@ -885,6 +920,10 @@ export default {
 .btn { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; font-weight: 900; font-size: 17px; color: #000; }
 .btn--y { background: #ffd93d; }
 
+.fs-btn { position: absolute; right: 36px; bottom: 70px; z-index: 21; display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px; border: 1.5px solid var(--line); background: #fff; color: var(--ink-2); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+.fs-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; }
+.fs-btn__key { display: inline-grid; place-items: center; min-width: 22px; height: 22px; border-radius: 6px; background: #eef2f7; font-size: 12px; }
+.fs-btn--title { z-index: 41; right: 50%; transform: translateX(50%); bottom: 300px; font-size: 20px; padding: 10px 22px; }
 .build-stamp { position: absolute; right: 36px; bottom: 48px; margin: 0; font-size: 12px; color: var(--ink-3); z-index: 21; cursor: pointer; }
 .toast { position: absolute; left: 590px; top: 92px; transform: translateX(-50%); padding: 9px 20px; border-radius: 999px; background: #fff; border: 1.5px solid var(--line); font-size: 19px; font-weight: 700; z-index: 15; white-space: nowrap; box-shadow: 0 6px 20px rgba(27,33,48,0.15); }
 .toast--bad { border-color: var(--red); color: var(--red); }

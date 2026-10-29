@@ -25,7 +25,7 @@ describe('the run', () => {
   it('drains patience every turn, but civic pride never stops it below the floor', () => {
     const game = newRun()
     game.actions.chooseMandate(game.state.run.offer[0].id)
-    game.state.builtStructures.push({ instanceId: 'x', card: { id: 'park-x', passive: { patience: 99 } }, position: { x: 0, y: 0 } })
+    game.state.builtStructures.push({ instanceId: 'x', card: { id: 'park-x', patience: 99 }, position: { x: 0, y: 0 } })
     const before = game.state.run.patience
     endTurn(game)
     const total = game.state.run.lastDrain.total
@@ -89,5 +89,11 @@ describe('the run', () => {
     expect(game.supply.map(c => c.id)).toEqual(['road'])
     expect(game.state.deck.discardPile.some(c => c.id === 'road')).toBe(true)
     expect(game.state.buys).toBe(0)
+  })
+
+  it('shuffles the starting deck, so the opening hand changes from game to game', () => {
+    const hands = new Set()
+    for (let i = 0; i < 20; i++) hands.add(newRun().state.hand.map(c => c.id).sort().join(','))
+    expect(hands.size).toBeGreaterThan(1)
   })
 })

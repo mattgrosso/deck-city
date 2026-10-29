@@ -44,6 +44,8 @@ describe('App', () => {
     expect(vm().validEdges.length).toBeGreaterThan(0)
     const roadsBefore = vm().game.state.cityGrid.roads.size
     await press('right', 'select')
+    // A Road lays two segments; B keeps the one aimed so far and plays the card.
+    if (vm().mode === 'target') await press('back')
     expect(vm().mode).toBe('hand')
     expect(vm().game.state.hand.length).toBe(4)
     expect(vm().treasury).toBe(4)
@@ -144,5 +146,24 @@ describe('App', () => {
     expect(vm().game.state.run.era).toBe(2)
     await press('select')
     expect(vm().mode).toBe('market')
+  })
+
+  it('a civic card lifts itself and the picks to the middle, and waits for Y to discard', async () => {
+    await press('select', 'back', 'select')
+    const civicWorks = vm().game.catalog['civic-recycle']
+    vm().game.state.hand.unshift({ ...civicWorks })
+    vm().refresh()
+    vm().handIndex = 0
+    await press('select')
+    expect(vm().mode).toBe('civic')
+    expect(vm().civicPrompt).toMatch(/pick 2 more/)
+    await press('select', 'right', 'select')
+    expect(vm().picks).toHaveLength(2)
+    expect(vm().mode).toBe('civic') // nothing happens until confirmed
+    expect(vm().civicPrompt).toMatch(/discard these, then draw 2/)
+    const before = vm().game.state.deck.discardPile.length
+    await press('confirm')
+    expect(vm().mode).toBe('hand')
+    expect(vm().game.state.deck.discardPile.length).toBe(before + 3)
   })
 })

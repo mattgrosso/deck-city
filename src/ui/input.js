@@ -43,7 +43,8 @@ const KEYS = {
   KeyE: 'confirm',
   Tab: 'deck',
   KeyQ: 'prevPile', KeyR: 'nextPile',
-  KeyM: 'menu'
+  KeyM: 'menu',
+  KeyF: 'fullscreen'
 }
 
 export const DIRECTIONS = ['up', 'down', 'left', 'right']
