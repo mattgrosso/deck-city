@@ -21,7 +21,7 @@
     <div class="market__row">
       <div class="market__head">
         <span class="market__title">City row</span>
-        <span class="market__note">Buy with budget</span>
+        <span class="market__note">The coin builds it; the tag buys it</span>
       </div>
       <div class="market__cards">
         <div
@@ -31,7 +31,8 @@
           @mouseenter="$emit('focus', { row: 0, index: i })"
           @click="$emit('select', { row: 0, index: i })"
         >
-          <GameCard :card="card" :catalog="catalog" size="market" :cant="active && card.cost > treasury" :class="{ 'focus-ring': isFocused(0, i) }" />
+          <GameCard :card="card" :catalog="catalog" size="market" :cant="active && (card.price ?? card.cost) > treasury" :class="{ 'focus-ring': isFocused(0, i) }" />
+          <div class="market__price">Buy {{ card.price ?? card.cost }}</div>
         </div>
         <div v-if="!cityRow.length" class="market__empty">Sold out</div>
       </div>
@@ -83,5 +84,6 @@ export default {
 .market__timer--warm { border-color: #f0a33a; color: #a35e05; }
 .market__timer--hot { background: var(--red); border-color: var(--red); color: #fff; }
 .market__ready { position: absolute; left: 50%; top: -10px; transform: translateX(-50%); background: var(--green); color: #fff; font-weight: 800; font-size: 11px; letter-spacing: 0.12em; padding: 3px 10px; border-radius: 999px; }
+.market__price { position: absolute; left: 50%; bottom: -11px; transform: translateX(-50%); background: var(--gold); color: #2e2000; border: 1.5px solid #c98a12; font-weight: 800; font-size: 12px; padding: 2px 10px; border-radius: 999px; white-space: nowrap; }
 .market__empty { color: var(--ink-3); font-size: 20px; align-self: center; padding-left: 10px; }
 </style>

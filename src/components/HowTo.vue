@@ -30,7 +30,7 @@ export const PAGES = [
   {
     title: 'The budget resets every turn.',
     lines: [
-      'Your budget is the revenue of everything you have built. The starting city earns 6.',
+      'Your budget is the revenue of everything you have built. The starting city earns 5.',
       'Spend it or lose it: nothing carries over unless a goal says so.',
       'Buildings cost budget to place. The number on the coin is the price.'
     ]
@@ -54,7 +54,7 @@ export const PAGES = [
   {
     title: 'The market, then the clock.',
     lines: [
-      'After building, buy a card from the City Row with what budget is left.',
+      'After building, buy a card from the City Row with what budget is left. The tag under it is its price; the coin on it is what it costs to build.',
       'Goals are free, one a turn. Meet the condition and claim it: it becomes a Monument to build.',
       'Each goal has a clock and expires when it runs out. Every four turns a disaster strikes, harder each time; each Fire Station blocks one card.'
     ]

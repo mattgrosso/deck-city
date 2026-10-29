@@ -216,6 +216,21 @@ over the neighbours that change. Look mode explains a building's number
 the same way. The starting city now earns 6 (the shop is beside the house;
 the factory is kept off it).
 
+**The economy** (Matt: unify every price behind one core value, as
+Commonwealth did with shifts). The unit is one budget. See AGENTS.md "The
+economy" and the generated `docs/ECONOMY.md`. The first audit moved:
+- Commercial cost 3 -> 4 (returned over twice its cost).
+- Industrial revenue 2 -> 1 (factories are for jobs; with the cluster bonus
+  they returned over twice their cost). Starting city now earns 5.
+- Park: no more Crime per neighbouring house each turn (it cost ~10 budget
+  over a game against ~2.4 earned); cost 3 -> 2. Just the house's friend now.
+- Market cards have a `price` separate from their build `cost` (the market
+  used to charge the full build cost, so every facility cost double):
+  facilities buy for 1, Fire Station for 2, Park for 1. The market shows a
+  gold "Buy N" tag under each card.
+- City Bank +3 budget on claim (a tier-3 reward was below every tier-2).
+- Road and Civic Works are named bargains; everything else is fair.
+
 **Not done / next:** nobody has played a full game on the TV yet — that's
 the point of all this. Then: tune every number (all still first guesses),
 decide whether Build and Acquire should be one phase, sound, the road-chain

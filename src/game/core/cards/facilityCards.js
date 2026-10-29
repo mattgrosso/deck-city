@@ -14,6 +14,7 @@ export const POLICE_STATION = {
   type: CARD_TYPES.BUILDING,
   name: 'Police Station',
   cost: 4,
+  price: 1, // to buy it at the market; `cost` is to build it
   tags: ['consumer'],
   stats: {},
   slots: { capacity: 2, expandable: true, maxMultiplier: 2 },
@@ -27,6 +28,7 @@ export const SANITATION_CENTER = {
   type: CARD_TYPES.BUILDING,
   name: 'Sanitation Center',
   cost: 4,
+  price: 1, // to buy it at the market; `cost` is to build it
   tags: ['consumer'],
   stats: {},
   slots: { capacity: 2, expandable: true, maxMultiplier: 2 },
@@ -40,6 +42,7 @@ export const CLINIC = {
   type: CARD_TYPES.BUILDING,
   name: 'Clinic',
   cost: 5,
+  price: 1, // to buy it at the market; `cost` is to build it
   tags: ['consumer'],
   stats: {},
   slots: { capacity: 2, expandable: true, maxMultiplier: 2 },
@@ -53,6 +56,7 @@ export const FIRE_STATION = {
   type: CARD_TYPES.BUILDING,
   name: 'Fire Station',
   cost: 5,
+  price: 2, // to buy it at the market; `cost` is to build it
   tags: ['civic'],
   stats: {},
   // Each standing Fire Station blocks one disaster card per strike, and
@@ -65,14 +69,15 @@ export const PARK = {
   id: 'park',
   type: CARD_TYPES.BUILDING,
   name: 'Park',
-  cost: 3,
+  cost: 2,
+  price: 1, // to buy it at the market; `cost` is to build it
   tags: ['park'],
   stats: {},
+  // A Crime card per neighbouring house EVERY turn cost the Park about ten
+  // budget over a game against ~2.4 earned (docs/ECONOMY.md, 2026-10-29):
+  // nobody would build one. The crime is gone; the Park is the house's friend.
   adjacency: {
     statBonus: [{ stat: 'revenue', amount: 1, targetTag: 'residential' }]
-  },
-  effects: {
-    onTurnStart: [{ type: 'gainStatusPerAdjacent', card: CRIME.id, targetTag: 'residential' }]
   }
 }
 

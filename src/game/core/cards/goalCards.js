@@ -97,7 +97,8 @@ export const GOAL_CITY_BANK = {
   tags: ['monument'],
   stats: MONUMENT_STATS,
   condition: { type: 'treasuryAtLeast', amount: 8 },
-  effects: { onComplete: [{ type: 'raiseTreasuryRolloverCap', amount: 10 }] }
+  // +3 now as well (2026-10-29 economy): a tier-3 reward was worth less than every tier-2 one.
+  effects: { onComplete: [{ type: 'gainTreasury', amount: 3 }, { type: 'raiseTreasuryRolloverCap', amount: 10 }] }
 }
 
 export const GOAL_HOUSING_ROW = {

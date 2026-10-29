@@ -120,7 +120,7 @@ import { initUpdateCheck } from '@/utils/checkForUpdate'
 const STARTING_BUILDINGS = [
   { cardId: 'residential', x: 5, y: 3 }, // 2 people, +1
   { cardId: 'commercial', x: 6, y: 3 }, // 2 jobs, +2, +1 for the house next door
-  { cardId: 'industrial', x: 6, y: 4 } // 3 jobs, +2, kept off the house - budget 6
+  { cardId: 'industrial', x: 6, y: 4 } // 3 jobs, +1, kept off the house - budget 5
 ]
 // The clear part of the stage (left of the market, above the hand) the city is framed into.
 const VIEW_RECT = { x: 40, y: 90, w: 1130, h: 690 }
@@ -135,7 +135,7 @@ const STATS = [
   { key: 'population', title: 'Population', explain: (a) => [`${a.population} of ${POPULATION_TARGET}. Reach ${POPULATION_TARGET} and the city is finished.`, 'Houses add 2 each. A claimed goal (a Monument) adds 1.'] },
   { key: 'jobs', title: 'Jobs', explain: (a) => [`${a.jobs} jobs for ${a.population} people. Shops give 2, factories 3.`, a.population > a.jobs ? `${a.population - a.jobs} people have no work: a Crime card joins your deck at the end of every turn this stays true.` : 'Everyone has work. Keep it that way as the city grows, or crime follows.'] },
   { key: 'budget', title: 'Next budget', explain: (a) => [`${a.nextBudget} next turn, the revenue of every building you have.`, `Unspent budget is lost at the end of the turn${a.rolloverCap ? ` except up to ${a.rolloverCap} (City Bank)` : ''}.`] },
-  { key: 'crime', title: 'Crime', explain: (a) => [`${a.crime} Crime card${a.crime === 1 ? '' : 's'} in your deck. A house adds one when built; a Park adds one per neighbouring house each turn; unemployment adds one a turn.`, 'Play a Crime card from your hand into a Police Station with a free slot and it leaves the game.'] },
+  { key: 'crime', title: 'Crime', explain: (a) => [`${a.crime} Crime card${a.crime === 1 ? '' : 's'} in your deck. A house adds one when built; unemployment adds one a turn.`, 'Play a Crime card from your hand into a Police Station with a free slot and it leaves the game.'] },
   { key: 'trash', title: 'Trash', explain: (a) => [`${a.trash} Trash card${a.trash === 1 ? '' : 's'} in your deck. A shop adds one when built.`, 'Play a Trash card from your hand into a Sanitation Center with a free slot and it leaves the game.'] },
   { key: 'pollution', title: 'Pollution', explain: (a) => [`${a.pollution} Pollution card${a.pollution === 1 ? '' : 's'} in your deck. A factory adds one when built.`, 'Play a Pollution card from your hand into a Clinic with a free slot and it leaves the game.'] },
   { key: 'disaster', title: 'Disaster clock', explain: (a) => [`Strikes in ${a.disasterIn} turn${a.disasterIn === 1 ? '' : 's'}. Strike ${a.strikes + 1} will shuffle ${a.strikes + 1} disaster card${a.strikes ? 's' : ''} into your deck; each bites when drawn.`, a.blockers ? `${a.blockers} Fire Station${a.blockers === 1 ? '' : 's'} standing: each blocks one card per strike.` : 'A Fire Station blocks one card per strike. Strikes get bigger, so build more over time.'] }
@@ -643,7 +643,7 @@ export default {
     endBuild () {
       this.game.actions.advance() // build -> acquire
       this.mode = 'market'
-      const firstAffordable = this.cityRow.findIndex(c => (c.cost ?? 0) <= this.treasury)
+      const firstAffordable = this.cityRow.findIndex(c => (c.price ?? c.cost ?? 0) <= this.treasury)
       const firstReady = this.goalRow.findIndex(g => this.goalMet(g))
       this.market = firstReady !== -1 ? { row: 1, index: firstReady } : { row: 0, index: Math.max(0, firstAffordable) }
       this.refresh()
@@ -657,9 +657,10 @@ export default {
       if (row === 0) {
         const card = this.cityRow[index]
         if (!card) return
-        if ((card.cost ?? 0) > this.treasury) return this.refuse(`${card.name} costs ${card.cost}. You have ${this.treasury}.`, 'orb')
+        const price = card.price ?? card.cost ?? 0
+        if (price > this.treasury) return this.refuse(`${card.name} sells for ${price}. You have ${this.treasury}.`, 'orb')
         try { this.game.actions.acquireCard(card.id) } catch (err) { return this.refuse(err.message) }
-        this.pop(`-${card.cost}`, 'orb')
+        if (price) this.pop(`-${price}`, 'orb')
         this.say(`${card.name} added to your deck.`)
       } else {
         const goal = this.goalRow[index]

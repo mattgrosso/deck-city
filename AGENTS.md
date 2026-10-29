@@ -89,3 +89,29 @@ Phaser Scene.
 - Keep PRs small and focused. Don't add new dependencies without a clear
   reason — this is a two-person project and every dependency is something
   both people need to be able to reason about.
+
+## The economy (read before changing a number)
+
+Every card is priced in **budget**, one coin of this turn's treasury
+(Matt, 2026-10-29: "a unified and consistent economy", the way Commonwealth
+prices everything in shifts). Three files:
+
+- `src/game/core/economy/economy.js` - the VALUES: what a point of revenue,
+  a person, a job, a status card, a draw... is worth in budget, plus the
+  dials (`HORIZON` turns a lasting effect counts over, `SPEND` of revenue
+  that actually gets spent, `CYCLE`, `FAIR` band) and `BARGAINS`, the
+  named, reasoned exceptions.
+- `src/game/core/economy/priceList.js` - prices every card: PLAY (cost vs
+  one build), BUY (market `price` + build `cost` vs one build and a spare),
+  GOALS (reward now + the Monument card; rewards must rise with tier),
+  THREATS (what status cards, disasters and unemployment cost you).
+- `src/game/core/economy/economy.test.js` - FAILS when anything lands off
+  the line without a named bargain, when a card uses an effect with no
+  value, or when goal rewards stop rising with tier.
+
+`yarn price` writes `docs/ECONOMY.md`. **Changing a card or adding one:**
+price it (run `yarn price`), move it onto the line, or add a BARGAIN with
+its reason. A new effect type gets a value in `valueOfEffect`; a new
+card property that is worth something (like `clears`, `blocksDisasters`)
+gets a line in `valueOfBuild`. Market cards carry `price` (to buy) apart
+from `cost` (to build).

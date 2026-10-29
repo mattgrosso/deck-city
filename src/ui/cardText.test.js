@@ -22,8 +22,7 @@ describe('rulesFor', () => {
       'Play a Crime card from your hand into it: 2 slots a turn. The card is gone for good.'
     ])
     expect(rulesFor(facilityCards.PARK, catalog)).toEqual([
-      'Next door: +1 revenue per Residential.',
-      'Each turn: add 1 Crime per neighbouring Residential.'
+      'Next door: +1 revenue per Residential.'
     ])
   })
 
@@ -31,7 +30,7 @@ describe('rulesFor', () => {
     expect(rulesFor(goalCards.GOAL_CITY_BANK, catalog)).toEqual([
       '+1 revenue, +1 population',
       'Needs 8 budget unspent at once.',
-      'When claimed: keep up to 10 unspent budget between turns.'
+      'When claimed: +3 budget, keep up to 10 unspent budget between turns.'
     ])
   })
 

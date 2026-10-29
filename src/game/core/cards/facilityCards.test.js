@@ -28,9 +28,9 @@ describe('FACILITY_CATALOG', () => {
     expect(FIRE_STATION.slots).toBeUndefined()
   })
 
-  it('Park grants an adjacency revenue bonus and generates Crime near Residential', () => {
+  it('Park earns beside houses and no longer breeds Crime (the economy found it a heavy loss)', () => {
     expect(PARK.adjacency.statBonus).toEqual([{ stat: 'revenue', amount: 1, targetTag: 'residential' }])
-    expect(PARK.effects.onTurnStart[0]).toEqual({ type: 'gainStatusPerAdjacent', card: 'crime', targetTag: 'residential' })
+    expect(PARK.effects).toBeUndefined()
   })
 })
 

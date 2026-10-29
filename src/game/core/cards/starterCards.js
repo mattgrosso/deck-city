@@ -59,7 +59,7 @@ export const COMMERCIAL = {
   id: 'commercial',
   type: CARD_TYPES.BUILDING,
   name: 'Commercial',
-  cost: 3,
+  cost: 4, // was 3: at 3 it returned over twice its cost (docs/ECONOMY.md)
   tags: ['commercial'],
   stats: { jobs: 2, revenue: 2 },
   // Shops want customers next door, not competitors.
@@ -80,7 +80,9 @@ export const INDUSTRIAL = {
   name: 'Industrial',
   cost: 4,
   tags: ['industrial'],
-  stats: { jobs: 3, revenue: 2 },
+  // Revenue 2 -> 1 (2026-10-29 economy): factories are for JOBS; with the
+  // cluster bonus on top, 2 revenue made a factory return over twice its cost.
+  stats: { jobs: 3, revenue: 1 },
   // Industry clusters.
   adjacency: {
     statBonus: [{ stat: 'revenue', amount: 1, targetTag: 'industrial' }]

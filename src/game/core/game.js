@@ -169,10 +169,11 @@ export function createGame ({
   function acquireCard (cardId) {
     assertPlaying(state)
     assertPhase(turnManager, 'acquire')
-    const card = acquireFromRow(cityRow, cardId)
+    const card = cityRow.cards.find(c => c.id === cardId)
     if (!card) throw new Error(`Card "${cardId}" is not in the city row`)
-
-    spendTreasury(state, card.cost ?? 0)
+    // The market charges a card's PRICE; its cost is paid again to build it.
+    spendTreasury(state, card.price ?? card.cost ?? 0)
+    acquireFromRow(cityRow, cardId)
     addToDiscardPile(state.deck, [card])
     return card
   }
