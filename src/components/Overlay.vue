@@ -25,19 +25,19 @@ export default {
 </script>
 
 <style scoped>
-.overlay { position: absolute; inset: 0; z-index: 40; display: grid; place-items: center; background: rgba(5,7,13,0.78); }
-.overlay--title { background: radial-gradient(900px 600px at 50% 45%, #1b2440 0%, #0b0e17 70%); }
+.overlay { position: absolute; inset: 0; z-index: 40; display: grid; place-items: center; background: rgba(233,238,245,0.86); backdrop-filter: blur(6px); }
+.overlay--title { background: linear-gradient(180deg, #f3f6fb, #dde5ef); }
 .overlay__box { text-align: center; max-width: 1100px; padding: 40px; }
-.overlay__eyebrow { font-size: 26px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--ink-3); font-weight: 700; margin-bottom: 14px; }
-.overlay__title { font-size: 96px; font-weight: 900; margin: 0 0 24px; letter-spacing: -0.02em; line-height: 1; }
+.overlay__eyebrow { font-size: 18px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--ink-3); font-weight: 700; margin-bottom: 10px; }
+.overlay__title { font-size: 76px; font-weight: 900; margin: 0 0 18px; letter-spacing: -0.02em; line-height: 1; }
 .overlay--won .overlay__title { color: var(--green); }
 .overlay--lost .overlay__title { color: var(--red); }
-.overlay--summary .overlay__title { font-size: 72px; }
-.overlay__line { font-size: 32px; margin: 8px 0; color: var(--ink-2); font-weight: 500; }
-.overlay__menu { margin: 30px auto 0; display: flex; flex-direction: column; gap: 10px; width: 520px; }
-.overlay__item { font-size: 36px; font-weight: 700; padding: 14px 28px; border-radius: 16px; border: 4px solid transparent; color: var(--ink-2); }
-.overlay__item--on { border-color: #fff; color: #fff; background: rgba(255,255,255,0.08); }
-.overlay__hint { margin-top: 40px; font-size: 28px; color: var(--ink-2); display: flex; align-items: center; justify-content: center; gap: 14px; font-weight: 600; }
-.btn { display: inline-grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; font-weight: 900; font-size: 24px; color: #000; }
+.overlay--summary .overlay__title { font-size: 56px; }
+.overlay__line { font-size: 24px; margin: 6px 0; color: var(--ink-2); font-weight: 500; }
+.overlay__menu { margin: 24px auto 0; display: flex; flex-direction: column; gap: 8px; width: 420px; }
+.overlay__item { font-size: 26px; font-weight: 700; padding: 10px 22px; border-radius: 12px; border: 2px solid transparent; color: var(--ink-2); }
+.overlay__item--on { border-color: var(--ink); color: var(--ink); background: #fff; }
+.overlay__hint { margin-top: 30px; font-size: 20px; color: var(--ink-2); display: flex; align-items: center; justify-content: center; gap: 14px; font-weight: 600; }
+.btn { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; font-weight: 900; font-size: 17px; color: #000; }
 .btn--a { background: #5fd36f; }
 </style>

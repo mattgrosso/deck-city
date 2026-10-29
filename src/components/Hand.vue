@@ -51,19 +51,19 @@ export default {
 
 <style scoped>
 .hand {
-  position: absolute; left: 880px; top: 800px;
-  width: 0; height: 320px;
+  position: absolute; left: 880px; top: 812px;
+  width: 0; height: 292px;
   transition: filter 200ms ease;
 }
-.hand--dim { filter: brightness(0.55); }
+.hand--dim { filter: brightness(0.9) saturate(0.7); opacity: 0.8; }
 .hand__slot {
-  position: absolute; left: -110px; top: 0;
+  position: absolute; left: -100px; top: 0;
   transition: transform 180ms cubic-bezier(.2,.8,.2,1);
   will-change: transform;
 }
 .hand__empty {
   position: absolute; left: -200px; top: 120px; width: 400px;
-  text-align: center; color: var(--ink-3); font-size: 30px;
+  text-align: center; color: var(--ink-3); font-size: 24px;
 }
 .deal-enter-from { transform: translate(-900px, -300px) rotate(-30deg) scale(0.6) !important; opacity: 0; }
 .deal-leave-to { transform: translate(900px, -200px) rotate(30deg) scale(0.6) !important; opacity: 0; }

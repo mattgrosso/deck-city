@@ -31,8 +31,7 @@ describe('rulesFor', () => {
     expect(rulesFor(goalCards.GOAL_CITY_BANK, catalog)).toEqual([
       '+1 revenue, +1 population',
       'Needs 8 budget unspent at once.',
-      'When claimed: keep up to 10 unspent budget between turns.',
-      'Claimed, it becomes a free Monument you can build anywhere.'
+      'When claimed: keep up to 10 unspent budget between turns.'
     ])
   })
 

@@ -62,20 +62,20 @@ export default {
 
 <style scoped>
 .market {
-  position: absolute; right: 36px; top: 118px; width: 730px;
-  display: flex; flex-direction: column; gap: 10px;
-  transition: filter 200ms ease, transform 200ms ease;
-  filter: brightness(0.6);
+  position: absolute; right: 36px; top: 100px; width: 660px;
+  display: flex; flex-direction: column; gap: 8px;
+  transition: filter 200ms ease, opacity 200ms ease;
+  opacity: 0.72; filter: saturate(0.7);
 }
-.market--active { filter: none; }
-.market__head { display: flex; justify-content: space-between; align-items: baseline; margin: 0 6px 8px; }
-.market__head span:first-child { font-size: 24px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
-.market__note { font-size: 20px; color: var(--ink-3); font-weight: 600; }
+.market--active { opacity: 1; filter: none; }
+.market__head { display: flex; justify-content: space-between; align-items: baseline; margin: 0 4px 6px; }
+.market__head span:first-child { font-size: 16px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-2); }
+.market__note { font-size: 14px; color: var(--ink-3); font-weight: 600; }
 .market__note--warn { color: var(--red); }
-.market__cards { display: flex; gap: 12px; min-height: 250px; }
+.market__cards { display: flex; gap: 12px; min-height: 222px; }
 .market__slot { position: relative; transition: transform 160ms ease; }
 .market__slot:has(.focus-ring) { transform: scale(1.12); z-index: 2; }
-.market__sub { font-size: 18px; letter-spacing: 0; text-transform: none; color: var(--ink-3); font-weight: 600; }
-.market__ready { position: absolute; left: 50%; bottom: -12px; transform: translateX(-50%); background: var(--green); color: #06261a; font-weight: 800; font-size: 16px; letter-spacing: 0.12em; padding: 4px 12px; border-radius: 999px; }
-.market__empty { color: var(--ink-3); font-size: 26px; align-self: center; padding-left: 10px; }
+.market__sub { font-size: 13px; letter-spacing: 0; text-transform: none; color: var(--ink-3); font-weight: 600; }
+.market__ready { position: absolute; left: 50%; bottom: -10px; transform: translateX(-50%); background: var(--green); color: #fff; font-weight: 800; font-size: 12px; letter-spacing: 0.12em; padding: 3px 10px; border-radius: 999px; }
+.market__empty { color: var(--ink-3); font-size: 20px; align-self: center; padding-left: 10px; }
 </style>

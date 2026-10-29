@@ -5,9 +5,9 @@
 // The stage is a fixed 1920×1080 picture (see style.css); every number here
 // is in stage pixels.
 
-export const CARD_W = 220
-export const CARD_H = 320
-export const FOCUS_SCALE = 1.28
+export const CARD_W = 200
+export const CARD_H = 292
+export const FOCUS_SCALE = 1.25
 
 /**
  * @param {number} count - cards in hand
@@ -20,7 +20,7 @@ export const FOCUS_SCALE = 1.28
 export function fanLayout (count, focused = null, { width = 1100 } = {}) {
   if (count <= 0) return []
   // Overlap tightens as the hand grows, so ten cards still fit the room.
-  const spread = Math.min(CARD_W * 0.82, width / Math.max(count, 1))
+  const spread = Math.min(CARD_W * 0.8, width / Math.max(count, 1))
   const total = spread * (count - 1)
   const start = -total / 2
   // A gentle arc: outer cards sit a little lower and lean outward.
@@ -36,7 +36,7 @@ export function fanLayout (count, focused = null, { width = 1100 } = {}) {
     let z = i
     if (focused !== null) {
       if (i === focused) {
-        y = -130
+        y = -118
         rot = 0
         scale = FOCUS_SCALE
         z = count + 1

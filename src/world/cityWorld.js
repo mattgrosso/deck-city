@@ -1,21 +1,33 @@
 // The city in three dimensions: Kenney's city kits (CC0, public/models/*)
 // under a fixed isometric orthographic camera, the way Commonwealth's table
-// does it. Takes the placement list from cityLayout.js, diffs it by id, pops
-// new things in and shrinks gone things out. Nothing in here decides what
-// the city looks like - that is the layout's job.
+// does it. Takes the layout from cityLayout.js (lots, model placements,
+// road edges and nodes), diffs the placements by id, pops new things in
+// and shrinks gone things out. Nothing in here decides what the city looks
+// like - that is the layout's job; this file decides how it is drawn.
+//
+// Matt, round two (2026-10-29): the map is ONE green field with a faint
+// grid, not a checkerboard of tiles; roads are drawn as streets (asphalt,
+// pavements, lane dashes) from plain geometry; the whole thing is lit like
+// daytime, not a cave.
 
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
-import { PITCH, LOT, GAP, allModels, recipeFor } from './cityLayout'
+import { PITCH, LOT, GAP, allModels, recipeFor, cornerPoint } from './cityLayout'
 
 const MODEL_PATH = `${process.env.BASE_URL || '/'}models/`
-const BACKDROP = 0x0b0e17
 
-const GROUND = {
-  empty: 0x3f6f49, // grass: land waiting for a building
-  built: 0x9aa0b0, // pavement under a building
+const PALETTE = {
+  field: 0x8ccf7a, // the grass the whole city sits on
+  gridLine: 0x6fb55f, // the faint plot lines in the grass
+  gridLineHot: 0xffffff, // ... when aiming
+  plate: 0xdfe3ea, // pavement under a building
   park: 0x5fbf6a,
-  plaza: 0xd9cba3
+  plaza: 0xeadfc1,
+  asphalt: 0x5a6070,
+  dash: 0xf2f3f6,
+  kerb: 0xd6dae3, // the pavements along a street
+  valid: 0xfff5b8, // a lot you may build on
+  cursor: 0xffffff
 }
 
 export const renderSafely = (renderer, scene, camera) => {
@@ -24,17 +36,25 @@ export const renderSafely = (renderer, scene, camera) => {
   try { renderer.render(scene, camera); return true } catch (err) { if (gl.isContextLost()) return false; throw err }
 }
 
+const roundedRect = (w, h, r) => {
+  const s = new THREE.Shape()
+  s.moveTo(-w / 2 + r, -h / 2)
+  s.lineTo(w / 2 - r, -h / 2); s.quadraticCurveTo(w / 2, -h / 2, w / 2, -h / 2 + r)
+  s.lineTo(w / 2, h / 2 - r); s.quadraticCurveTo(w / 2, h / 2, w / 2 - r, h / 2)
+  s.lineTo(-w / 2 + r, h / 2); s.quadraticCurveTo(-w / 2, h / 2, -w / 2, h / 2 - r)
+  s.lineTo(-w / 2, -h / 2 + r); s.quadraticCurveTo(-w / 2, -h / 2, -w / 2 + r, -h / 2)
+  return s
+}
+
 export function createCityWorld (canvas, { reducedMotion = false } = {}) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' })
   renderer.shadowMap.enabled = !reducedMotion
   renderer.shadowMap.type = THREE.PCFSoftShadowMap
   renderer.outputColorSpace = THREE.SRGBColorSpace
+  renderer.setClearColor(0x000000, 0)
 
   const scene = new THREE.Scene()
-  scene.background = null // transparent: the board floats on the stage
-  renderer.setClearColor(BACKDROP, 0)
 
-  // A three-quarter view, tilted enough to see roofs and streets at once.
   const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100)
   const ELEVATION = 0.56
   const AZIMUTH = 0.58
@@ -42,8 +62,9 @@ export function createCityWorld (canvas, { reducedMotion = false } = {}) {
   camera.position.copy(dir.clone().multiplyScalar(30))
   camera.lookAt(0, 0, 0)
 
-  scene.add(new THREE.HemisphereLight(0xdfeaff, 0x5c4a36, 1.1))
-  const sun = new THREE.DirectionalLight(0xfff1d8, 2.4)
+  // Daylight: a bright sky, a warm sun, soft shadows.
+  scene.add(new THREE.HemisphereLight(0xeaf2ff, 0x8a7a5a, 1.35))
+  const sun = new THREE.DirectionalLight(0xfff6e6, 2.1)
   sun.position.set(4, 8, 3)
   sun.castShadow = !reducedMotion
   sun.shadow.mapSize.set(2048, 2048)
@@ -51,13 +72,13 @@ export function createCityWorld (canvas, { reducedMotion = false } = {}) {
   sun.shadow.camera.far = 40
   sun.shadow.camera.left = -8; sun.shadow.camera.right = 8
   sun.shadow.camera.top = 8; sun.shadow.camera.bottom = -8
-  sun.shadow.bias = -0.0005
+  sun.shadow.bias = -0.0004
+  sun.shadow.radius = 4
   scene.add(sun)
-  scene.add(new THREE.AmbientLight(0xffffff, 0.3))
+  scene.add(new THREE.AmbientLight(0xffffff, 0.35))
 
   const world = new THREE.Group()
   scene.add(world)
-
 
   // ------------------------------------------------------------- models
   const loader = new GLTFLoader()
@@ -86,15 +107,93 @@ export function createCityWorld (canvas, { reducedMotion = false } = {}) {
     return clone
   }
 
-  // ---------------------------------------------------------- the lots
-  const lotGeo = new THREE.BoxGeometry(LOT + GAP * 0.35, 0.08, LOT + GAP * 0.35)
-  const ringGeo = new THREE.BoxGeometry(LOT + 0.14, 0.02, LOT + 0.14)
-  const lotMeshes = new Map() // id -> { mesh, ring, lot }
+  // ------------------------------------------------------- the ground
+  const mat = (color, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.95, ...extra })
+  const field = new THREE.Group(); world.add(field)
+  const gridLines = []
+  const plates = new Map() // lot id -> mesh (pavement / park / plaza under a building)
+  const overlays = new Map() // lot id -> { valid, ring }
   const pickables = []
+  const plateGeo = new THREE.BoxGeometry(LOT + GAP * 0.3, 0.06, LOT + GAP * 0.3)
+  const overlayGeo = new THREE.PlaneGeometry(LOT + GAP * 0.3, LOT + GAP * 0.3)
+  const ringGeo = new THREE.ShapeGeometry((() => { const s = roundedRect(LOT + GAP * 0.55, LOT + GAP * 0.55, 0.08); s.holes.push(new THREE.Path().setFromPoints(roundedRect(LOT + GAP * 0.3, LOT + GAP * 0.3, 0.06).getPoints(12))); return s })())
+  let fieldBuilt = false
+  let gridMeta = null
 
-  const live = new Map() // placement id -> { group, placement, born }
+  function buildField (lots, grid) {
+    const xs = lots.map(l => l.wx); const zs = lots.map(l => l.wz)
+    const minX = Math.min(...xs) - PITCH / 2; const maxX = Math.max(...xs) + PITCH / 2
+    const minZ = Math.min(...zs) - PITCH / 2; const maxZ = Math.max(...zs) + PITCH / 2
+    const margin = 0.9
+    const w = maxX - minX + margin * 2; const h = maxZ - minZ + margin * 2
+    const ground = new THREE.Mesh(new THREE.ExtrudeGeometry(roundedRect(w, h, 0.5), { depth: 0.22, bevelEnabled: false }), mat(PALETTE.field))
+    ground.rotation.x = -Math.PI / 2
+    ground.position.set((minX + maxX) / 2, -0.22, (minZ + maxZ) / 2)
+    ground.receiveShadow = true
+    field.add(ground)
+    // Faint plot lines along every lot boundary (the gap centre lines).
+    const lineMat = mat(PALETTE.gridLine, { transparent: true, opacity: 0.55 })
+    for (let cx = 0; cx <= grid.width; cx++) {
+      const p = cornerPoint(grid, cx, 0)
+      const m = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.012, maxZ - minZ), lineMat.clone())
+      m.position.set(p.x, 0.004, (minZ + maxZ) / 2); field.add(m); gridLines.push(m)
+    }
+    for (let cy = 0; cy <= grid.height; cy++) {
+      const p = cornerPoint(grid, 0, cy)
+      const m = new THREE.Mesh(new THREE.BoxGeometry(maxX - minX, 0.012, 0.03), lineMat.clone())
+      m.position.set((minX + maxX) / 2, 0.004, p.z); field.add(m); gridLines.push(m)
+    }
+    gridMeta = { minX, maxX, minZ, maxZ }
+    fieldBuilt = true
+  }
+
+  // --------------------------------------------------------- the roads
+  const roads = new THREE.Group(); world.add(roads)
+  const roadMeshes = new Map()
+  const asphaltMat = mat(PALETTE.asphalt, { roughness: 0.9 })
+  const kerbMat = mat(PALETTE.kerb)
+  const dashMat = mat(PALETTE.dash, { emissive: PALETTE.dash, emissiveIntensity: 0.15 })
+  const KERB = 0.07
+  const ROAD_Y = 0.02
+  const streetEdge = (e) => {
+    const g = new THREE.Group()
+    const along = e.axis === 'x'
+    const len = LOT
+    const bed = new THREE.Mesh(new THREE.BoxGeometry(along ? len : GAP, 0.04, along ? GAP : len), asphaltMat)
+    bed.position.y = ROAD_Y; bed.receiveShadow = true; g.add(bed)
+    for (const side of [-1, 1]) {
+      const kerb = new THREE.Mesh(new THREE.BoxGeometry(along ? len : KERB, 0.06, along ? KERB : len), kerbMat)
+      kerb.position.set(along ? 0 : side * (GAP / 2 - KERB / 2), ROAD_Y + 0.012, along ? side * (GAP / 2 - KERB / 2) : 0)
+      kerb.receiveShadow = true; g.add(kerb)
+    }
+    for (const k of [-0.3, 0, 0.3]) {
+      const dash = new THREE.Mesh(new THREE.BoxGeometry(along ? 0.16 : 0.025, 0.012, along ? 0.025 : 0.16), dashMat)
+      dash.position.set(along ? k : 0, ROAD_Y + 0.026, along ? 0 : k); g.add(dash)
+    }
+    g.position.set(e.x, 0, e.z)
+    return g
+  }
+  const streetNode = (n) => {
+    const g = new THREE.Group()
+    const bed = new THREE.Mesh(new THREE.BoxGeometry(GAP, 0.04, GAP), asphaltMat)
+    bed.position.y = ROAD_Y; bed.receiveShadow = true; g.add(bed)
+    // A pavement across every side with no street leading off it.
+    const sides = { n: [0, -1], s: [0, 1], e: [1, 0], w: [-1, 0] }
+    for (const [d, [dx, dz]] of Object.entries(sides)) {
+      if (n.arms.includes(d)) continue
+      const across = dx === 0
+      const kerb = new THREE.Mesh(new THREE.BoxGeometry(across ? GAP : KERB, 0.06, across ? KERB : GAP), kerbMat)
+      kerb.position.set(dx * (GAP / 2 - KERB / 2), ROAD_Y + 0.012, dz * (GAP / 2 - KERB / 2))
+      g.add(kerb)
+    }
+    g.position.set(n.x, 0, n.z)
+    return g
+  }
+
+  const live = new Map()
   const dying = new Map()
   const ghosts = new Map()
+  let ghostRoad = null
   let framed = false
 
   const place = (group, p) => {
@@ -103,36 +202,52 @@ export function createCityWorld (canvas, { reducedMotion = false } = {}) {
     const s = p.scale ?? 1
     group.scale.set(s, s, p.scaleZ ?? s)
   }
-
   const now = () => performance.now()
 
-  function update ({ lots = [], placements = [], valid = new Set(), cursor = null, ghost = null } = {}, { instant = false } = {}) {
-    // Lots.
-    const seenLots = new Set()
+  function update ({ grid = null, lots = [], placements = [], roadEdges = [], roadNodes = [], valid = new Set(), cursor = null, ghost = null, ghostStreet = null } = {}, { instant = false } = {}) {
+    if (!fieldBuilt && lots.length && grid) buildField(lots, grid)
+    const aiming = valid.size > 0
+    // A plain field at rest; the plot lines show only while aiming.
+    gridLines.forEach(m => { m.material.color.set(aiming ? PALETTE.gridLineHot : PALETTE.gridLine); m.material.opacity = aiming ? 0.55 : 0 })
+
+    // Plates under buildings; overlays for aiming.
     for (const lot of lots) {
-      seenLots.add(lot.id)
-      let entry = lotMeshes.get(lot.id)
-      if (!entry) {
-        const mesh = new THREE.Mesh(lotGeo, new THREE.MeshStandardMaterial({ color: GROUND.empty, roughness: 0.95 }))
-        mesh.position.set(lot.wx, -0.04, lot.wz)
-        mesh.receiveShadow = true
-        mesh.userData.lot = lot
-        const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false }))
-        ring.position.set(lot.wx, 0.012, lot.wz)
-        world.add(mesh); world.add(ring); pickables.push(mesh)
-        entry = { mesh, ring, lot }
-        lotMeshes.set(lot.id, entry)
+      let plate = plates.get(lot.id)
+      const wants = lot.ground !== 'empty'
+      if (wants && !plate) {
+        plate = new THREE.Mesh(plateGeo, mat(PALETTE.plate))
+        plate.position.set(lot.wx, -0.01, lot.wz); plate.receiveShadow = true
+        world.add(plate); plates.set(lot.id, plate)
+      } else if (!wants && plate) { world.remove(plate); plates.delete(lot.id); plate = null }
+      if (plate) plate.material.color.set(PALETTE[lot.ground] ?? PALETTE.plate)
+
+      let ov = overlays.get(lot.id)
+      if (!ov) {
+        const v = new THREE.Mesh(overlayGeo, new THREE.MeshBasicMaterial({ color: PALETTE.valid, transparent: true, opacity: 0, depthWrite: false }))
+        v.rotation.x = -Math.PI / 2; v.position.set(lot.wx, 0.03, lot.wz); v.userData.lot = lot
+        const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: PALETTE.cursor, transparent: true, opacity: 0, depthWrite: false }))
+        ring.rotation.x = -Math.PI / 2; ring.position.set(lot.wx, 0.05, lot.wz)
+        world.add(v); world.add(ring); pickables.push(v)
+        ov = { valid: v, ring }; overlays.set(lot.id, ov)
       }
-      entry.lot = lot
-      entry.mesh.userData.lot = lot
-      const key = `${lot.x},${lot.y}`
+      ov.valid.userData.lot = lot
       const isCursor = cursor && cursor.x === lot.x && cursor.y === lot.y
-      const isValid = valid.has(key)
-      const base = GROUND[lot.ground] ?? GROUND.empty
-      entry.mesh.material.color.set(isValid ? (isCursor ? 0x8af0a8 : 0x4fb872) : base)
-      entry.mesh.material.emissive.set(isValid ? 0x2fbf63 : 0x000000)
-      entry.mesh.material.emissiveIntensity = isValid ? (isCursor ? 0.7 : 0.18) : 0
-      entry.ring.material.opacity = isCursor ? 0.9 : 0
+      const isValid = valid.has(`${lot.x},${lot.y}`)
+      ov.valid.material.opacity = isValid ? (isCursor ? 0.75 : 0.42) : 0
+      ov.ring.material.opacity = isCursor ? 1 : 0
+    }
+
+    // Streets: diff by id.
+    const wantRoads = new Map([...roadEdges.map(e => [e.id, { kind: 'edge', ...e }]), ...roadNodes.map(n => [n.id, { kind: 'node', ...n }])])
+    for (const [id, entry] of roadMeshes) {
+      const want = wantRoads.get(id)
+      if (!want || (want.kind === 'node' && want.arms.join('') !== entry.arms)) { roads.remove(entry.group); roadMeshes.delete(id) }
+    }
+    for (const [id, r] of wantRoads) {
+      if (roadMeshes.has(id)) continue
+      const group = r.kind === 'edge' ? streetEdge(r) : streetNode(r)
+      roads.add(group)
+      roadMeshes.set(id, { group, arms: r.kind === 'node' ? r.arms.join('') : '' })
     }
 
     // Placements: diff by id.
@@ -180,33 +295,42 @@ export function createCityWorld (canvas, { reducedMotion = false } = {}) {
       place(entry.group, p)
       entry.placement = p
     }
+    // A Road card's ghost: a translucent street around the lot.
+    if (ghostRoad) { world.remove(ghostRoad); ghostRoad = null }
+    if (ghostStreet) {
+      ghostRoad = new THREE.Group()
+      const gm = new THREE.MeshBasicMaterial({ color: PALETTE.asphalt, transparent: true, opacity: 0.5, depthWrite: false })
+      for (const [dx, dz, along] of [[0, -1, true], [0, 1, true], [-1, 0, false], [1, 0, false]]) {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(along ? LOT + GAP : GAP, 0.03, along ? GAP : LOT + GAP), gm)
+        m.position.set(ghostStreet.wx + dx * PITCH / 2, 0.06, ghostStreet.wz + dz * PITCH / 2)
+        ghostRoad.add(m)
+      }
+      world.add(ghostRoad)
+    }
 
     if (!framed && lots.length) frame(lots)
   }
 
-  // Frame the whole grid once: the camera is fixed, so labels can hang off it.
   let bounds = null
   function frame (lots) {
     const xs = lots.map(l => l.wx); const zs = lots.map(l => l.wz)
-    bounds = { minX: Math.min(...xs) - PITCH * 0.5, maxX: Math.max(...xs) + PITCH * 0.5, minZ: Math.min(...zs) - PITCH * 0.5, maxZ: Math.max(...zs) + PITCH * 0.5 }
+    bounds = { minX: Math.min(...xs) - PITCH * 0.5 - 0.6, maxX: Math.max(...xs) + PITCH * 0.5 + 0.6, minZ: Math.min(...zs) - PITCH * 0.5 - 0.6, maxZ: Math.max(...zs) + PITCH * 0.5 + 0.6 }
     framed = true
     fit()
   }
   let size = { w: 1, h: 1 }
   function fit () {
     if (!bounds) return
-    // Project the bounds' corners into the camera's plane and size the frustum to hold them.
     const corners = []
-    for (const x of [bounds.minX, bounds.maxX]) for (const z of [bounds.minZ, bounds.maxZ]) for (const y of [0, 1.4]) corners.push(new THREE.Vector3(x, y, z))
-    const view = camera.matrixWorldInverse
+    for (const x of [bounds.minX, bounds.maxX]) for (const z of [bounds.minZ, bounds.maxZ]) for (const y of [-0.2, 1.3]) corners.push(new THREE.Vector3(x, y, z))
     camera.updateMatrixWorld()
+    const view = camera.matrixWorldInverse
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
     for (const c of corners) {
       const v = c.clone().applyMatrix4(view)
       minX = Math.min(minX, v.x); maxX = Math.max(maxX, v.x); minY = Math.min(minY, v.y); maxY = Math.max(maxY, v.y)
     }
-    const pad = 1.0
-    const w = (maxX - minX) * pad; const h = (maxY - minY) * pad
+    const w = (maxX - minX); const h = (maxY - minY)
     const aspect = size.w / size.h
     let halfW = w / 2; let halfH = h / 2
     if (halfW / halfH < aspect) halfW = halfH * aspect; else halfH = halfW / aspect
@@ -222,7 +346,6 @@ export function createCityWorld (canvas, { reducedMotion = false } = {}) {
     fit()
   }
 
-  /** Stage-pixel position of a world point, relative to the canvas. */
   const tmp = new THREE.Vector3()
   function project (x, y, z) {
     tmp.set(x, y, z).project(camera)
@@ -236,7 +359,6 @@ export function createCityWorld (canvas, { reducedMotion = false } = {}) {
     return hit ? hit.object.userData.lot : null
   }
 
-  // ------------------------------------------------------------- the loop
   let running = false
   const easeOutBack = (t) => { const c1 = 1.70158; const c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2) }
   function tick () {
@@ -257,6 +379,9 @@ export function createCityWorld (canvas, { reducedMotion = false } = {}) {
       entry.group.scale.set(p.scale * s, p.scale * s, (p.scaleZ ?? p.scale) * s)
       if (k >= 1) { world.remove(entry.group); dying.delete(id) }
     }
+    // The cursor ring breathes.
+    const pulse = 0.75 + 0.25 * Math.sin(t / 220)
+    for (const ov of overlays.values()) if (ov.ring.material.opacity > 0) ov.ring.material.opacity = pulse
     renderSafely(renderer, scene, camera)
     requestAnimationFrame(tick)
   }
@@ -273,6 +398,7 @@ export function createCityWorld (canvas, { reducedMotion = false } = {}) {
       return recipe.parts.map((part, i) => ({ id: `ghost:${i}`, model: part.model, x: lot.wx + (part.dx ?? 0) * LOT, z: lot.wz + (part.dz ?? 0) * LOT, yaw: part.yaw ?? 0, scale: part.scale ?? 1, tint: part.tint ?? null }))
     },
     start () { if (!running) { running = true; tick() } },
-    dispose () { running = false; renderer.dispose(); renderer.forceContextLoss?.() }
+    dispose () { running = false; renderer.dispose(); renderer.forceContextLoss?.() },
+    _debug: { gridMeta: () => gridMeta }
   }
 }

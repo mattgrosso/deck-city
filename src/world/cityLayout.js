@@ -42,7 +42,7 @@ const PLANT = (model, scale = 0.5) => ({ parts: [{ model: `industrial/${model}`,
 export const RECIPES = {
   // Roads never become instances (they paint edges), but a Road card in hand
   // still needs a ghost to aim with.
-  road: { variants: [{ parts: [{ model: 'roads/road-crossroad', scale: 1.0 }] }] },
+  road: { variants: [{ parts: [] }] }, // drawn as a ghost street by the world
   residential: {
     variants: [HOUSE('building-type-a'), HOUSE('building-type-c'), HOUSE('building-type-e'), HOUSE('building-type-o'), HOUSE('building-type-r'), HOUSE('building-type-s'), HOUSE('building-type-j'), HOUSE('building-type-l')]
   },
@@ -104,31 +104,10 @@ export function treesFor (x, y) {
 
 const seqOf = (instance) => Number((instance.instanceId.split('#')[1] ?? 0)) || 0
 
-// Which way a junction tile faces. Kenney's road-straight runs along z;
-// road-end's open side, road-intersection's missing arm and road-bend's two
-// arms are rotated to match the roads that actually meet at the node.
-const DIRS = ['n', 'e', 's', 'w'] // -z, +x, +z, -x
-function junction (arms) {
-  const has = (d) => arms.includes(d)
-  const n = arms.length
-  if (n === 0) return null
-  if (n === 4) return { model: 'roads/road-crossroad', yaw: 0 }
-  if (n === 1) return { model: 'roads/road-end', yaw: DIRS.indexOf(arms[0]) * -Math.PI / 2 }
-  if (n === 3) {
-    const missing = DIRS.find(d => !has(d))
-    return { model: 'roads/road-intersection', yaw: DIRS.indexOf(missing) * -Math.PI / 2 }
-  }
-  if (has('n') && has('s')) return { model: 'roads/road-straight', yaw: 0 }
-  if (has('e') && has('w')) return { model: 'roads/road-straight', yaw: Math.PI / 2 }
-  // A bend: the two arms are adjacent; rotate so the tile's arms match.
-  const first = DIRS.findIndex((d, i) => has(d) && has(DIRS[(i + 1) % 4]))
-  return { model: 'roads/road-bend', yaw: first * -Math.PI / 2 }
-}
-
 /**
  * @param {Object} grid - the engine's cityGrid (width, height, cells, roads: Set of edge keys)
  * @param {Object[]} structures - the engine's builtStructures
- * @returns {{ lots: Object[], placements: Object[] }}
+ * @returns {{ lots: Object[], placements: Object[], roadEdges: Object[], roadNodes: Object[] }}
  */
 export function layoutCity (grid, structures) {
   const byId = new Map(structures.map(s => [s.instanceId, s]))
@@ -165,46 +144,48 @@ export function layoutCity (grid, structures) {
     }
   }
 
-  // Roads: edges first, then the junction at every corner node.
-  const edgeKeys = grid.roads
+  // Roads: every edge with a road, and every corner node where roads meet,
+  // as plain geometry for the world to draw (the kit's 1×1 road tiles
+  // could not be scaled into a 0.48-wide street without their pavements
+  // and markings turning into mush - Matt: "they look like shit").
+  const roadEdges = []
+  const roadNodes = []
+  const seenEdges = new Set()
   for (let y = 0; y < grid.height; y++) {
     for (let x = 0; x < grid.width; x++) {
       const edges = cellEdgeKeys(x, y)
       const centre = cellCentre(grid, x, y)
       const half = PITCH / 2
-      const add = (key, px, pz, yaw) => {
-        if (!edgeKeys.has(key)) return
-        placements.push({ id: `road:${key}`, model: 'roads/road-straight', x: px, z: pz, yaw, scale: GAP, scaleZ: LOT, kind: 'road' })
+      const add = (key, px, pz, axis) => {
+        if (!grid.roads.has(key) || seenEdges.has(key)) return
+        seenEdges.add(key)
+        roadEdges.push({ id: `road:${key}`, x: px, z: pz, axis })
       }
-      // Every edge is shared by two cells; the id is the edge key, so the
-      // renderer sees each once however many cells list it.
-      add(edges.top, centre.x, centre.z - half, Math.PI / 2)
-      add(edges.bottom, centre.x, centre.z + half, Math.PI / 2)
-      add(edges.left, centre.x - half, centre.z, 0)
-      add(edges.right, centre.x + half, centre.z, 0)
+      add(edges.top, centre.x, centre.z - half, 'x')
+      add(edges.bottom, centre.x, centre.z + half, 'x')
+      add(edges.left, centre.x - half, centre.z, 'z')
+      add(edges.right, centre.x + half, centre.z, 'z')
     }
   }
   for (let cy = 0; cy <= grid.height; cy++) {
     for (let cx = 0; cx <= grid.width; cx++) {
       const arms = []
-      if (cy > 0 && edgeKeys.has(`v:${cx},${cy - 1}`)) arms.push('n')
-      if (cx < grid.width && edgeKeys.has(`h:${cx},${cy}`)) arms.push('e')
-      if (cy < grid.height && edgeKeys.has(`v:${cx},${cy}`)) arms.push('s')
-      if (cx > 0 && edgeKeys.has(`h:${cx - 1},${cy}`)) arms.push('w')
-      const j = junction(arms)
-      if (!j) continue
+      if (cy > 0 && grid.roads.has(`v:${cx},${cy - 1}`)) arms.push('n')
+      if (cx < grid.width && grid.roads.has(`h:${cx},${cy}`)) arms.push('e')
+      if (cy < grid.height && grid.roads.has(`v:${cx},${cy}`)) arms.push('s')
+      if (cx > 0 && grid.roads.has(`h:${cx - 1},${cy}`)) arms.push('w')
+      if (!arms.length) continue
       const p = cornerPoint(grid, cx, cy)
-      placements.push({ id: `node:${cx},${cy}`, model: j.model, x: p.x, z: p.z, yaw: j.yaw, scale: GAP, kind: 'road' })
+      roadNodes.push({ id: `node:${cx},${cy}`, x: p.x, z: p.z, arms })
     }
   }
 
-  const seen = new Set()
-  return { lots, placements: placements.filter(p => !seen.has(p.id) && seen.add(p.id)) }
+  return { lots, placements, roadEdges, roadNodes }
 }
 
 /** Every model any recipe or road can ask for, so the world can preload. */
 export function allModels () {
-  const out = new Set(['roads/road-straight', 'roads/road-crossroad', 'roads/road-intersection', 'roads/road-bend', 'roads/road-end', 'suburban/tree-large', 'suburban/tree-small'])
+  const out = new Set(['suburban/tree-large', 'suburban/tree-small'])
   Object.values(RECIPES).forEach(r => r.variants.forEach(v => v.parts.forEach(p => out.add(p.model))))
   return [...out]
 }

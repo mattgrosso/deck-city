@@ -1,15 +1,17 @@
 <template>
   <div
     class="card"
-    :class="[`card--${family}`, `card--${size}`, { 'card--focused': focused, 'card--dim': dim, 'card--picked': picked, 'card--cant': cant }]"
-    :style="{ '--c': colors.color, '--art-ink': colors.ink }"
+    :class="[`card--${family}`, `card--${size}`, { 'card--focused': focused, 'card--dim': dim, 'card--picked': picked, 'card--cant': cant, 'card--dark': isDark }]"
+    :style="{ '--c': colors.color, '--c-soft': colors.soft, '--art-ink': colors.ink }"
   >
-    <div v-if="card.type !== 'status' && card.type !== 'disaster' && card.type !== 'goal'" class="card__cost" :class="{ 'card__cost--free': !card.cost }">
-      <span>{{ card.cost ?? 0 }}</span>
+    <!-- The frame: card stock, a coloured band for the name, a window for
+         the picture, the rules below. Cost sits as a coin on the band. -->
+    <div class="card__band">
+      <div v-if="showCost" class="card__cost" :class="{ 'card__cost--free': !card.cost }">{{ card.cost ?? 0 }}</div>
+      <div class="card__name">{{ card.name }}</div>
+      <div v-if="card.tier" class="card__tier">{{ 'I'.repeat(card.tier) }}</div>
     </div>
-    <div v-if="card.tier" class="card__tier">T{{ card.tier }}</div>
-    <div class="card__name">{{ card.name }}</div>
-    <div class="card__art">
+    <div class="card__window">
       <img v-if="hasArt" class="card__pic" :src="`/art/${card.id}.png`" alt="" draggable="false">
       <svg v-else viewBox="0 0 24 24"><path :d="iconPath" /></svg>
     </div>
@@ -40,6 +42,8 @@ export default {
   computed: {
     family () { return familyOf(this.card) },
     colors () { return FAMILIES[this.family] },
+    isDark () { return this.family === 'status' || this.family === 'disaster' },
+    showCost () { return !this.isDark && this.card.type !== 'goal' },
     iconPath () { return ICONS[iconFor(this.card, this.family)] },
     hasArt () { return ART_IDS.includes(this.card.id) },
     typeLabel () {
@@ -54,83 +58,89 @@ export default {
 <style scoped>
 .card {
   position: relative;
-  width: 220px; height: 320px;
-  border-radius: 18px;
-  background: linear-gradient(180deg, #1c2439 0%, #121828 100%);
-  border: 4px solid var(--c);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.55);
+  width: 200px; height: 292px;
+  border-radius: 12px;
+  background: #fbfaf6;
+  border: 1.5px solid #7d8597;
+  box-shadow: inset 0 0 0 3px #fff, inset 0 0 0 4px #e3e0d6, 0 6px 18px rgba(27,33,48,0.22);
   color: var(--ink);
   overflow: hidden;
   display: flex; flex-direction: column;
+  padding: 7px;
   transition: filter 160ms ease, transform 160ms ease;
 }
-.card--dim { filter: brightness(0.55) saturate(0.6); }
-.card--cant { filter: grayscale(0.7) brightness(0.6); }
+.card--dim { filter: brightness(0.82) saturate(0.6); }
+.card--cant { filter: grayscale(0.7) brightness(0.9); }
 .card--picked { border-color: var(--red); }
-.card--status, .card--disaster { background: linear-gradient(180deg, #2a1a1f 0%, #190f13 100%); }
+.card--dark { background: #2a2f3d; color: #f4f6fb; border-color: #11141c; box-shadow: inset 0 0 0 3px #3a4052, inset 0 0 0 4px #1d2130, 0 6px 18px rgba(0,0,0,0.35); }
 
-.card__cost {
-  position: absolute; top: -6px; left: -6px; z-index: 2;
-  width: 64px; height: 64px; border-radius: 50%;
-  background: var(--gold); color: #2e2000;
-  display: grid; place-items: center;
-  font-size: 36px; font-weight: 800;
-  border: 4px solid #0b0e17;
-  box-shadow: 0 6px 14px rgba(0,0,0,0.5);
-}
-.card__cost--free { background: #e9e9ee; color: #333; }
-.card__tier {
-  position: absolute; top: 10px; right: 12px; z-index: 2;
-  font-size: 22px; font-weight: 800; color: var(--gold);
-}
-.card--goal .card__name { margin-left: 14px; }
-.card__name {
-  margin: 14px 12px 0 70px;
-  min-height: 60px;
-  display: flex; align-items: center;
-  font-size: 23px; font-weight: 800; line-height: 1.02;
-  letter-spacing: -0.01em;
-}
-.card__art {
+.card__band {
   position: relative;
-  margin: 8px 12px 0;
-  height: 118px; border-radius: 12px;
-  background: radial-gradient(120% 90% at 50% 100%, color-mix(in srgb, var(--c) 55%, #0b0e17) 0%, color-mix(in srgb, var(--c) 22%, #0b0e17) 70%, #0b0e17 100%);
+  display: flex; align-items: center; gap: 6px;
+  min-height: 44px;
+  padding: 4px 8px 4px 8px;
+  border-radius: 7px;
+  background: var(--c-soft);
+  border: 1px solid color-mix(in srgb, var(--c) 55%, #fff);
+}
+.card--dark .card__band { background: color-mix(in srgb, var(--c) 45%, #2a2f3d); border-color: color-mix(in srgb, var(--c) 60%, #000); }
+.card__cost {
+  flex: none;
+  width: 34px; height: 34px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffe08a, var(--gold) 60%, #c98a12);
+  color: #2e2000; display: grid; place-items: center;
+  font-size: 19px; font-weight: 800;
+  box-shadow: 0 1px 0 #fff inset, 0 2px 4px rgba(0,0,0,0.25);
+}
+.card__cost--free { background: #f1f1f1; color: #555; }
+.card__name { flex: 1; font-size: 18px; font-weight: 800; line-height: 1.02; letter-spacing: -0.01em; }
+.card__tier { font-size: 13px; font-weight: 800; letter-spacing: 0.1em; color: color-mix(in srgb, var(--c) 70%, #000); }
+
+.card__window {
+  position: relative;
+  margin: 6px 0 0;
+  height: 112px; border-radius: 7px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--c-soft) 70%, #fff) 0%, color-mix(in srgb, var(--c-soft) 45%, #d8e4f0) 100%);
+  border: 1px solid #d9d6cc;
+  box-shadow: inset 0 2px 6px rgba(0,0,0,0.12);
   display: grid; place-items: center;
   overflow: hidden;
-  box-shadow: inset 0 0 0 2px rgba(255,255,255,0.08);
 }
-.card__pic { width: 112%; height: 112%; object-fit: contain; margin-bottom: -8px; filter: drop-shadow(0 10px 10px rgba(0,0,0,0.45)); }
-.card__art svg { width: 70px; height: 70px; fill: var(--art-ink); }
-.card--status .card__art svg, .card--disaster .card__art svg { fill: #fff; }
+.card--dark .card__window { background: linear-gradient(180deg, #3b4152 0%, #22262f 100%); border-color: #15181f; }
+.card__window svg { width: 56px; height: 56px; fill: var(--c); }
+.card__pic { width: 110%; height: 110%; object-fit: contain; margin-bottom: -6px; filter: drop-shadow(0 6px 6px rgba(0,0,0,0.3)); }
+
 .card__type {
-  margin: 8px 14px 0;
-  font-size: 18px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
-  color: var(--c);
+  margin: 6px 2px 0;
+  font-size: 11.5px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase;
+  color: color-mix(in srgb, var(--c) 70%, #000);
 }
+.card--dark .card__type { color: color-mix(in srgb, var(--c) 60%, #fff); }
 .card__rules {
-  margin: 4px 14px 8px;
-  font-size: 17px; line-height: 1.2; font-weight: 500;
+  margin: 3px 2px 0;
+  font-size: 14.5px; line-height: 1.22; font-weight: 500;
   color: var(--ink-2);
   overflow: hidden;
 }
-.card__rules p { margin: 0 0 4px; }
+.card--dark .card__rules { color: #d6dbe6; }
+.card__rules p { margin: 0 0 3px; }
 .card__badge {
-  position: absolute; inset: auto 0 0 0; padding: 8px;
+  position: absolute; inset: auto 0 0 0; padding: 5px;
   background: var(--red); color: #fff; text-align: center;
-  font-weight: 800; font-size: 22px; letter-spacing: 0.1em;
+  font-weight: 800; font-size: 15px; letter-spacing: 0.1em;
 }
 .card--focused .card__rules { color: var(--ink); }
 
-.card--market { width: 172px; height: 250px; }
-.card--market.card--goal .card__name { margin-left: 14px; margin-right: 44px; }
-.card--market .card__name { font-size: 18px; min-height: 44px; margin-left: 56px; margin-top: 8px; }
-.card--market .card__cost { width: 52px; height: 52px; font-size: 28px; }
-.card--market .card__art { height: 78px; margin-top: 4px; }
-.card--market .card__art svg { width: 46px; height: 46px; }
-.card--market .card__rules { font-size: 12.5px; line-height: 1.12; margin-top: 2px; }
-.card--market .card__type { font-size: 12px; margin-top: 4px; }
+.card--market { width: 150px; height: 222px; padding: 5px; }
+.card--market .card__band { min-height: 36px; padding: 3px 6px; }
+.card--market .card__cost { width: 28px; height: 28px; font-size: 15px; }
+.card--market .card__name { font-size: 14px; }
+.card--market .card__window { height: 78px; margin-top: 4px; }
+.card--market .card__window svg { width: 40px; height: 40px; }
+.card--market .card__type { font-size: 9.5px; margin-top: 4px; }
+.card--market .card__rules { font-size: 11px; line-height: 1.18; margin-top: 2px; }
+.card--market .card__tier { font-size: 11px; }
 
-.card--pile { width: 200px; height: 290px; }
-.card--pile .card__rules { font-size: 17px; }
+.card--pile { width: 180px; height: 262px; }
+.card--pile .card__rules { font-size: 13px; }
 </style>

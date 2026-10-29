@@ -31,14 +31,14 @@ export default {
 </script>
 
 <style scoped>
-.pile { position: absolute; inset: 0; background: rgba(5,7,13,0.92); z-index: 30; padding: 40px 60px 70px; display: flex; flex-direction: column; }
+.pile { position: absolute; inset: 0; background: rgba(233,238,245,0.96); z-index: 30; padding: 32px 50px 60px; display: flex; flex-direction: column; }
 .pile__tabs { display: flex; align-items: center; gap: 18px; margin-bottom: 26px; }
-.pile__tab { background: transparent; border: 3px solid var(--line); border-radius: 999px; padding: 10px 26px; font-size: 28px; font-weight: 700; color: var(--ink-2); }
-.pile__tab--on { background: var(--ink); color: #0b0e17; border-color: var(--ink); }
+.pile__tab { background: #fff; border: 1.5px solid var(--line); border-radius: 999px; padding: 7px 20px; font-size: 20px; font-weight: 700; color: var(--ink-2); }
+.pile__tab--on { background: var(--ink); color: #fff; border-color: var(--ink); }
 .pile__count { opacity: 0.7; margin-left: 8px; }
-.btn-hint { font-size: 18px; font-weight: 800; background: #cfd6e6; color: #000; border-radius: 10px; padding: 4px 10px; }
-.pile__close { margin-left: auto; color: var(--ink-3); font-size: 22px; font-weight: 600; }
-.pile__grid { display: grid; grid-template-columns: repeat(8, 200px); gap: 18px; overflow: hidden; align-content: start; justify-content: center; }
-.pile__empty { grid-column: 1 / -1; text-align: center; color: var(--ink-3); font-size: 32px; padding-top: 120px; }
-.pile__note { margin: 18px 0 0; text-align: center; color: var(--ink-3); font-size: 20px; }
+.btn-hint { font-size: 13px; font-weight: 800; background: #dfe5ee; color: #000; border-radius: 7px; padding: 3px 8px; }
+.pile__close { margin-left: auto; color: var(--ink-3); font-size: 16px; font-weight: 600; }
+.pile__grid { display: grid; grid-template-columns: repeat(9, 180px); gap: 16px; overflow: hidden; align-content: start; justify-content: center; }
+.pile__empty { grid-column: 1 / -1; text-align: center; color: var(--ink-3); font-size: 24px; padding-top: 120px; }
+.pile__note { margin: 14px 0 0; text-align: center; color: var(--ink-3); font-size: 15px; }
 </style>

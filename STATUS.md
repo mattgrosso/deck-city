@@ -93,6 +93,32 @@ Commonwealth recipe: three.js inside the Vue app with Kenney's CC0 kits.
   `window.__measure()` for footprints; measure before placing a new model.
 - Type: Rubik (SIL OFL, `public/fonts/`), one variable file.
 
+**Round two (same day; Matt read off a list).** Done:
+- *"It should just be a green field … a faintly outlined grid when placing"* -
+  one rounded grass slab under the whole city; plot lines are invisible at
+  rest and show while aiming; a pale lot + white breathing ring mark the
+  cursor; a Road card's ghost is a translucent street around the lot.
+- *"The road tiles … look like shit … rotated wrong"* - the kit's 1×1 road
+  tiles are gone from the board (they could not be scaled into a 0.48-wide
+  street). Streets are drawn from plain geometry in `cityWorld.js`:
+  asphalt beds, pavements along both sides, lane dashes, and a pavement
+  across every junction side with no street leading off it. The layout
+  hands out `roadEdges` (with an axis) and `roadNodes` (with arms).
+- *"The whole thing feels kind of dark"* - daylight palette: a pale sky
+  stage, white panels, dark ink, warm sun and hemisphere light with soft
+  shadows; cards are cream stock (status/disaster cards stay slate).
+- *"Everything's kind of chunky … finer lines … smaller"* - the map stayed
+  the same size; everything else came down ~25%: 1.5px borders, 22px pills,
+  200×292 hand cards, 150×222 market cards, 44px legend, 128px budget orb.
+- *"The price on the top left of the cards is gross … a proper card
+  frame"* - `GameCard.vue` is a frame now: card stock with a double inner
+  rule, a family-coloured name band carrying a small gold coin for the
+  cost, an inset picture window, the type line and rules under it. No free
+  CC0 frame set fit a modern city game (the free ones are fantasy or plain
+  playing cards), so the frame is built in CSS; swap in art if it ever
+  exists. Goal cards lost the "becomes a Monument" line (the keyword panel
+  says it) so their text fits.
+
 **Not done / next:** nobody has played a full game on the TV yet — that's
 the point of all this. Then: tune every number (all still first guesses),
 decide whether Build and Acquire should be one phase, sound, the road-chain

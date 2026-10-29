@@ -13,16 +13,16 @@ const TRIGGERS = {
 }
 
 export const FAMILIES = {
-  road: { label: 'Road', color: '#e9e9ee', ink: '#111' },
-  residential: { label: 'Residential', color: '#3dd68c', ink: '#06261a' },
-  commercial: { label: 'Commercial', color: '#4ea1ff', ink: '#06182e' },
-  industrial: { label: 'Industrial', color: '#ff9f1c', ink: '#2e1a00' },
-  facility: { label: 'Facility', color: '#b388ff', ink: '#1b0a33' },
-  civic: { label: 'Civic', color: '#8be9fd', ink: '#042a33' },
-  status: { label: 'Status', color: '#c0392b', ink: '#fff' },
-  goal: { label: 'Goal', color: '#ffd166', ink: '#2e2000' },
-  monument: { label: 'Monument', color: '#ffd166', ink: '#2e2000' },
-  disaster: { label: 'Disaster', color: '#7a1f3d', ink: '#fff' }
+  road: { label: 'Road', color: '#7d8597', soft: '#e7eaf0', ink: '#111' },
+  residential: { label: 'Residential', color: '#2fb36a', soft: '#dcf3e5', ink: '#06261a' },
+  commercial: { label: 'Commercial', color: '#3b82f6', soft: '#dde9fd', ink: '#06182e' },
+  industrial: { label: 'Industrial', color: '#f08a24', soft: '#fde8d3', ink: '#2e1a00' },
+  facility: { label: 'Facility', color: '#8b5cf6', soft: '#e9e0fd', ink: '#1b0a33' },
+  civic: { label: 'Civic', color: '#0ea5b7', soft: '#d8f3f6', ink: '#042a33' },
+  status: { label: 'Status', color: '#e0434b', soft: '#f9d9db', ink: '#fff' },
+  goal: { label: 'Goal', color: '#d99a1a', soft: '#fbeccb', ink: '#2e2000' },
+  monument: { label: 'Monument', color: '#d99a1a', soft: '#fbeccb', ink: '#2e2000' },
+  disaster: { label: 'Disaster', color: '#9b2d4a', soft: '#f1d5dd', ink: '#fff' }
 }
 
 /** Which family a card belongs to, for colour and the type banner. */
@@ -111,7 +111,6 @@ export function rulesFor (card, catalog = {}) {
     lines.push(`${when}: ${what}.`)
   }
 
-  if (card.type === 'goal') lines.push('Claimed, it becomes a free Monument you can build anywhere.')
   if (card.type === 'status') lines.push('Does nothing. Takes up room in your hand.')
   return lines.map(cap)
 }

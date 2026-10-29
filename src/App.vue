@@ -11,7 +11,7 @@
           <CityScene
             :grid="game.state.cityGrid" :structures="game.state.builtStructures" :tick="tick"
             :targeting="mode === 'target'" :valid-cells="validCells" :cursor="cursor" :preview-card="selectedCard"
-            :width="1060" :height="660" :stage-scale="scale"
+            :width="1130" :height="690" :stage-scale="scale"
             @cell="onCellClick"
           />
         </div>
@@ -529,7 +529,7 @@ export default {
       requestAnimationFrame(() => { this[key] = true; setTimeout(() => { this[key] = false }, 360) })
     },
     pop (text, where, color = 'var(--gold)') {
-      const at = where === 'orb' ? { x: 60, y: -20 } : { x: 700, y: 300 }
+      const at = where === 'orb' ? { x: 44, y: -16 } : { x: 700, y: 300 }
       const id = ++this.popId
       this.pops.push({ id, text, color, ...at })
       setTimeout(() => { this.pops = this.pops.filter(p => p.id !== id) }, 900)
@@ -539,32 +539,32 @@ export default {
 </script>
 
 <style scoped>
-.board-wrap { position: absolute; left: 30px; top: 104px; }
-.phase-tag { position: absolute; left: 56px; top: 122px; z-index: 3; font-size: 22px; font-weight: 800; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-3); }
-.phase-tag--acquire { color: var(--gold); }
+.board-wrap { position: absolute; left: 24px; top: 84px; }
+.phase-tag { position: absolute; left: 48px; top: 96px; z-index: 3; font-size: 14px; font-weight: 800; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-3); }
+.phase-tag--acquire { color: #b47a0a; }
 
-.orb-wrap { position: absolute; left: 44px; bottom: 90px; display: flex; align-items: flex-end; gap: 18px; }
-.orb { width: 170px; height: 170px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ffe8a3, #ffb703 60%, #c47f00); color: #2e2000; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 0 0 8px rgba(255,209,102,0.18), 0 20px 50px rgba(0,0,0,0.6); }
-.orb--empty { filter: grayscale(0.6) brightness(0.7); }
-.orb__num { font-size: 84px; font-weight: 900; line-height: 1; }
-.orb__label { font-size: 20px; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase; margin-top: 2px; }
+.orb-wrap { position: absolute; left: 36px; bottom: 72px; display: flex; align-items: flex-end; gap: 14px; }
+.orb { width: 128px; height: 128px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ffe8a3, #f2b63c 60%, #c98a12); color: #2e2000; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 0 0 5px rgba(242,182,60,0.22), 0 12px 30px rgba(27,33,48,0.25); }
+.orb--empty { filter: grayscale(0.6) brightness(0.95); }
+.orb__num { font-size: 60px; font-weight: 900; line-height: 1; }
+.orb__label { font-size: 13px; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase; margin-top: 2px; }
 
-.pile-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 120px; height: 120px; border-radius: 18px; background: rgba(255,255,255,0.06); border: 3px solid var(--line); color: var(--ink-2); cursor: pointer; }
-.pile-btn svg { width: 36px; height: 36px; fill: currentColor; }
-.pile-btn__num { font-size: 34px; font-weight: 800; color: var(--ink); line-height: 1.1; }
-.pile-btn__label { font-size: 16px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
+.pile-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 92px; height: 92px; border-radius: 14px; background: var(--panel); border: 1.5px solid var(--line); color: var(--ink-2); cursor: pointer; box-shadow: 0 1px 2px rgba(27,33,48,0.06); }
+.pile-btn svg { width: 26px; height: 26px; fill: currentColor; }
+.pile-btn__num { font-size: 26px; font-weight: 800; color: var(--ink); line-height: 1.1; }
+.pile-btn__label { font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
 
-.end-wrap { position: absolute; right: 44px; bottom: 90px; display: flex; align-items: flex-end; gap: 18px; }
-.end-btn { display: flex; align-items: center; gap: 16px; padding: 18px 34px 18px 22px; border-radius: 999px; border: 4px solid var(--line); background: rgba(255,255,255,0.06); font-size: 32px; font-weight: 800; color: var(--ink-2); cursor: pointer; }
-.end-btn--ready { border-color: #ffd93d; color: var(--ink); }
-.end-btn:disabled { opacity: 0.4; }
-.btn { display: inline-grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; font-weight: 900; font-size: 24px; color: #000; }
+.end-wrap { position: absolute; right: 36px; bottom: 72px; display: flex; align-items: flex-end; gap: 14px; }
+.end-btn { display: flex; align-items: center; gap: 12px; padding: 12px 26px 12px 16px; border-radius: 999px; border: 1.5px solid var(--line); background: var(--panel); font-size: 22px; font-weight: 800; color: var(--ink-2); cursor: pointer; box-shadow: 0 1px 2px rgba(27,33,48,0.06); }
+.end-btn--ready { border-color: #e2a92a; color: var(--ink); box-shadow: 0 0 0 4px rgba(242,182,60,0.25); }
+.end-btn:disabled { opacity: 0.45; }
+.btn { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; font-weight: 900; font-size: 17px; color: #000; }
 .btn--y { background: #ffd93d; }
 
-.build-stamp { position: absolute; right: 44px; bottom: 56px; margin: 0; font-size: 15px; color: var(--ink-3); z-index: 21; cursor: pointer; }
-.toast { position: absolute; left: 560px; top: 118px; transform: translateX(-50%); padding: 14px 30px; border-radius: 999px; background: rgba(255,255,255,0.1); border: 3px solid var(--line); font-size: 28px; font-weight: 700; z-index: 15; white-space: nowrap; }
-.toast--bad { border-color: var(--red); color: var(--red); background: rgba(255,90,95,0.12); }
-.toast--good { border-color: var(--green); color: var(--green); }
-.toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, -20px); }
+.build-stamp { position: absolute; right: 36px; bottom: 48px; margin: 0; font-size: 12px; color: var(--ink-3); z-index: 21; cursor: pointer; }
+.toast { position: absolute; left: 590px; top: 92px; transform: translateX(-50%); padding: 9px 20px; border-radius: 999px; background: #fff; border: 1.5px solid var(--line); font-size: 19px; font-weight: 700; z-index: 15; white-space: nowrap; box-shadow: 0 6px 20px rgba(27,33,48,0.15); }
+.toast--bad { border-color: var(--red); color: var(--red); }
+.toast--good { border-color: var(--green); color: #1d7a47; }
+.toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, -14px); }
 .toast-enter-active, .toast-leave-active { transition: all 200ms ease; }
 </style>

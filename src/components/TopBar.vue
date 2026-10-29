@@ -39,18 +39,18 @@ export default {
 </script>
 
 <style scoped>
-.top { position: absolute; top: 0; left: 0; right: 0; height: 110px; display: flex; align-items: center; padding: 0 44px; gap: 30px; }
-.top__left { width: 210px; white-space: nowrap; }
-.top__title { font-size: 18px; font-weight: 800; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-3); }
-.top__turn { font-size: 40px; font-weight: 800; line-height: 1; }
-.top__mid { flex: 1; display: flex; gap: 14px; align-items: center; justify-content: center; white-space: nowrap; }
+.top { position: absolute; top: 0; left: 0; right: 0; height: 84px; display: flex; align-items: center; padding: 0 36px; gap: 24px; }
+.top__left { width: 170px; white-space: nowrap; }
+.top__title { font-size: 13px; font-weight: 800; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-3); }
+.top__turn { font-size: 30px; font-weight: 800; line-height: 1; }
+.top__mid { flex: 1; display: flex; gap: 10px; align-items: center; justify-content: center; white-space: nowrap; }
 .top__right { display: flex; justify-content: flex-end; white-space: nowrap; }
-.pill--big { font-size: 36px; padding: 10px 22px; border-color: var(--green); }
-.pill--big svg { width: 38px; height: 38px; }
+.pill--big { font-size: 28px; padding: 6px 18px; border-color: var(--green); }
+.pill--big svg { width: 28px; height: 28px; }
 .pill--win { background: var(--green); color: #06261a; }
 .pill--win .muted { color: #06261a; }
-.pill--status { border-color: #5a2a2a; }
-.pill--zero { opacity: 0.45; }
+.pill--status { border-color: #ecc9cb; }
+.pill--zero { opacity: 0.5; }
 .pill--danger { border-color: var(--red); color: var(--red); animation: blink 1s steps(2) infinite; }
 .pill--safe { border-color: var(--green); color: var(--green); }
 @keyframes blink { to { opacity: 0.55; } }

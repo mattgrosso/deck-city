@@ -78,12 +78,17 @@ export default {
     sync (opts = {}) {
       if (!this.world) return
       const cursorLot = this.cursor ? this.lots.find(l => l.x === this.cursor.x && l.y === this.cursor.y) : null
+      const roadCard = this.targeting && this.previewCard?.placesRoad
       this.world.update({
+        grid: this.grid,
         lots: this.lots,
         placements: this.layout.placements,
+        roadEdges: this.layout.roadEdges,
+        roadNodes: this.layout.roadNodes,
         valid: this.targeting ? this.validSet : new Set(),
         cursor: this.targeting ? this.cursor : null,
-        ghost: this.targeting ? this.world.ghostFor(this.previewCard, cursorLot) : []
+        ghost: this.targeting && !roadCard ? this.world.ghostFor(this.previewCard, cursorLot) : [],
+        ghostStreet: roadCard ? cursorLot : null
       }, opts)
       this.placeLabels()
     },
@@ -94,7 +99,7 @@ export default {
         const inst = byId.get(lot.instanceId)
         const stats = Object.entries(inst.card.stats ?? {}).filter(([, v]) => v).map(([k, v]) => `+${v} ${STAT_SHORT[k] ?? k}`)
         if (inst.slots) stats.push(`${inst.slots.used}/${inst.slots.capacity} slots`)
-        const p = this.world.project(lot.wx, 0, lot.wz + 0.55)
+        const p = this.world.project(lot.wx + 0.1, 0, lot.wz + 0.78)
         return { id: lot.id, x: p.x, y: p.y, name: inst.card.name, stats: stats.join(' · '), monument: inst.card.type === 'goal' }
       })
     },
@@ -112,16 +117,16 @@ export default {
 .scene { position: relative; }
 .scene__canvas { display: block; width: 100%; height: 100%; opacity: 0; transition: opacity 400ms ease; border-radius: 18px; }
 .scene__canvas--ready { opacity: 1; }
-.scene__loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--ink-3); font-size: 28px; }
+.scene__loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--ink-3); font-size: 22px; }
 .scene__flat { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; padding: 8px; }
-.flat-lot { background: #182036; border: 3px solid #26304c; border-radius: 10px; }
-.flat-lot--built { background: #8f96a8; }
+.flat-lot { background: #8ccf7a; border: 2px solid #6fb55f; border-radius: 10px; }
+.flat-lot--built { background: #dfe3ea; }
 .flat-lot--valid { border-color: #3dd68c; }
 .flat-lot--cursor { border-color: #fff; }
 .scene__labels { position: absolute; inset: 0; pointer-events: none; }
-.chip { position: absolute; transform: translate(-50%, 0); display: flex; flex-direction: column; align-items: center; padding: 3px 10px; border-radius: 10px; background: rgba(5,7,13,0.78); border: 2px solid rgba(255,255,255,0.14); white-space: nowrap; }
-.chip__name { font-size: 15px; font-weight: 800; letter-spacing: 0.02em; }
-.chip__stats { font-size: 12px; font-weight: 700; color: var(--ink-2); }
+.chip { position: absolute; transform: translate(-50%, 0); display: flex; flex-direction: column; align-items: center; padding: 2px 8px; border-radius: 8px; background: rgba(255,255,255,0.92); border: 1px solid var(--line); white-space: nowrap; box-shadow: 0 2px 6px rgba(27,33,48,0.15); }
+.chip__name { font-size: 12px; font-weight: 800; letter-spacing: 0.02em; }
+.chip__stats { font-size: 10.5px; font-weight: 700; color: var(--ink-2); }
 .chip--monument { border-color: var(--gold); }
-.chip--monument .chip__name { color: var(--gold); }
+.chip--monument .chip__name { color: #b47a0a; }
 </style>

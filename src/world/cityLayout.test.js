@@ -13,25 +13,25 @@ describe('layoutCity', () => {
     expect(cellCentre(grid(), 0, 0).x).toBeCloseTo(-2.5 * PITCH)
   })
 
-  it('turns a roaded cell into four straight edges and four corner junctions', () => {
+  it('turns a roaded cell into four edges and four corner nodes with two arms each', () => {
     const g = grid()
     addRoadsAroundCell(g, 2, 1)
-    const { placements } = layoutCity(g, [])
-    const roads = placements.filter(p => p.kind === 'road')
-    expect(roads.filter(p => p.model === 'roads/road-straight').length).toBe(4)
-    expect(roads.filter(p => p.model === 'roads/road-bend').length).toBe(4)
+    const { roadEdges, roadNodes } = layoutCity(g, [])
+    expect(roadEdges.length).toBe(4)
+    expect(roadEdges.filter(e => e.axis === 'x').length).toBe(2)
+    expect(roadNodes.length).toBe(4)
+    roadNodes.forEach(n => expect(n.arms.length).toBe(2))
   })
 
-  it('shares an edge between neighbours and joins them with T junctions', () => {
+  it('shares an edge between neighbours and gives the shared corners three arms', () => {
     const g = grid()
     addRoadsAroundCell(g, 2, 1)
     addRoadsAroundCell(g, 3, 1)
-    const { placements } = layoutCity(g, [])
-    const roads = placements.filter(p => p.kind === 'road')
-    expect(roads.filter(p => p.model === 'roads/road-straight').length).toBe(7)
-    expect(roads.filter(p => p.model === 'roads/road-intersection').length).toBe(2)
-    expect(roads.filter(p => p.model === 'roads/road-bend').length).toBe(4)
-    expect(new Set(roads.map(r => r.id)).size).toBe(roads.length)
+    const { roadEdges, roadNodes } = layoutCity(g, [])
+    expect(roadEdges.length).toBe(7)
+    expect(roadNodes.filter(n => n.arms.length === 3).length).toBe(2)
+    expect(roadNodes.filter(n => n.arms.length === 2).length).toBe(4)
+    expect(new Set(roadEdges.map(r => r.id)).size).toBe(7)
   })
 
   it('puts a house on a residential lot and varies it by instance', () => {
@@ -76,7 +76,7 @@ describe('layoutCity', () => {
 
   it('lists every model the recipes use so the world can preload', () => {
     const models = allModels()
-    expect(models).toContain('roads/road-crossroad')
+    expect(models).toContain('suburban/tree-small')
     Object.values(RECIPES).forEach(r => r.variants.forEach(v => v.parts.forEach(p => expect(models).toContain(p.model))))
   })
 })
