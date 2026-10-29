@@ -56,6 +56,43 @@ usage ping, offline PWA) is in; it's the res-arcana copy adapted for an app
 with no store. Sentry is wired but off: neither API token on this Mac may
 create a project — paste a DSN into `src/sentry.js` when one exists.
 
+**Real graphics (same day, after Matt: "this doesn't look good enough. Take
+some lessons from Commonwealth… these hand-spun cards look bad").** The
+Commonwealth recipe: three.js inside the Vue app with Kenney's CC0 kits.
+- `public/models/{suburban,commercial,industrial,roads}/` — Kenney's City
+  Kit (Suburban / Commercial / Industrial / Roads), GLB + the kit's
+  `Textures/colormap.png` (the kits ship palette "variations"; variation A
+  is copied in as the colormap the GLBs ask for). `License.txt` in each.
+  Fetched from kenney.nl through its `download-link/<hex of assets/<kit>>`
+  endpoint with a cookie jar (the page's Download button does the same).
+- `src/world/cityLayout.js` — PURE, tested: the engine's grid + buildings +
+  roads-as-edges → placements (model, position, yaw, scale, tint). Lots
+  are 1.0 units with a 0.48 road gap; an edge with a road is a scaled
+  `road-straight`, a corner node where roads meet is the matching
+  end/straight/bend/T/crossroad tile. `RECIPES` says what each card id
+  builds (residential/commercial/industrial have variants picked by the
+  instance's number; facilities are tinted commercial/industrial buildings
+  with a prop; parks are trees on green; goals are a gold tower on a
+  plaza). Empty cells get 0-2 trees from `treesFor(x, y)`, fixed per cell.
+- `src/world/cityWorld.js` — three.js: fixed isometric orthographic
+  camera framed once on the grid, hemisphere + sun with shadows, diff by
+  placement id with pop-in/shrink-out, valid lots lit green, a white ring
+  under the cursor, the selected card's recipe as a translucent ghost.
+  Transparent background: the board floats on the stage.
+- `src/components/CityScene.vue` — the canvas + crisp HTML chips (name,
+  stats) projected under each building; a flat fallback when WebGL is
+  missing (jsdom, old TVs).
+- `src/world/cardArt.js` + `dev-art.html` + `scripts/render-card-art.mjs`
+  — every card's picture is a small diorama of Kenney parts (buildings use
+  their board recipe, so the card shows what you get), rendered ONCE to
+  `public/art/<id>.png` by Playwright against the dev server
+  (`node scripts/render-card-art.mjs http://localhost:5177`). Re-run after
+  changing a scene. `cardArt.test.js` fails if a card has no scene or a
+  scene has no PNG.
+- `dev-models.html` — a line-up of any kit (`?kit=industrial&page=1`) and
+  `window.__measure()` for footprints; measure before placing a new model.
+- Type: Rubik (SIL OFL, `public/fonts/`), one variable file.
+
 **Not done / next:** nobody has played a full game on the TV yet — that's
 the point of all this. Then: tune every number (all still first guesses),
 decide whether Build and Acquire should be one phase, sound, the road-chain

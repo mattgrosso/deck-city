@@ -18,7 +18,7 @@ export default {
 </script>
 
 <style scoped>
-.info { position: absolute; left: 1470px; top: 752px; width: 406px; display: flex; flex-direction: column; gap: 8px; z-index: 5; }
+.info { position: absolute; left: 1470px; top: 740px; width: 406px; display: flex; flex-direction: column; gap: 8px; z-index: 5; }
 .info__item { background: rgba(0,0,0,0.5); border-left: 6px solid var(--gold); border-radius: 10px; padding: 6px 14px; }
 .info__word { font-size: 17px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.12em; color: var(--gold); }
 .info__text { font-size: 18px; color: var(--ink-2); line-height: 1.25; }

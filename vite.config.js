@@ -73,7 +73,9 @@ export default defineConfig(({ mode }) => {
         manifest: false,
         workbox: {
           globPatterns: ['**/*'],
-          globIgnores: ['**/*.map', 'version.json', 'index.html'],
+          // models/ is ~11 MB of GLBs: fetched on demand and cached by the
+          // browser (CloudFront serves them immutable), never precached.
+          globIgnores: ['**/*.map', 'version.json', 'index.html', 'models/**'],
           dontCacheBustURLsMatching: /\.[0-9a-f]{8}\.(js|css)$/,
           cacheId: 'deck-city',
           skipWaiting: true,

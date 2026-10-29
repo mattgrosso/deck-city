@@ -8,9 +8,10 @@
         />
 
         <div class="board-wrap" :class="{ shake: shakeBoard }">
-          <CityBoard
+          <CityScene
             :grid="game.state.cityGrid" :structures="game.state.builtStructures" :tick="tick"
             :targeting="mode === 'target'" :valid-cells="validCells" :cursor="cursor" :preview-card="selectedCard"
+            :width="1060" :height="660" :stage-scale="scale"
             @cell="onCellClick"
           />
         </div>
@@ -81,7 +82,7 @@
 
 <script>
 import TopBar from '@/components/TopBar.vue'
-import CityBoard from '@/components/CityBoard.vue'
+import CityScene from '@/components/CityScene.vue'
 import Market from '@/components/Market.vue'
 import Hand from '@/components/Hand.vue'
 import PileView from '@/components/PileView.vue'
@@ -107,7 +108,7 @@ const MENU_ITEMS = ['Resume', 'New game']
 
 export default {
   name: 'App',
-  components: { TopBar, CityBoard, Market, Hand, PileView, Overlay, ButtonLegend, CardInfo, BugReportButton, BugResolutionNotice },
+  components: { TopBar, CityScene, Market, Hand, PileView, Overlay, ButtonLegend, CardInfo, BugReportButton, BugResolutionNotice },
   // The house bug button has no store to read; it asks this for a snapshot.
   provide () {
     return { bugSnapshot: () => this.bugSnapshot() }
@@ -538,8 +539,8 @@ export default {
 </script>
 
 <style scoped>
-.board-wrap { position: absolute; left: 150px; top: 158px; }
-.phase-tag { position: absolute; left: 150px; top: 122px; font-size: 22px; font-weight: 800; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-3); }
+.board-wrap { position: absolute; left: 30px; top: 104px; }
+.phase-tag { position: absolute; left: 56px; top: 122px; z-index: 3; font-size: 22px; font-weight: 800; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-3); }
 .phase-tag--acquire { color: var(--gold); }
 
 .orb-wrap { position: absolute; left: 44px; bottom: 90px; display: flex; align-items: flex-end; gap: 18px; }

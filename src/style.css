@@ -1,3 +1,6 @@
+/* Rubik (SIL OFL 1.1, public/fonts/OFL.txt): one variable file, weights 300-900. */
+@font-face { font-family: 'Rubik'; src: url('/fonts/rubik.woff2') format('woff2'); font-weight: 300 900; font-display: swap; }
+
 /* Deck City, the TV build. One 1920×1080 picture, scaled to whatever screen
    it lands on (docs/STS-LESSONS.md §1, §10). Everything inside .stage is in
    stage pixels; nothing scrolls. */
@@ -17,7 +20,7 @@
   --green: #3dd68c;
   --red: #ff5a5f;
   --road: #e9e9ee;
-  --font: 'Inter', 'SF Pro Display', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font: 'Rubik', system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
 html, body, #app {

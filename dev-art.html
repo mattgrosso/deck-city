@@ -1,0 +1,50 @@
+<!doctype html>
+<!-- Dev only: renders one card's diorama (src/world/cardArt.js) on a
+     transparent canvas for scripts/render-card-art.mjs to screenshot.
+     /dev-art.html?card=residential -->
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:transparent}canvas{display:block}</style></head>
+<body><script type="module">
+import * as THREE from 'three'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { CARD_ART } from '/src/world/cardArt.js'
+const q = new URLSearchParams(location.search)
+const id = q.get('card') || 'residential'
+const art = CARD_ART[id]
+const W = 640, H = 400
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true })
+renderer.setSize(W, H); renderer.setPixelRatio(1); renderer.setClearColor(0x000000, 0)
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.outputColorSpace = THREE.SRGBColorSpace
+document.body.appendChild(renderer.domElement)
+const scene = new THREE.Scene()
+scene.add(new THREE.HemisphereLight(0xdfeaff, 0x5c4a36, art.mood === 'dark' ? 0.7 : 1.1))
+const sun = new THREE.DirectionalLight(art.mood === 'dark' ? 0xcfd8ff : 0xfff1d8, art.mood === 'dark' ? 1.6 : 2.4); sun.position.set(4, 8, 3); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048)
+sun.shadow.camera.left = -4; sun.shadow.camera.right = 4; sun.shadow.camera.top = 4; sun.shadow.camera.bottom = -4; sun.shadow.bias = -0.0005; scene.add(sun)
+scene.add(new THREE.AmbientLight(0xffffff, 0.3))
+const GROUND = { park: 0x5fbf6a, plaza: 0xd9cba3, built: 0x9aa0b0 }
+if (art.ground !== 'none') {
+  const g = new THREE.Mesh(new THREE.CylinderGeometry(1.35, 1.35, 0.12, 48), new THREE.MeshStandardMaterial({ color: GROUND[art.ground] ?? GROUND.built, roughness: 0.95 }))
+  g.position.y = -0.06; g.receiveShadow = true; scene.add(g)
+}
+const loader = new GLTFLoader()
+const group = new THREE.Group(); scene.add(group)
+await Promise.all(art.parts.map(p => new Promise((res) => loader.load(`/models/${p.model}.glb`, (gltf) => {
+  const m = gltf.scene; m.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; if (p.tint != null) { o.material = o.material.clone(); o.material.color.set(p.tint); if (p.model === 'roads/tile-low') { o.material.transparent = true; o.material.opacity = 0.75 } } } })
+  m.position.set(p.dx || 0, p.dy || 0, p.dz || 0); m.rotation.y = p.yaw || 0; m.scale.setScalar(p.scale || 1); group.add(m); res()
+}, undefined, () => res()))))
+const box = new THREE.Box3().setFromObject(group); const size = box.getSize(new THREE.Vector3()); const centre = box.getCenter(new THREE.Vector3())
+const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100)
+const az = Math.PI / 4, el = 0.58
+cam.position.set(Math.cos(az) * Math.cos(el) * 20, Math.sin(el) * 20, Math.sin(az) * Math.cos(el) * 20).add(new THREE.Vector3(centre.x, 0, centre.z))
+cam.lookAt(centre.x, 0, centre.z); cam.updateMatrixWorld()
+const corners = []
+for (const x of [box.min.x, box.max.x]) for (const y of [box.min.y, box.max.y]) for (const z of [box.min.z, box.max.z]) corners.push(new THREE.Vector3(x, y, z).applyMatrix4(cam.matrixWorldInverse))
+let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+corners.forEach(c => { minX = Math.min(minX, c.x); maxX = Math.max(maxX, c.x); minY = Math.min(minY, c.y); maxY = Math.max(maxY, c.y) })
+const zoom = art.zoom || 1
+let halfW = (maxX - minX) / 2 * 1.18 / zoom, halfH = (maxY - minY) / 2 * 1.18 / zoom
+if (halfW / halfH < W / H) halfW = halfH * W / H; else halfH = halfW * H / W
+const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2
+cam.left = cx - halfW; cam.right = cx + halfW; cam.top = cy + halfH; cam.bottom = cy - halfH; cam.updateProjectionMatrix()
+renderer.render(scene, cam)
+window.__artReady = true
+</script></body></html>

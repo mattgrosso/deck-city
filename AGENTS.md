@@ -10,6 +10,9 @@ making changes.
 - **Vue 3** (Options API) — the whole UI, on a fixed 1920×1080 stage scaled
   to the viewport (TV-first; see docs/STS-LESSONS.md). Phaser was dropped
   in the 2026-10-29 rebuild.
+- **three.js** — the city board (`src/world/`), Kenney CC0 city kits in
+  `public/models/`; card pictures are pre-rendered from the same models
+  (`scripts/render-card-art.mjs`). See STATUS.md "Real graphics".
 - **Vite** — dev server & bundler (vite.config.js also defines the
   `process.env.VUE_APP_*` values the shared house modules read)
 - **Vitest** + **@vue/test-utils** — testing
@@ -48,6 +51,7 @@ src/
   App.vue          # the orchestrator: game instance, modes, input dispatch
   style.css        # tokens + the scaled stage
   ui/              # pure helpers: input.js, layout.js, cardText.js, icons.js
+  world/           # cityLayout.js (pure), cityWorld.js (three.js), cardArt.js
   components/      # the screen (TopBar, CityBoard, Hand, GameCard, Market, ...)
   components/shared/, utils/, firebase.js, sentry.js   # house modules (hub copies)
   game/core/       # the rules engine: plain JS, no Vue, fully unit-tested

@@ -10,7 +10,8 @@
     <div v-if="card.tier" class="card__tier">T{{ card.tier }}</div>
     <div class="card__name">{{ card.name }}</div>
     <div class="card__art">
-      <svg viewBox="0 0 24 24"><path :d="iconPath" /></svg>
+      <img v-if="hasArt" class="card__pic" :src="`/art/${card.id}.png`" alt="" draggable="false">
+      <svg v-else viewBox="0 0 24 24"><path :d="iconPath" /></svg>
     </div>
     <div class="card__type">{{ typeLabel }}</div>
     <div class="card__rules">
@@ -23,6 +24,7 @@
 <script>
 import { familyOf, FAMILIES, rulesFor } from '@/ui/cardText'
 import { ICONS, iconFor } from '@/ui/icons'
+import { ART_IDS } from '@/world/cardArt'
 
 export default {
   name: 'GameCard',
@@ -39,6 +41,7 @@ export default {
     family () { return familyOf(this.card) },
     colors () { return FAMILIES[this.family] },
     iconPath () { return ICONS[iconFor(this.card, this.family)] },
+    hasArt () { return ART_IDS.includes(this.card.id) },
     typeLabel () {
       if (this.card.type === 'goal') return `Goal · Tier ${this.card.tier ?? 1}`
       return this.colors.label
@@ -85,15 +88,19 @@ export default {
   margin: 14px 12px 0 70px;
   min-height: 60px;
   display: flex; align-items: center;
-  font-size: 26px; font-weight: 800; line-height: 1.05;
+  font-size: 23px; font-weight: 800; line-height: 1.02;
   letter-spacing: -0.01em;
 }
 .card__art {
-  margin: 8px 14px 0;
-  height: 96px; border-radius: 12px;
-  background: var(--c);
+  position: relative;
+  margin: 8px 12px 0;
+  height: 118px; border-radius: 12px;
+  background: radial-gradient(120% 90% at 50% 100%, color-mix(in srgb, var(--c) 55%, #0b0e17) 0%, color-mix(in srgb, var(--c) 22%, #0b0e17) 70%, #0b0e17 100%);
   display: grid; place-items: center;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,0.08);
 }
+.card__pic { width: 112%; height: 112%; object-fit: contain; margin-bottom: -8px; filter: drop-shadow(0 10px 10px rgba(0,0,0,0.45)); }
 .card__art svg { width: 70px; height: 70px; fill: var(--art-ink); }
 .card--status .card__art svg, .card--disaster .card__art svg { fill: #fff; }
 .card__type {
@@ -102,8 +109,8 @@ export default {
   color: var(--c);
 }
 .card__rules {
-  margin: 6px 14px 10px;
-  font-size: 19px; line-height: 1.22; font-weight: 500;
+  margin: 4px 14px 8px;
+  font-size: 17px; line-height: 1.2; font-weight: 500;
   color: var(--ink-2);
   overflow: hidden;
 }
@@ -115,14 +122,14 @@ export default {
 }
 .card--focused .card__rules { color: var(--ink); }
 
-.card--market { width: 176px; height: 272px; }
+.card--market { width: 172px; height: 250px; }
 .card--market.card--goal .card__name { margin-left: 14px; margin-right: 44px; }
-.card--market .card__name { font-size: 20px; min-height: 48px; margin-left: 58px; margin-top: 10px; }
+.card--market .card__name { font-size: 18px; min-height: 44px; margin-left: 56px; margin-top: 8px; }
 .card--market .card__cost { width: 52px; height: 52px; font-size: 28px; }
-.card--market .card__art { height: 64px; margin-top: 6px; }
+.card--market .card__art { height: 78px; margin-top: 4px; }
 .card--market .card__art svg { width: 46px; height: 46px; }
-.card--market .card__rules { font-size: 14px; line-height: 1.18; margin-top: 4px; }
-.card--market .card__type { font-size: 13px; margin-top: 6px; }
+.card--market .card__rules { font-size: 12.5px; line-height: 1.12; margin-top: 2px; }
+.card--market .card__type { font-size: 12px; margin-top: 4px; }
 
 .card--pile { width: 200px; height: 290px; }
 .card--pile .card__rules { font-size: 17px; }

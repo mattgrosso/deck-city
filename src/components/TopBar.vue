@@ -40,9 +40,9 @@ export default {
 
 <style scoped>
 .top { position: absolute; top: 0; left: 0; right: 0; height: 110px; display: flex; align-items: center; padding: 0 44px; gap: 30px; }
-.top__left { width: 250px; }
-.top__title { font-size: 22px; font-weight: 800; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-3); }
-.top__turn { font-size: 44px; font-weight: 800; line-height: 1; }
+.top__left { width: 210px; white-space: nowrap; }
+.top__title { font-size: 18px; font-weight: 800; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-3); }
+.top__turn { font-size: 40px; font-weight: 800; line-height: 1; }
 .top__mid { flex: 1; display: flex; gap: 14px; align-items: center; justify-content: center; white-space: nowrap; }
 .top__right { display: flex; justify-content: flex-end; white-space: nowrap; }
 .pill--big { font-size: 36px; padding: 10px 22px; border-color: var(--green); }

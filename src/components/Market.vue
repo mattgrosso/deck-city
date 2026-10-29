@@ -62,7 +62,7 @@ export default {
 
 <style scoped>
 .market {
-  position: absolute; right: 44px; top: 124px; width: 840px;
+  position: absolute; right: 36px; top: 118px; width: 730px;
   display: flex; flex-direction: column; gap: 10px;
   transition: filter 200ms ease, transform 200ms ease;
   filter: brightness(0.6);
@@ -72,7 +72,7 @@ export default {
 .market__head span:first-child { font-size: 24px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
 .market__note { font-size: 20px; color: var(--ink-3); font-weight: 600; }
 .market__note--warn { color: var(--red); }
-.market__cards { display: flex; gap: 16px; min-height: 272px; }
+.market__cards { display: flex; gap: 12px; min-height: 250px; }
 .market__slot { position: relative; transition: transform 160ms ease; }
 .market__slot:has(.focus-ring) { transform: scale(1.12); z-index: 2; }
 .market__sub { font-size: 18px; letter-spacing: 0; text-transform: none; color: var(--ink-3); font-weight: 600; }
