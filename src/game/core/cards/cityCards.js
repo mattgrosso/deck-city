@@ -72,9 +72,11 @@ const perCount = (tag, amount = 1, per = 1) => ({ type: 'gainTreasuryPerCount', 
 const perStatus = (tag, amount = 1, max = 3) => ({ type: 'gainTreasuryPerStatus', tag, amount, max })
 
 // ------------------------------------------------------------------ tokens
-export const TOURIST = T('tourist', 'Tourist', [gain(2)], 'Spends money and leaves.')
+// Tokens replace themselves (Matt: "I do really like 'do a thing and draw a
+// card' cards"): a token drawn no longer costs a building its place in hand.
+export const TOURIST = T('tourist', 'Tourist', [gain(2), draw(1)], 'Spends money, tells a friend, leaves.')
 export const COMMUTER = T('commuter', 'Commuter', [draw(2)], 'Brings the news from across town.')
-export const VOLUNTEER = T('volunteer', 'Volunteer', [clear(1)], 'Picks up one mess, then goes home.')
+export const VOLUNTEER = T('volunteer', 'Volunteer', [clear(1), draw(1)], 'Picks up one mess, then goes home.')
 export const INVESTOR = T('investor', 'Investor', [gain(1), buys(1)], 'Shows up with a chequebook.')
 export const DEBT = { id: 'debt', type: CARD_TYPES.STATUS, name: 'Debt', tags: ['negative', 'debt'] }
 export const TOKEN_CATALOG = [TOURIST, COMMUTER, VOLUNTEER, INVESTOR, DEBT]
@@ -202,7 +204,7 @@ export const TRANSIT_CARDS = [
   B('train-station', 'Train Station', 2, ['transit', 'landmark'], 6, { stats: { jobs: 2, revenue: 1 }, onTurn: [tokenTurn('commuter')], flavor: 'A Commuter card every turn: play it to draw two.' }),
   B('tram-depot', 'Tram Depot', 2, ['transit'], 6, { stats: { jobs: 3 }, near: [nd('revenue', 1, 'commercial')], discount: { tag: 'infrastructure', amount: 1 } }),
   B('ferry-terminal', 'Ferry Terminal', 2, ['transit', 'tourism'], 9, { stats: { jobs: 2, revenue: 2 }, onBuild: [token('tourist', 2)] }),
-  B('airport', 'Airport', 3, ['transit', 'landmark'], 12, { stats: { jobs: 6, revenue: 3 }, onTurn: [tokenTurn('tourist', 2)], onBuild: [status('pollution', 2)], unique: true }),
+  B('airport', 'Airport', 3, ['transit', 'landmark'], 16, { stats: { jobs: 6, revenue: 3 }, onTurn: [tokenTurn('tourist', 2)], onBuild: [status('pollution', 2)], unique: true }),
   B('metro-hub', 'Metro Hub', 3, ['transit'], 9, { stats: { jobs: 3, revenue: 2 }, near: [city('population', 1, 'transit', { max: 6 })] })
 ]
 
@@ -230,8 +232,8 @@ export const CIVIC_CARDS = [
   C('cleanup-drive', 'Cleanup Drive', 1, 3, [clear(2)]),
   C('urban-planning', 'Urban Planning', 1, 1, [draw(1), buys(1)]),
   C('tax-audit', 'Tax Audit', 2, 2, [perCount('commercial', 1)], { flavor: '+1 budget for every shop in the city.' }),
-  C('festival', 'Festival', 2, 3, [token('tourist', 2)], { flavor: 'Two Tourists come to town.' }),
-  C('volunteer-day', 'Volunteer Day', 1, 3, [token('volunteer', 2)]),
+  C('festival', 'Festival', 2, 4, [token('tourist', 2)], { flavor: 'Two Tourists come to town.' }),
+  C('volunteer-day', 'Volunteer Day', 1, 4, [token('volunteer', 2)]),
   C('investor-summit', 'Investor Summit', 2, 3, [token('investor', 2)]),
   C('insurance-policy', 'Insurance Policy', 2, 3, [clear(1, { disasters: true }), draw(1)], { flavor: 'Takes a disaster card out of your deck.' }),
   C('property-tax', 'Property Tax', 2, 2, [perCount('residential', 1)], { flavor: '+1 budget for every home in the city.' }),
