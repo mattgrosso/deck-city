@@ -72,7 +72,8 @@ export const PAGES = [
     lines: [
       'Over a hundred buildings come to the City Row across the three eras.',
       'Some draw you extra cards, make others cheaper, or add Tourists and Commuters to your deck.',
-      'Look for combinations: a Hotel beside a landmark, a Recycling Plant fed with Trash, a Coal Plant among factories.'
+      'Look for combinations: a Hotel beside a landmark, a Recycling Plant fed with Trash, a Coal Plant among factories.',
+      'Combine two buildings in your hand (RT, or C) for budget: they leave your deck for good and become one new building with both of their stats and abilities. A home and a shop make a Mixed-Use Block; a factory and a park, a Tree Nursery.'
     ]
   },
   {

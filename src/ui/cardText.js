@@ -52,6 +52,7 @@ export function familyOf (card) {
   if (card.type === 'disaster') return 'disaster'
   if (card.type === 'goal') return 'goal'
   if (card.token) return 'token'
+  if (card.family) return card.family // a combined card takes the family it leans to
   if (card.type === 'civic') return 'civic'
   if (card.placesRoad) return 'road'
   const tags = card.tags ?? []
@@ -130,6 +131,8 @@ export function rulesFor (card, catalog = {}) {
   if (!card) return lines
 
   if (card.placesRoad) lines.push(`Lays up to ${card.roadSegments ?? 2} street segments, joined to a street you have. Buildings need a street on one side.`)
+
+  if (card.madeFrom) lines.push(`${card.madeFrom.join(' + ')}, combined.`)
 
   const stats = Object.entries(card.stats ?? {}).filter(([, v]) => v)
   if (stats.length) lines.push(stats.map(([k, v]) => `+${v} ${k}`).join(', '))

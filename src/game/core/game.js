@@ -7,6 +7,7 @@ import { CARD_TYPES, buildCardCatalog } from './cards/cardSchema'
 import { createPlayerState, buildStructure, placeRoad, spendTreasury, seedStructure, clearStatusCard, effectiveCost } from './state/playerState'
 import { isCellEmpty, isBuildable, isEdgeInBounds, isEdgeConnected, isInLimits, isEdgeInLimits } from './state/cityGrid'
 import { generateTerrain } from './state/terrain'
+import { canCombine, combineCost, combineOptions } from './cards/combine'
 import { createRun, chooseMandate as chooseRunMandate, callElection as callRunElection, goEndless } from './turn/run'
 import { createDeck, addToDiscardPile, shuffle } from './piles/deck'
 import { createRow, acquireFromRow } from './piles/row'
@@ -283,6 +284,32 @@ export function createGame ({
     return goEndless(context)
   }
 
+  /**
+   * Combine two buildings in hand (cards/combine.js): pay, both leave the
+   * deck for good, and option `choice` (0 or 1) of combineOptions goes to
+   * the discard pile. Build phase only. Returns the new card.
+   */
+  function combineCards (cardIdA, cardIdB, choice = 0) {
+    assertPlaying(state)
+    assertPhase(turnManager, 'build')
+    const ia = state.hand.findIndex(c => c.id === cardIdA)
+    const ib = state.hand.findIndex((c, i) => c.id === cardIdB && i !== ia)
+    if (ia === -1 || ib === -1) throw new Error('Both cards must be in your hand')
+    const a = state.hand[ia]
+    const b = state.hand[ib]
+    if (!canCombine(a) || !canCombine(b)) throw new Error('Only buildings combine (not Roads, one-of-a-kinds, or a card already combined)')
+    const cost = combineCost(a, b)
+    if (state.treasury < cost) throw new Error(`Combining costs ${cost} budget`)
+    const made = combineOptions(a, b)[choice]
+    if (!made) throw new Error(`No option ${choice}`)
+    spendTreasury(state, cost)
+    for (const i of [ia, ib].sort((x, y) => y - x)) state.hand.splice(i, 1)
+    catalog[made.id] = made
+    addToDiscardPile(state.deck, [made])
+    log.push(`Combined ${a.name} and ${b.name} into ${made.name}.`)
+    return made
+  }
+
   function advance () {
     return advancePhase(turnManager, context)
   }
@@ -295,6 +322,6 @@ export function createGame ({
     turnManager,
     catalog,
     log,
-    actions: { playCard, playCivicCard, acquireCard, claimGoal, clearStatus, chooseMandate, callElection, keepBuilding, advance }
+    actions: { playCard, playCivicCard, combineCards, acquireCard, claimGoal, clearStatus, chooseMandate, callElection, keepBuilding, advance }
   }
 }

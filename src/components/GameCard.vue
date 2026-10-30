@@ -12,7 +12,7 @@
       <div v-if="card.tier" class="card__tier">{{ ['', 'I', 'II', 'III'][card.tier] ?? card.tier }}</div>
     </div>
     <div class="card__window">
-      <img v-if="hasArt" class="card__pic" :src="`/art/${card.id}.png`" alt="" draggable="false">
+      <img v-if="hasArt" class="card__pic" :src="`/art/${artId}.png`" alt="" draggable="false">
       <svg v-else viewBox="0 0 24 24"><path :d="iconPath" /></svg>
     </div>
     <div class="card__type">{{ typeLabel }}</div>
@@ -48,7 +48,8 @@ export default {
     showCost () { return !this.isDark && this.card.type !== 'goal' },
     shownCost () { return this.cost ?? this.card.cost ?? 0 },
     iconPath () { return ICONS[iconFor(this.card, this.family)] },
-    hasArt () { return ART_IDS.includes(this.card.id) },
+    artId () { return (this.card.lookAs ?? this.card).id },
+    hasArt () { return ART_IDS.includes(this.artId) },
     typeLabel () {
       if (this.card.type === 'goal') return `Goal · Tier ${this.card.tier ?? 1}`
       return this.colors.label

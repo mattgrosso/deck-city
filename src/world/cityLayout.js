@@ -94,6 +94,8 @@ export const RECIPES = {
 
 /** The recipe for a built instance: by card id, else goals are monuments, else by family. */
 export function recipeFor (card, seq = 0) {
+  // A combined card looks like the dearer of its two halves.
+  if (card.lookAs) return recipeFor(card.lookAs, seq)
   if (RECIPES[card.id] || card.type === 'goal' || !card.tier) {
     const key = RECIPES[card.id] ? card.id : card.type === 'goal' ? 'monument' : familyOf(card)
     const recipe = RECIPES[key] ?? RECIPES.commercial

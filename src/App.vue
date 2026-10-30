@@ -63,7 +63,7 @@
         <Hand
           :hand="game.state.hand" :keys="handKeys" :catalog="game.catalog"
           :focused-index="handActive ? handIndex : null" :picks="picks" :dim="!handActive" :can-play="canPlay" :cost-of="costOf"
-          :lifted="mode === 'civic' ? selectedIndex : null" :need="mode === 'civic' ? civicNeed : 0" :prompt="civicPrompt" :confirm-glyph="glyphs.confirm"
+          :lifted="mode === 'civic' || mode === 'combine' ? selectedIndex : null" :need="mode === 'civic' ? civicNeed : mode === 'combine' ? 1 : 0" :prompt="mode === 'combine' ? combinePrompt : civicPrompt" :confirm-glyph="glyphs.confirm" :confirm-label="mode === 'combine' ? 'Combine' : 'Discard these'"
           @focus="onHandFocus" @select="onHandSelect" @confirm="confirmPicks"
         />
 
@@ -74,6 +74,19 @@
         <PileView v-if="mode === 'pile'" :tabs="pileTabs" :tab-index="pileTab" :focus-index="pileIndex" :catalog="game.catalog" @tab="pileTab = $event; pileIndex = 0" @focus="pileIndex = $event" />
 
         <Overlay v-if="mode === 'summary'" kind="summary" eyebrow="Overnight" :title="summary.title" :lines="summary.lines" hint="Continue" :glyph="glyphs.select" />
+        <div v-if="mode === 'combineChoice' && combineOpts" class="overlay-mandate">
+          <div class="overlay-mandate__eyebrow">Combine · {{ combinePair[0].name }} + {{ combinePair[1].name }}</div>
+          <div class="overlay-mandate__lede">Costs {{ combinePrice }} budget. Both cards leave your deck for good; the new one goes to your discard pile.</div>
+          <div class="overlay-mandate__row">
+            <div v-for="(c, i) in combineOpts" :key="c.id" class="combo-tile" :class="{ 'combo-tile--on': i === comboIndex }" :style="{ '--c': FAMILIES[familyOf(c)].color, '--soft': FAMILIES[familyOf(c)].soft }" @mouseenter="comboIndex = i" @click="comboIndex = i; act('select', 'click')">
+              <div class="combo-tile__head"><span class="combo-tile__cost">{{ c.cost }}</span>{{ c.name }}</div>
+              <div class="combo-tile__fam">{{ FAMILIES[familyOf(c)].label }} · costs {{ c.cost }} to build</div>
+              <div class="combo-tile__lean">Leans {{ FAMILIES[familyOf(c)].label.toLowerCase() }}: +1 {{ c.lean }}{{ c.lean === 'patience' ? ' a turn' : '' }}</div>
+              <ul class="combo-tile__rules"><li v-for="(line, j) in rulesFor(c, game.catalog).filter(l => !l.endsWith(', combined.'))" :key="j">{{ line }}</li></ul>
+            </div>
+          </div>
+          <div class="overlay-mandate__hint"><span class="btn-a">{{ glyphs.select }}</span> Combine into this · <span class="btn-a">{{ glyphs.back }}</span> Back</div>
+        </div>
         <div v-if="mode === 'mandate'" class="overlay-mandate">
           <div class="overlay-mandate__eyebrow">Era {{ ['I', 'II', 'III'][run.era - 1] }} · choose your mandate</div>
           <div class="overlay-mandate__lede">The city will judge you on it at the election. Patience: {{ run.patienceStart }}. Fail it and you're out.</div>
@@ -132,7 +145,7 @@ import BugResolutionNotice from '@/components/shared/BugResolutionNotice.vue'
 import {
   createGame, effectiveCost, clearsOf, isInLimits, isWater,
   calcStatTotal, countCardsByTag, evaluateCondition, isCellEmpty, isBuildable, listConnectedEdges,
-  previewPlacement, instanceStats
+  previewPlacement, instanceStats, canCombine, combineCost, combineOptions
 } from '@/game/core'
 import { attachInput, GLYPHS } from '@/ui/input'
 import { stepCursor, nearestCell } from '@/ui/layout'
@@ -172,6 +185,7 @@ export default {
     return {
       VIEW_RECT,
       MENU_ITEMS,
+      FAMILIES,
       STATS,
       icons: ICONS,
       screen: 'title',
@@ -190,6 +204,7 @@ export default {
       pendingEdges: [], // street segments laid so far by the Road card in hand
       lastAim: { x: 560, y: 420 },
       picks: [],
+      comboIndex: 0,
       market: { row: 0, index: 0 },
       statIndex: 0,
       pileTab: 0,
@@ -283,13 +298,25 @@ export default {
       const seen = {}
       return this.game.state.hand.map(card => { seen[card.id] = (seen[card.id] ?? 0) + 1; return `${card.id}#${seen[card.id]}` })
     },
+    /** The two cards being combined: the lifted one and the one picked. */
+    combinePair () {
+      void this.tick
+      if ((this.mode !== 'combine' && this.mode !== 'combineChoice') || this.selectedIndex == null || this.picks.length !== 1) return null
+      return [this.game.state.hand[this.selectedIndex], this.game.state.hand[this.picks[0]]]
+    },
+    combineOpts () { return this.combinePair ? combineOptions(toRaw(this.combinePair[0]), toRaw(this.combinePair[1])) : null },
+    combinePrice () { return this.combinePair ? combineCost(this.combinePair[0], this.combinePair[1]) : 0 },
+    combinePrompt () {
+      if (this.mode !== 'combine' || !this.selectedCard) return ''
+      return this.combinePair ? `Combine for ${this.combinePrice} budget` : `${this.selectedCard.name}: pick a building to combine it with`
+    },
     civicNeed () { void this.tick; return Math.min(2, this.game.state.hand.length - 1) },
     civicPrompt () {
       if (this.mode !== 'civic' || !this.selectedCard) return ''
       const left = this.civicNeed - this.picks.length
       return left > 0 ? `${this.selectedCard.name}: pick ${left} more to discard` : `${this.selectedCard.name}: discard these, then draw ${(this.selectedCard.effects?.onPlay ?? []).find(e => e.type === 'drawCards')?.amount ?? 0}`
     },
-    handActive () { return this.mode === 'hand' || this.mode === 'civic' || this.mode === 'target' },
+    handActive () { return this.mode === 'hand' || this.mode === 'civic' || this.mode === 'combine' || this.mode === 'target' },
     focusedHandCard () { void this.tick; return this.game.state.hand[this.handIndex] ?? null },
     selectedCard () { void this.tick; return this.selectedIndex === null ? null : this.game.state.hand[this.selectedIndex] ?? null },
     currentTarget () { return this.targets[this.targetIndex] ?? null },
@@ -371,8 +398,10 @@ export default {
       const L = (action, label) => ({ action, label })
       switch (this.screen === 'title' ? 'title' : this.mode) {
         case 'title': return [L('select', 'Start')]
-        case 'hand': return [L('lr', 'Choose card'), L('select', 'Play'), L('up', 'Look at the city'), L('confirm', this.endLabel), L('deck', 'Deck'), L('menu', 'Menu')]
+        case 'hand': return [L('lr', 'Choose card'), L('select', 'Play'), ...(canCombine(this.focusedHandCard) ? [L('combine', 'Combine')] : []), L('up', 'Look at the city'), L('confirm', this.endLabel), L('deck', 'Deck'), L('menu', 'Menu')]
         case 'target': return this.pendingEdges.length ? [L('dpad', 'Aim the second segment'), L('select', 'Place'), L('back', 'Keep just one')] : [L('dpad', 'Aim'), L('select', 'Place'), L('back', 'Back')]
+        case 'combine': return [L('lr', 'Choose'), L('select', 'Pick / put back'), ...(this.picks.length ? [L('confirm', 'Combine')] : []), L('back', 'Back')]
+        case 'combineChoice': return [L('lr', 'Choose'), L('select', 'Combine into this'), L('back', 'Back')]
         case 'civic': return [L('lr', 'Choose'), L('select', 'Pick / put back'), ...(this.picks.length >= this.civicNeed ? [L('confirm', 'Discard these')] : []), L('back', 'Back')]
         case 'market': return [L('dpad', 'Browse'), L('select', 'Buy / Claim'), L('up', 'Look at the city'), L('confirm', 'End turn'), L('deck', 'Deck'), L('menu', 'Menu')]
         case 'look': return [L('dpad', 'Move'), L('up', 'Top bar'), L('back', 'Back')]
@@ -456,7 +485,23 @@ export default {
       else if (action === 'up') this.openLook('hand')
       else if (action === 'confirm') this.endBuild()
       else if (action === 'deck') this.openPile(0)
+      else if (action === 'combine') this.startCombine(this.handIndex)
       else if (action === 'menu') this.openMenu()
+    },
+    in_combine (action) {
+      const n = this.game.state.hand.length
+      const others = [...Array(n).keys()].filter(i => i !== this.selectedIndex)
+      const pos = Math.max(0, others.indexOf(this.handIndex))
+      if (action === 'left') this.handIndex = others[(pos - 1 + others.length) % others.length]
+      else if (action === 'right') this.handIndex = others[(pos + 1) % others.length]
+      else if (action === 'select') this.toggleCombinePick(this.handIndex)
+      else if (action === 'confirm' || action === 'combine') this.openCombineChoice()
+      else if (action === 'back') this.cancelCombine()
+    },
+    in_combineChoice (action) {
+      if (action === 'left' || action === 'right') this.comboIndex = 1 - this.comboIndex
+      else if (action === 'select') this.doCombine()
+      else if (action === 'back') this.mode = 'combine'
     },
     in_target (action) {
       if (['up', 'down', 'left', 'right'].includes(action)) this.moveAim(action)
@@ -601,9 +646,9 @@ export default {
     atBottomOfLook () { const t = this.currentTarget; return !this.targets.some(o => o !== t && o.sy > t.sy + 10) },
 
     // ----- mouse -----------------------------------------------------
-    onHandFocus (i) { if (this.mode === 'hand' || this.mode === 'civic') this.handIndex = i },
+    onHandFocus (i) { if (this.mode === 'hand' || this.mode === 'civic' || this.mode === 'combine') this.handIndex = i },
     onHandSelect (i) {
-      if (this.mode === 'hand') { this.handIndex = i; this.tryPlay(i) } else if (this.mode === 'civic' && i !== this.selectedIndex) { this.handIndex = i; this.togglePick(i) }
+      if (this.mode === 'hand') { this.handIndex = i; this.tryPlay(i) } else if (this.mode === 'civic' && i !== this.selectedIndex) { this.handIndex = i; this.togglePick(i) } else if (this.mode === 'combine' && i !== this.selectedIndex) { this.handIndex = i; this.toggleCombinePick(i) }
     },
     onCellClick (cell) {
       if (this.mode !== 'target' && this.mode !== 'look') return
@@ -729,6 +774,49 @@ export default {
       this.handIndex = Math.min(this.handIndex, Math.max(0, this.game.state.hand.length - 1))
       this.refresh()
     },
+    // ----- combining (core/cards/combine.js) ----------------------------
+    familyOf (card) { return familyOf(card) },
+    rulesFor (card, catalog) { return rulesFor(card, catalog) },
+    startCombine (i) {
+      const card = this.game.state.hand[i]
+      if (!canCombine(card)) return this.refuse(card ? `${card.name} can't be combined: only buildings, not Roads or one-of-a-kinds.` : 'No card.')
+      const others = this.game.state.hand.map((c, j) => j).filter(j => j !== i && canCombine(this.game.state.hand[j]))
+      if (!others.length) return this.refuse('Nothing else in your hand to combine it with.')
+      this.selectedIndex = i
+      this.picks = []
+      this.handIndex = others[0]
+      this.mode = 'combine'
+    },
+    toggleCombinePick (i) {
+      if (this.picks[0] === i) { this.picks = []; return }
+      if (!canCombine(this.game.state.hand[i])) return this.refuse(`${this.game.state.hand[i]?.name ?? 'That'} can't be combined.`)
+      this.picks = [i]
+    },
+    openCombineChoice () {
+      if (this.mode !== 'combine' || this.picks.length !== 1) return this.refuse(`Pick a building to combine it with first (${this.glyphs.select}).`)
+      if (this.treasury < this.combinePrice) return this.refuse(`Combining these costs ${this.combinePrice} budget.`)
+      this.comboIndex = 0
+      this.mode = 'combineChoice'
+    },
+    doCombine () {
+      const [a, b] = this.combinePair
+      try {
+        const made = this.game.actions.combineCards(a.id, b.id, this.comboIndex)
+        this.pop(`-${this.combinePrice}`, 'orb')
+        this.say(`${a.name} + ${b.name}: ${made.name}, in your discard pile.`, 'good')
+      } catch (err) {
+        this.refuse(err.message)
+      }
+      this.cancelCombine()
+      this.handIndex = 0
+      this.refresh()
+    },
+    cancelCombine () {
+      this.mode = 'hand'
+      if (this.selectedIndex != null) this.handIndex = this.selectedIndex
+      this.picks = []
+      this.selectedIndex = null
+    },
     togglePick (i) {
       const at = this.picks.indexOf(i)
       if (at !== -1) { this.picks.splice(at, 1); return }
@@ -737,6 +825,7 @@ export default {
     },
     /** Play the civic card with the cards picked to discard (Y, or the button). */
     confirmPicks () {
+      if (this.mode === 'combine') return this.openCombineChoice()
       if (this.mode !== 'civic' || this.picks.length < this.civicNeed) return
       const civic = this.game.state.hand[this.selectedIndex]
       const ids = this.picks.map(p => this.game.state.hand[p].id)
@@ -932,6 +1021,14 @@ export default {
 .overlay-mandate__lede { font-size: 24px; color: var(--ink-2); font-weight: 500; }
 .overlay-mandate__row { display: flex; gap: 40px; align-items: stretch; }
 .overlay-mandate__row > div { cursor: pointer; display: flex; }
+.combo-tile { width: 460px; padding: 0 0 18px; border-radius: 18px; background: #fff; border: 2px solid var(--line); box-shadow: 0 10px 30px rgba(27,33,48,0.14); flex-direction: column; overflow: hidden; transition: transform 160ms ease; }
+.combo-tile--on { border-color: var(--ink); outline: 4px solid var(--focus); outline-offset: 3px; transform: translateY(-6px); }
+.combo-tile__head { display: flex; align-items: center; gap: 14px; padding: 16px 20px; background: var(--soft); border-bottom: 3px solid var(--c); font-size: 32px; font-weight: 800; letter-spacing: -0.01em; }
+.combo-tile__cost { display: inline-grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--gold); font-size: 22px; flex: none; }
+.combo-tile__fam { padding: 12px 22px 0; font-size: 14px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--c); }
+.combo-tile__lean { margin: 10px 22px 0; font-size: 18px; font-weight: 800; color: var(--ink); }
+.combo-tile__rules { margin: 10px 22px 0; padding-left: 20px; font-size: 19px; line-height: 1.35; color: var(--ink-2); }
+.combo-tile__rules li { margin-bottom: 6px; }
 .overlay-mandate__hint { font-size: 20px; color: var(--ink-2); font-weight: 600; display: flex; gap: 12px; align-items: center; }
 .btn-a { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; font-weight: 900; font-size: 17px; color: #000; background: #5fd36f; }
 

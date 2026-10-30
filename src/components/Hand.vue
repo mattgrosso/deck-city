@@ -23,7 +23,7 @@
     <div v-for="g in ghosts" :key="`ghost${g.k}`" class="hand__ghost" :style="{ transform: `translate(${g.x}px, ${g.y}px)` }">Pick a card</div>
     <div v-if="prompt" class="hand__prompt" :style="{ transform: `translate(calc(-50% + ${STAGE_CX}px), ${STAGE_Y - 74}px)` }">
       <span>{{ prompt }}</span>
-      <button v-if="ready" type="button" class="hand__confirm" @click.stop="$emit('confirm')"><span class="hand__glyph">{{ confirmGlyph }}</span> Discard these</button>
+      <button v-if="ready" type="button" class="hand__confirm" @click.stop="$emit('confirm')"><span class="hand__glyph">{{ confirmGlyph }}</span> {{ confirmLabel }}</button>
     </div>
     <div v-if="!hand.length" class="hand__empty">No cards in hand</div>
   </div>
@@ -57,6 +57,7 @@ export default {
     lifted: { type: Number, default: null },
     need: { type: Number, default: 0 },
     prompt: { type: String, default: '' },
+    confirmLabel: { type: String, default: 'Discard these' },
     confirmGlyph: { type: String, default: 'Y' }
   },
   emits: ['focus', 'select', 'confirm'],

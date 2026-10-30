@@ -5,7 +5,7 @@ import { runGameOptions } from '@/game/runSetup'
 import { valueOfBuild } from '@/game/core/economy/priceList'
 import {
   createGame,
-  calcStatTotal, effectiveCost, isCellEmpty, isBuildable, listConnectedEdges, evaluateCondition, previewPlacement, clearsOf
+  calcStatTotal, effectiveCost, canCombine, combineCost, isCellEmpty, isBuildable, listConnectedEdges, evaluateCondition, previewPlacement, clearsOf
 } from '@/game/core'
 
 const GAMES = Number(process.argv[2] ?? 20)
@@ -50,6 +50,11 @@ function play () {
       }
       const road = hand.find(c => c.placesRoad && effectiveCost(s, c) <= s.treasury)
       if (road) { const e = listConnectedEdges(grid); if (e.length) { const a = e[Math.floor(rng() * e.length)].key; const more = listConnectedEdges(grid, [a]); game.actions.playCard(road.id, { edges: more.length ? [a, more[0].key] : [a] }); continue } }
+      // Nothing left worth building: combine two leftover buildings if the budget allows.
+      if (process.env.COMBINE !== '0') {
+        const pair = hand.filter(canCombine)
+        if (pair.length >= 2 && s.treasury >= combineCost(pair[0], pair[1])) { game.actions.combineCards(pair[0].id, pair[1].id, 0); COMBOS.n++; continue }
+      }
       break
     }
     if (process.env.TRACE && turn % 4 === 0) console.log(`   after build: budget ${s.treasury} hand ${s.hand.map(c => c.id).join(' ')} buildings ${s.builtStructures.length}`)
@@ -83,6 +88,7 @@ function play () {
       if (!best || (!clearer && valueOfBuild(best).value < (best.cost ?? 0))) break
       game.actions.acquireCard(best.id)
     }
+    if (process.env.MONEY) { MONEY[turn] = MONEY[turn] ?? []; MONEY[turn].push([s.treasury, calcStatTotal(s, "revenue")]) }
     for (let i = 0; i < 4; i++) game.actions.advance()
     for (const [label, v] of s.run?.lastDrain?.parts ?? []) { const k = label.replace(/^\d+ /, ''); DRAIN[k] = DRAIN[k] ?? [0, 0]; DRAIN[k][0] += v; DRAIN[k][1]++ }
     DRAIN.__turns = (DRAIN.__turns ?? 0) + 1
@@ -97,6 +103,8 @@ const results = []
 const DRAIN = {}
 const STATS = []
 const PLAYS = { n: 0 }
+const MONEY = {}
+const COMBOS = { n: 0 }
 for (let g = 0; g < GAMES; g++) { seed = g * 7919 + 1; results.push(play()) }
 const avg = (xs) => xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length * 10) / 10 : '-'
 console.log(`${GAMES} runs: ${results.filter(r => r.status === 'won').length} won all three eras, ${results.filter(r => r.status === 'lost').length} lost, ${results.filter(r => r.status === 'playing').length} unfinished; run length ${avg(results.map(r => r.turn))} turns`)
@@ -107,8 +115,10 @@ for (const era of [1, 2, 3]) {
   const fails = es.filter(e => !e.passed).map(e => e.mandate)
   console.log(`era ${era}: ${es.filter(e => e.passed).length}/${es.length} passed (${es.filter(e => e.early).length} early), ${avg(lengths)} turns long${fails.length ? `; failed: ${fails.join(', ')}` : ''}`)
 }
+console.log(`combines ${COMBOS.n} (${Math.round(COMBOS.n / GAMES)} a run)`)
 console.log(`final population ${avg(results.map(r => r.pop))}, buildings ${avg(results.map(r => r.buildings))}, deck ${avg(results.map(r => r.deck))}`)
 
 console.log('patience drain per turn, on average: ' + Object.entries(DRAIN).filter(([k]) => k !== '__turns').map(([k, [sum]]) => `${k} ${Math.round(sum / DRAIN.__turns * 10) / 10}`).join(', '))
 
 console.log('at the end, on average: ' + Object.keys(STATS[0]).map(k => `${k} ${avg(STATS.map(x => x[k]))}`).join(', '))
+if (process.env.MONEY) for (const t of [1, 5, 10, 20, 30, 45, 60]) if (MONEY[t]) console.log(`turn ${t}: unspent ${avg(MONEY[t].map(x => x[0]))} of an income of ${avg(MONEY[t].map(x => x[1]))}`)
