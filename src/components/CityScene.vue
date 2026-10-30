@@ -159,8 +159,11 @@ export default {
     onClick (event) {
       if (!this.world) return
       const rect = this.$refs.canvas.getBoundingClientRect()
-      const lot = this.world.pick((event.clientX - rect.left) / rect.width, (event.clientY - rect.top) / rect.height)
-      if (lot) this.$emit('cell', { x: lot.x, y: lot.y })
+      const nx = (event.clientX - rect.left) / rect.width
+      const ny = (event.clientY - rect.top) / rect.height
+      const lot = this.world.pick(nx, ny)
+      // Where on the stage, too: a tap aims at the nearest street or plot (touch, 2026-10-30).
+      this.$emit('cell', { x: lot?.x ?? null, y: lot?.y ?? null, sx: nx * this.width, sy: ny * this.height })
     }
   }
 }

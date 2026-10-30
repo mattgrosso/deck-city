@@ -35,9 +35,12 @@ html, body, #app {
   -webkit-font-smoothing: antialiased;
 }
 
-.stage-wrap { position: fixed; inset: 0; display: grid; place-items: center; background: #cfd8e4; }
+/* Centred by hand: Safari pins an oversized grid item to the corner (an iPad showed the stage half off-screen). */
+.stage-wrap { position: fixed; inset: 0; overflow: hidden; background: #cfd8e4; }
 .stage {
-  position: relative;
+  /* iPad: no double-tap zoom, no text selection or callouts on a long press, no grey tap flash. */
+  touch-action: manipulation; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+  position: absolute; left: 50%; top: 50%;
   width: 1920px; height: 1080px;
   background: linear-gradient(180deg, #f3f6fb 0%, #e6ecf4 55%, #dde5ef 100%);
   transform-origin: center center;

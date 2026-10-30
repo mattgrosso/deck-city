@@ -1,6 +1,6 @@
 <template>
   <div class="stage-wrap">
-    <div class="stage" :style="{ transform: `scale(${scale})` }">
+    <div class="stage" :style="{ transform: `translate(-50%, -50%) scale(${scale})` }">
       <template v-if="screen === 'game'">
         <TopBar
           :turn="turn" :population="population" :jobs="jobs" :revenue="nextBudget"
@@ -130,11 +130,11 @@
       <transition name="toast">
         <div v-if="playtest.note" :key="playtest.note.at" class="pt-note"><span class="pt-note__who">Claude</span>{{ playtest.note.text }}</div>
       </transition>
-      <button v-if="!isFullscreen" class="fs-btn" :class="{ 'fs-btn--title': screen === 'title' }" type="button" @click.stop="toggleFullscreen('click')">
+      <button v-if="!isFullscreen && !touch" class="fs-btn" :class="{ 'fs-btn--title': screen === 'title' }" type="button" @click.stop="toggleFullscreen('click')">
         <svg viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" /></svg>
         Full screen <span class="fs-btn__key">F</span>
       </button>
-      <ButtonLegend :items="legend" :pad="pad" />
+      <ButtonLegend :items="legend" :pad="pad" :touch="touch" @act="act($event, 'touch')" />
       <p class="build-stamp" role="button" tabindex="0" title="Tap to reload" @click="stampTap">{{ refreshing ? 'reloading…' : stamp }}</p>
     </div>
     <BugReportButton v-if="firebaseConfigured" />
@@ -228,6 +228,8 @@ export default {
       comboIndex: 0,
       policyIndex: 0,
       policyReturn: null,
+      // A touchscreen (an iPad): tap to pick, tap again to play; the legend becomes buttons.
+      touch: typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches,
       market: { row: 0, index: 0 },
       statIndex: 0,
       pileTab: 0,
@@ -264,6 +266,9 @@ export default {
     document.addEventListener('fullscreenchange', this.onFsChange)
     this.onFsChange()
     this.detach = attachInput({ onAction: this.act, onPadChange: (kind) => { this.pad = kind } })
+    // Touch or not follows the last thing used: a finger turns tap-twice on, a mouse or a key turns it off.
+    this.onPointer = (e) => { this.touch = e.pointerType === 'touch' || e.pointerType === 'pen' }
+    window.addEventListener('pointerdown', this.onPointer, true)
     // Auto-update (house standard): a reload only on the title screen or a
     // finished game - a game in progress lives in memory and nowhere else.
     const self = this
@@ -274,6 +279,7 @@ export default {
   beforeUnmount () {
     window.removeEventListener('resize', this.fit)
     document.removeEventListener('fullscreenchange', this.onFsChange)
+    window.removeEventListener('pointerdown', this.onPointer, true)
     this.detach?.()
   },
   computed: {
@@ -727,19 +733,44 @@ export default {
     atBottomOfLook () { const t = this.currentTarget; return !this.targets.some(o => o !== t && o.sy > t.sy + 10) },
 
     // ----- mouse -----------------------------------------------------
-    onHandFocus (i) { if (this.mode === 'hand' || this.mode === 'civic' || this.mode === 'combine') this.handIndex = i },
+    // Safari fires a hover on every tap: on a touchscreen hover means nothing, or a first tap would count as the second.
+    onHandFocus (i) { if (this.touch) return; if (this.mode === 'hand' || this.mode === 'civic' || this.mode === 'combine') this.handIndex = i },
     onHandSelect (i) {
-      if (this.mode === 'hand') { this.handIndex = i; this.tryPlay(i) } else if (this.mode === 'civic' && i !== this.selectedIndex) { this.handIndex = i; this.togglePick(i) } else if (this.mode === 'combine' && i !== this.selectedIndex) { this.handIndex = i; this.toggleCombinePick(i) }
+      if (this.mode === 'hand') {
+        const again = this.handIndex === i
+        this.handIndex = i
+        if (!this.touch || again) this.tryPlay(i)
+      } else if (this.mode === 'civic' && i !== this.selectedIndex) { this.handIndex = i; this.togglePick(i) } else if (this.mode === 'combine' && i !== this.selectedIndex) { this.handIndex = i; this.toggleCombinePick(i) }
     },
     onCellClick (cell) {
+      // Outside aiming, tapping the city looks at what was tapped.
+      if ((this.mode === 'hand' || this.mode === 'market') && cell.x != null) {
+        this.openLook(this.mode)
+        const at = this.targets.findIndex(t => t.x === cell.x && t.y === cell.y)
+        if (at !== -1) this.targetIndex = at
+        return
+      }
       if (this.mode !== 'target' && this.mode !== 'look') return
-      const i = this.targets.findIndex(t => t.kind === 'cell' && t.x === cell.x && t.y === cell.y)
+      // The target nearest the tap: a street segment, or a plot (fingers are wide).
+      let i = this.targets.findIndex(t => t.kind === 'cell' && t.x === cell.x && t.y === cell.y)
+      if (i === -1 || this.targets[i].kind !== 'cell') {
+        let best = Infinity
+        this.targets.forEach((t, k) => { const d = Math.hypot(t.sx - cell.sx, t.sy - cell.sy); if (d < best) { best = d; i = k } })
+        if (best > 140) return
+      }
       if (i === -1) return
+      // On a touchscreen the first tap aims (and shows the preview); a second on the same spot places.
+      const again = i === this.targetIndex
       this.targetIndex = i
-      if (this.mode === 'target') this.placeAt(this.currentTarget)
+      if (this.mode === 'target' && (!this.touch || again)) this.placeAt(this.currentTarget)
     },
-    onMarketFocus (f) { if (this.mode === 'market') this.market = f },
-    onMarketSelect (f) { if (this.mode === 'market') { this.market = f; this.buyOrClaim() } },
+    onMarketFocus (f) { if (!this.touch && this.mode === 'market') this.market = f },
+    onMarketSelect (f) {
+      if (this.mode !== 'market') return
+      const again = this.market.row === f.row && this.market.index === f.index
+      this.market = f
+      if (!this.touch || again) this.buyOrClaim()
+    },
 
     // ----- play ------------------------------------------------------
     costOf (card) { void this.tick; return effectiveCost(this.game.state, card) },
