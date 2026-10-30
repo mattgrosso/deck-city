@@ -24,7 +24,8 @@ sun.shadow.camera.left = -4; sun.shadow.camera.right = 4; sun.shadow.camera.top 
 scene.add(new THREE.AmbientLight(0xffffff, 0.3))
 const GROUND = { park: 0x8ccf7a, field: 0x8ccf7a, plaza: 0xeadfc1, built: 0xdfe3ea }
 if (art.ground !== 'none') {
-  const g = new THREE.Mesh(new THREE.CylinderGeometry(1.35, 1.35, 0.12, 48), new THREE.MeshStandardMaterial({ color: GROUND[art.ground] ?? GROUND.built, roughness: 0.95 }))
+  const reach = art.wide ? Math.max(1.35, ...art.parts.map(p => Math.hypot(p.dx || 0, p.dz || 0) + 0.75)) : 1.35
+  const g = new THREE.Mesh(new THREE.CylinderGeometry(reach, reach, 0.12, 48), new THREE.MeshStandardMaterial({ color: GROUND[art.ground] ?? GROUND.built, roughness: 0.95 }))
   g.position.y = -0.06; g.receiveShadow = true; scene.add(g)
 }
 const loader = new GLTFLoader()
@@ -34,10 +35,10 @@ const genProtos = new Map()
 const loadProto = (name) => genProtos.has(name) ? Promise.resolve() : new Promise(res => loader.load(`/models/${name}.glb`, g => { genProtos.set(name, g.scene); res() }, undefined, () => res()))
 await Promise.all(art.parts.filter(p => p.gen).flatMap(p => modelsOfSpec(p.gen).map(loadProto)))
 for (const p of art.parts.filter(p => p.gen)) {
-  const made = fittedBuilding(p.gen, (n) => genProtos.get(n), { fit: 1.6 })
+  const made = fittedBuilding(p.gen, (n) => genProtos.get(n), p.fit ? { fit: p.fit, ...(p.depth ? { depth: p.depth } : {}) } : { fit: 1.6 })
   if (!made) continue
   made.group.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true } })
-  made.group.position.set(p.dx || 0, 0, p.dz || 0); made.group.scale.multiplyScalar(p.scale || 1); group.add(made.group)
+  made.group.position.set(p.dx || 0, 0, p.dz || 0); made.group.rotation.y = p.yaw || 0; made.group.scale.multiplyScalar(p.scale || 1); group.add(made.group)
 }
 await texturesReady()
 await Promise.all(art.parts.filter(p => !p.gen).map(p => new Promise((res) => { if (p.street) { const m = p.street === 'edge' ? makeStreetEdge({ axis: p.axis, length: p.length }) : makeStreetNode({ arms: p.arms }); m.position.set(p.dx || 0, 0, p.dz || 0); group.add(m); res(); return } loader.load(`/models/${p.model}.glb`, (gltf) => {

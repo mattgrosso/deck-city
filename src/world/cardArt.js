@@ -4,7 +4,8 @@
 // the board builds them from (cityLayout.js), so the card shows exactly
 // what you'll get; the rest are small dioramas of what the card means.
 
-import { RECIPES } from './cityLayout'
+import { RECIPES, buildingPlacements } from './cityLayout'
+import { createCityGrid, footprint, isMultiTile } from '@/game/core'
 import { lookFor } from './looks'
 import { CITY_CARDS, TOKEN_CATALOG } from '@/game/core/cards/cityCards'
 
@@ -66,7 +67,15 @@ const hash = (s) => { let h = 2166136261; for (const ch of s) { h ^= ch.charCode
 for (const card of [...CITY_CARDS, ...TOKEN_CATALOG]) {
   if (CARD_ART[card.id]) continue
   if (SPECIAL[card.id]) { CARD_ART[card.id] = SPECIAL[card.id]; continue }
-  if (card.type === 'building') {
+  if (card.type === 'building' && isMultiTile(card)) {
+    // A multi-tile building is pictured whole, as it stands on the board.
+    const grid = createCityGrid({ width: 5, height: 5 })
+    const cells = footprint(card, { x: 1, y: 1 }, 0)
+    const { placements, ground } = buildingPlacements(grid, card, 0, cells, 'art')
+    const cx = placements.reduce((n, p) => n + p.x, 0) / placements.length
+    const cz = placements.reduce((n, p) => n + p.z, 0) / placements.length
+    CARD_ART[card.id] = scene(placements.map(p => ({ model: p.model, gen: p.gen, fit: p.fit, depth: p.depth, dx: p.x - cx, dz: p.z - cz, yaw: p.yaw, scale: p.scale, tint: p.tint })), { ground: ground === 'park' ? 'park' : ground === 'plaza' ? 'plaza' : 'built', wide: true })
+  } else if (card.type === 'building') {
     const look = lookFor(card)
     CARD_ART[card.id] = scene(look.parts.map(p => ({ ...p })), { ground: look.ground === 'park' ? 'park' : look.ground === 'plaza' ? 'plaza' : 'built' })
   } else {

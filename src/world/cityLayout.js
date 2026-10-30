@@ -11,7 +11,8 @@
 
 import { cellEdgeKeys, parseEdgeKey, innerEdges } from '@/game/core'
 import { familyOf } from '@/ui/cardText'
-import { lookFor, lookModels } from './looks'
+import { lookFor, lookModels, multiLookFor } from './looks'
+import { WIDE } from './buildgen'
 
 export const LOT = 1.0
 export const GAP = 0.48 // the road's width, in world units
@@ -148,6 +149,105 @@ function comboRecipe (card, seq) {
   return { key: card.id, ground: recipeFor(card.lookAs, seq).ground, parts: [at(main, -0.1, -0.1, 0.85), at(annex, 0.3, 0.3, 0.5)] }
 }
 
+// ---------------------------------------------------- multi-tile plans
+
+/** A multi-tile footprint split into its long ARM (a straight run) and the LEG left over. */
+export function splitFootprint (cells) {
+  const line = (list) => list.every(c => c.y === list[0].y) || list.every(c => c.x === list[0].x)
+  if (line(cells)) return { arm: cells, leg: [] }
+  const touching = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y) === 1
+  if (cells.length === 3) {
+    const corner = cells.find(c => cells.filter(o => o !== c && touching(c, o)).length === 2)
+    const rest = cells.filter(c => c !== corner)
+    return { arm: [corner, rest[0]], leg: [rest[1]] }
+  }
+  const top = Math.min(...cells.map(c => c.y))
+  return { arm: cells.filter(c => c.y === top), leg: cells.filter(c => c.y !== top) }
+}
+
+const centreOf = (grid, cells) => {
+  const pts = cells.map(c => cellCentre(grid, c.x, c.y))
+  return { x: pts.reduce((n, p) => n + p.x, 0) / pts.length, z: pts.reduce((n, p) => n + p.z, 0) / pts.length }
+}
+
+/** How many extra bays make a WIDE source about `length` long when `depth` deep. */
+const baysFor = (src, length, depth) => { const w = WIDE[src]; return Math.max(0, Math.round(((length / depth) * w.depth - w.width) / 0.4)) }
+
+/** A wide building (buildgen WIDE) laid along a run of plots, as long as the run. */
+function wideAlong (grid, spec, run, depth = LOT * 0.82) {
+  const c = centreOf(grid, run)
+  const alongX = run.every(r => r.y === run[0].y)
+  const length = run.length * PITCH - GAP - 0.12
+  const bays = baysFor(spec.src, length, depth)
+  return { gen: { ...spec, id: `${spec.id}:${bays}`, bays }, model: spec.src, x: c.x, z: c.z, yaw: alongX ? 0 : Math.PI / 2, fit: length, depth, scale: 1 }
+}
+
+function multiPlacements (grid, plan, cells, put) {
+  const parts = []
+  const { arm, leg } = splitFootprint(cells)
+  const add = (p, i) => put({ ...p, dx: 0, dz: 0 }, p.x, p.z, i)
+  if (plan.kind === 'stadium') {
+    // Stands round a pitch, floodlights at the corners.
+    const c = centreOf(grid, cells)
+    const h = PITCH - 0.32
+    const src = 'industrial/building-s'
+    const side = { length: PITCH * 2 - 0.4, depth: 0.42 }; const end = { length: PITCH * 1.25, depth: 0.36 }
+    const stand = (len, dep, id) => ({ id, type: 'wide', src, bays: baysFor(src, len, dep), palette: 'sand', props: [] })
+    const long = stand(side.length, side.depth, 'stand-side'); const short = stand(end.length, end.depth, 'stand-end')
+    parts.push({ gen: long, model: src, x: c.x, z: c.z - h, yaw: 0, fit: side.length, depth: side.depth })
+    parts.push({ gen: long, model: src, x: c.x, z: c.z + h, yaw: Math.PI, fit: side.length, depth: side.depth })
+    parts.push({ gen: short, model: src, x: c.x - h, z: c.z, yaw: Math.PI / 2, fit: end.length, depth: end.depth })
+    parts.push({ gen: short, model: src, x: c.x + h, z: c.z, yaw: -Math.PI / 2, fit: end.length, depth: end.depth })
+    for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) parts.push({ model: 'roads/light-square', x: c.x + sx * (PITCH - 0.05), z: c.z + sz * (PITCH - 0.05), scale: 2.2, yaw: 0 })
+    parts.forEach(add)
+    return []
+  }
+  const depth = plan.depth ?? LOT * 0.82
+  const along = wideAlong(grid, plan.arm, arm, depth)
+  // A shallower building stands at the back of its plots, leaving a front.
+  const alongX = arm.every(r => r.y === arm[0].y)
+  const back = (LOT * 0.82 - depth) / 2
+  if (alongX) along.z -= back; else along.x -= back
+  parts.push(along)
+  if (plan.spire) {
+    const end = cellCentre(grid, arm.at(-1).x, arm.at(-1).y)
+    parts.push({ gen: plan.spire, model: plan.spire.src, x: alongX ? end.x + 0.15 : along.x, z: alongX ? along.z : end.z + 0.15, yaw: 0, fit: plan.spireFit ?? 0.5, scale: 1 })
+  }
+  // Things along the front: parasols, a playground, signals (the side the camera sees).
+  if (plan.front?.length) {
+    const c0 = centreOf(grid, arm)
+    const len = arm.length * PITCH - GAP - 0.4
+    const n = Math.max(2, arm.length * 2)
+    for (let i = 0; i < n; i++) {
+      const t = -len / 2 + (i + 0.5) * len / n
+      const model = plan.front[i % plan.front.length]
+      const off = depth / 2 + 0.12 - back
+      parts.push({ model, x: alongX ? c0.x + t : c0.x + off, z: alongX ? c0.z + off : c0.z + t, yaw: alongX ? 0 : Math.PI / 2, scale: model.includes('fence') ? 0.5 : model.startsWith('roads/') ? 0.8 : 0.9 })
+    }
+  }
+  if (plan.kind === 'themepark') {
+    // Rides on the far side of the gate: a wheel of parasols, a tower ride, trees.
+    for (const [i, cell] of leg.entries()) {
+      const p = cellCentre(grid, cell.x, cell.y)
+      parts.push({ model: i % 2 ? 'industrial/water-tower' : 'commercial/detail-parasol-a', x: p.x, z: p.z, scale: i % 2 ? 0.7 : 1.6, yaw: 0 })
+      parts.push({ model: 'commercial/detail-parasol-b', x: p.x + 0.3, z: p.z + 0.3, scale: 1.1, yaw: 0 })
+      parts.push({ model: 'suburban/tree-small', x: p.x - 0.32, z: p.z - 0.3, scale: 1, yaw: 0 })
+    }
+  } else if (plan.leg || plan.legs) {
+    for (const [i, cell] of leg.entries()) {
+      const p = cellCentre(grid, cell.x, cell.y)
+      const spec = plan.legs ? plan.legs[i % plan.legs.length] : plan.leg
+      parts.push({ gen: spec, model: spec.src, x: p.x, z: p.z, yaw: 0, fit: spec.type === 'tower' ? 0.6 : 0.86, scale: 1 })
+      if (i === 0) for (const pr of plan.legProps ?? []) parts.push({ ...pr, x: p.x + pr.dx * LOT, z: p.z + pr.dz * LOT })
+    }
+  } else if (leg.length) {
+    // A 2×2 with no leg building: a second wide one, back to back.
+    parts.push(wideAlong(grid, plan.arm, leg))
+  }
+  parts.forEach(add)
+  return []
+}
+
 /** The recipe for a built instance: by card id, else goals are monuments, else by family. */
 export function recipeFor (card, seq = 0) {
   if (card.combo) return comboRecipe(card, seq)
@@ -186,12 +286,9 @@ export function buildingPlacements (grid, card, seq, cells, prefix) {
   const recipe = recipeFor(card, seq)
   const at = cells.map(c => cellCentre(grid, c.x, c.y))
   const out = []
-  const put = (part, x, z, i, k = 1) => out.push({ id: `${prefix}:${i}`, model: part.model, gen: part.gen ?? null, x: x + (part.dx ?? 0) * LOT * k, z: z + (part.dz ?? 0) * LOT * k, yaw: part.yaw ?? 0, scale: (part.scale ?? 1) * k, tint: part.tint ?? null, kind: recipe.key })
-  if (cells.length === 4) {
-    const cx = at.reduce((n, p) => n + p.x, 0) / 4; const cz = at.reduce((n, p) => n + p.z, 0) / 4
-    recipe.parts.forEach((part, i) => put(part, cx, cz, i, 1.9))
-    return { placements: out, ground: recipe.ground }
-  }
+  const put = (part, x, z, i, k = 1) => out.push({ id: `${prefix}:${i}`, model: part.model, gen: part.gen ?? null, fit: part.fit ?? null, depth: part.depth ?? null, x: x + (part.dx ?? 0) * LOT * k, z: z + (part.dz ?? 0) * LOT * k, yaw: part.yaw ?? 0, scale: (part.scale ?? 1) * k, tint: part.tint ?? null, kind: recipe.key })
+  const plan = cells.length > 1 ? multiLookFor(card) : { kind: 'percell' }
+  if (plan.kind !== 'percell') { multiPlacements(grid, plan, cells, put); return { placements: out, ground: plan.ground ?? recipe.ground } }
   at.forEach((p, c) => {
     const parts = c === 0 ? recipe.parts : recipeFor(card, seq + c).parts
     parts.forEach((part, i) => put(part, p.x, p.z, `${c}.${i}`))
@@ -216,7 +313,8 @@ export function layoutCity (grid, structures) {
       const { x: wx, z: wz } = cellCentre(grid, x, y)
       const recipe = instance ? recipeFor(instance.card, seqOf(instance)) : null
       const water = !instance && grid.terrain?.[y * grid.width + x] === 'water'
-      lots.push({ id: `lot:${x},${y}`, x, y, wx, wz, ground: water ? 'water' : recipe?.ground ?? (instance ? 'built' : 'empty'), instanceId: id ?? null })
+      const multiGround = instance?.cells?.length > 1 ? multiLookFor(instance.card).ground : null
+      lots.push({ id: `lot:${x},${y}`, x, y, wx, wz, ground: water ? 'water' : multiGround ?? recipe?.ground ?? (instance ? 'built' : 'empty'), instanceId: id ?? null })
       // A building on more than one cell is laid out once, from its anchor.
       if (instance?.cells?.length > 1) {
         if (instance.position.x === x && instance.position.y === y) placements.push(...buildingPlacements(grid, instance.card, seqOf(instance), instance.cells, instance.instanceId).placements)
@@ -288,7 +386,7 @@ export function layoutCity (grid, structures) {
   const bridges = []
   for (const s of structures) {
     if (!(s.cells?.length > 1)) continue
-    const ground = recipeFor(s.card, seqOf(s)).ground ?? 'built'
+    const ground = multiLookFor(s.card).ground ?? recipeFor(s.card, seqOf(s)).ground ?? 'built'
     for (const key of innerEdges(s.cells)) {
       const { kind, x, y } = parseEdgeKey(key)
       const c = cornerPoint(grid, x, y)

@@ -39,6 +39,15 @@ export const TOWERS = {
   'commercial/building-skyscraper-d': { kit: 'commercial', base: 0.8, body: 5.2, footprint: 'slim' },
   'commercial/building-skyscraper-e': { kit: 'commercial', base: 0.8, body: 4.0, footprint: 'e' }
 }
+// Buildings that widen: a left end, a bay repeated, a right end, along x
+// (tools/buildgen/axis-cuts.mjs found the cuts; every bay is 0.4 wide).
+export const WIDE = {
+  'commercial/building-k': { kit: 'commercial', bay: [-0.179, 0.221], width: 2.08, depth: 0.94 }, // a long low arcade: malls, halls
+  'industrial/building-s': { kit: 'industrial', bay: [-0.2, 0.2], width: 2.12, depth: 0.92 }, // a long shed
+  'suburban/building-type-h': { kit: 'suburban', bay: [-0.2, 0.2], width: 1.3, depth: 0.92 }, // a terrace of houses
+  'suburban/building-type-t': { kit: 'suburban', bay: [-0.202, 0.199], width: 1.31, depth: 1.4 }
+}
+
 // Whole buildings that are only recoloured (they have no clean floor cuts).
 export const WHOLE = [
   ...'abcdefghijklmnopqrstu'.split('').map(l => `suburban/building-type-${l}`),
@@ -75,7 +84,7 @@ export function modelsOfSpec (spec) {
 
 /** Every model the generator may need, so the world can preload them. */
 export function generatorModels () {
-  const out = new Set([...Object.keys(SOURCES), ...Object.keys(TOWERS), ...WHOLE])
+  const out = new Set([...Object.keys(SOURCES), ...Object.keys(TOWERS), ...WHOLE, ...Object.keys(WIDE)])
   Object.values(ROOF_PROPS).forEach(l => l.forEach(m => out.add(m)))
   return [...out]
 }
@@ -104,13 +113,15 @@ export function specFromSeed (seed, { kind = 'any', kit = null } = {}) {
 
 // ------------------------------------------------------------- assembly
 
-/** The triangles of `geometry` between y0 and y1 (by centroid), moved so height `from` lands at `dy`, and scaled in y. */
-function sliceGeometry (geometry, y0, y1, { dy = 0, sy = 1, from = y0 } = {}) {
+/** The triangles of `geometry` between y0 and y1 along `axis` (by centroid), moved so `from` lands at `dy`, and scaled along that axis. */
+function sliceGeometry (geometry, y0, y1, { dy = 0, sy = 1, from = y0, axis = 'y' } = {}) {
   const g = geometry.index ? geometry.toNonIndexed() : geometry
   const pos = g.attributes.position
+  const getA = axis === 'x' ? 'getX' : axis === 'z' ? 'getZ' : 'getY'
+  const setA = axis === 'x' ? 'setX' : axis === 'z' ? 'setZ' : 'setY'
   const keep = []
   for (let t = 0; t < pos.count; t += 3) {
-    const cy = (pos.getY(t) + pos.getY(t + 1) + pos.getY(t + 2)) / 3
+    const cy = (pos[getA](t) + pos[getA](t + 1) + pos[getA](t + 2)) / 3
     if (cy >= y0 && cy < y1) keep.push(t)
   }
   const out = new THREE.BufferGeometry()
@@ -123,7 +134,7 @@ function sliceGeometry (geometry, y0, y1, { dy = 0, sy = 1, from = y0 } = {}) {
     out.setAttribute(name, new THREE.BufferAttribute(arr, attr.itemSize))
   }
   const p = out.attributes.position
-  for (let i = 0; i < p.count; i++) p.setY(i, (p.getY(i) - from) * sy + dy)
+  for (let i = 0; i < p.count; i++) p[setA](i, (p[getA](i) - from) * sy + dy)
   if (sy !== 1) out.computeVertexNormals()
   return out
 }
@@ -211,7 +222,18 @@ export function assembleBuilding (spec, get, { base = '/' } = {}) {
     group.add(mesh)
   }
   let height = 0
-  if (spec.type === 'whole') {
+  if (spec.type === 'wide') {
+    const w = WIDE[spec.src]
+    const bay = w.bay[1] - w.bay[0]
+    const extra = Math.max(0, spec.bays ?? 0)
+    for (const { geo, material } of meshesOf(get(spec.src))) {
+      add(sliceGeometry(geo, -99, w.bay[0], { axis: 'x', from: 0 }), material, w.kit)
+      for (let i = 0; i <= extra; i++) add(sliceGeometry(geo, w.bay[0], w.bay[1], { axis: 'x', dy: w.bay[0] + i * bay }), material, w.kit)
+      add(sliceGeometry(geo, w.bay[1], 99, { axis: 'x', dy: w.bay[1] + extra * bay }), material, w.kit)
+    }
+    height = new THREE.Box3().setFromObject(group).max.y
+    addProps(group, spec, get, height)
+  } else if (spec.type === 'whole') {
     const kit = spec.src.split('/')[0]
     for (const { geo, material } of meshesOf(get(spec.src))) add(sliceGeometry(geo, -1, 99, { from: 0 }), material, kit)
     height = new THREE.Box3().setFromObject(group).max.y
@@ -266,12 +288,14 @@ function addProps (group, spec, get, height) {
  * A spec ready for the board: assembled, then scaled inside a wrapper so its
  * widest side is `fit` (a lot is 1.0), so any source sits on a plot.
  */
-export function fittedBuilding (spec, get, { fit = 0.86, base = '/' } = {}) {
+export function fittedBuilding (spec, get, { fit = 0.86, depth = null, base = '/' } = {}) {
   if (!modelsOfSpec(spec).every(m => get(m) || (spec.props ?? []).some(p => p.model === m))) return null
   const { group, height } = assembleBuilding(spec, get, { base })
   const box = new THREE.Box3().setFromObject(group)
   const size = box.getSize(new THREE.Vector3())
-  const k = fit / Math.max(size.x, size.z, 0.01)
+  // The long side to `fit`; if `depth` is given, the short side no deeper than it.
+  let k = fit / Math.max(size.x, size.z, 0.01)
+  if (depth) k = Math.min(k, depth / Math.max(Math.min(size.x, size.z), 0.01))
   group.scale.setScalar(k)
   group.position.set(-(box.min.x + box.max.x) / 2 * k, 0, -(box.min.z + box.max.z) / 2 * k)
   const wrap = new THREE.Group(); wrap.add(group)

@@ -101,6 +101,7 @@ const OVERRIDES = {
 
 /** The family a card is drawn as (mirrors ui/cardText familyOf, without the UI). */
 function lookFamily (card) {
+  if (card.family) return card.family // a combined building looks like what it leans to
   const t = card.tags ?? []
   if (t.includes('landmark') && !t.includes('residential') && !t.includes('commercial')) return 'landmark'
   for (const f of ['residential', 'commercial', 'industrial', 'transit']) if (t.includes(f)) return f
@@ -148,6 +149,57 @@ export function specForCard (card) {
   const palette = fam === 'facility' && service ? SERVICE_COLOUR[service] : way(key)
   if (tier >= 3 && fam !== 'facility') return tower(palette)
   return block(pickH(BLOCKS, key), floorsUpTo(key, tier), palette, roofProps(key, 'commercial', 1))
+}
+
+/** The palette a card's generated building wears. */
+function paletteFor (card) {
+  const fam = lookFamily(card)
+  const service = (card.tags ?? []).find(t => t in SERVICE_COLOUR)
+  if (fam === 'industrial') return pickH(['a', 'b', 'c', 'charcoal', 'slate'], card.id)
+  return fam === 'facility' && service ? SERVICE_COLOUR[service] : way(card.id)
+}
+
+/** A building that widens along its plots (buildgen WIDE), by family. `bays` is set where it is laid out. */
+export function wideSpecFor (card, { palette = null, src = null } = {}) {
+  const fam = lookFamily(card)
+  const from = src ?? (fam === 'residential' ? pickH(['suburban/building-type-h', 'suburban/building-type-t'], card.id) : fam === 'industrial' ? 'industrial/building-s' : 'commercial/building-k')
+  return { id: `wide:${card.id}:${from}`, type: 'wide', src: from, bays: 0, palette: palette ?? paletteFor(card), props: fam === 'industrial' ? roofProps(card.id, 'industrial', 2) : [] }
+}
+const towerSpec = (key, palette, stretch, src = 'commercial/building-skyscraper-a') => ({ id: `tower:${key}:${src}:${stretch}:${palette}`, type: 'tower', src, crown: null, stretch, palette, props: [] })
+
+/**
+ * How a multi-tile building (state/shapes.js) fills its plots - a plan
+ * cityLayout turns into placements:
+ *   runs:     one wide building along the long arm; the leg (an L, or the
+ *             far row of a 2×2) gets `leg`
+ *   percell:  each plot its own look (parks, farms, gardens)
+ *   stadium / airport / themepark: built for the place
+ */
+export function multiLookFor (card) {
+  const id = card.id
+  if (id === 'stadium') return { kind: 'stadium', ground: 'park' }
+  // A terminal, a control tower, a hangar.
+  if (id === 'airport') return { kind: 'runs', arm: wideSpecFor(card, { palette: 'cream' }), legs: [towerSpec(id, 'slate', 0.55, 'commercial/building-skyscraper-c'), { id: 'airport:hangar', type: 'wide', src: 'industrial/building-s', bays: 0, palette: 'slate', props: [] }], legProps: [prop('roads/sign-highway', 0.3, 0.3, 0.8)], ground: 'built' }
+  if (id === 'theme-park') return { kind: 'themepark', arm: wideSpecFor(card, { palette: 'rose' }), ground: 'plaza' }
+  if (id === 'cathedral') return { kind: 'runs', arm: wideSpecFor(card, { palette: 'cream' }), depth: 0.5, spire: towerSpec(id, 'cream', 1.6), spireFit: 0.5, ground: 'plaza' }
+  if (id === 'hospital') return { kind: 'runs', arm: wideSpecFor(card, { palette: 'cream' }), depth: 0.62, spire: towerSpec(id, 'cream', 0.55, 'commercial/building-skyscraper-e'), spireFit: 0.62, ground: 'built' }
+  if (id === 'school' || id === 'high-school') return { kind: 'runs', arm: wideSpecFor(card, { palette: id === 'school' ? 'sand' : 'slate' }), depth: 0.55, front: ['suburban/tree-small', 'suburban/fence-low', 'suburban/tree-small'], ground: 'plaza' }
+  if (id === 'mall' || id === 'restaurant-row' || id === 'department-store') return { kind: 'runs', arm: wideSpecFor(card), depth: 0.6, front: ['commercial/detail-parasol-a', 'suburban/planter', 'commercial/detail-parasol-b'], ground: 'plaza' }
+  if (id === 'train-station') return { kind: 'runs', arm: wideSpecFor(card, { palette: 'charcoal' }), depth: 0.6, front: ['roads/traffic-light', 'roads/light-curved'], ground: 'built' }
+  if (id === 'university') return { kind: 'runs', arm: wideSpecFor(card, { palette: 'sand' }), leg: towerSpec(id, 'sand', 0.5), legProps: [prop('suburban/tree-small', -0.3, 0.3, 1), prop('suburban/tree-small', 0.3, -0.3, 1)], ground: 'plaza' }
+  if (id === 'prison') return { kind: 'runs', arm: wideSpecFor(card, { palette: 'charcoal', src: 'industrial/building-s' }), leg: { id: 'prison:leg', type: 'whole', src: 'commercial/building-c', palette: 'charcoal', props: [] }, ground: 'built' }
+  const fam = lookFamily(card)
+  // Parks, gardens and farms: each plot its own (trees, panels), not one building.
+  if (fam === 'green' || ['solar-farm', 'zoo'].includes(id) || OVERRIDES[id]?.().ground === 'park') return { kind: 'percell' }
+  if (card.combo) {
+    const size = card.size ?? 2
+    if (size >= 16) return { kind: 'runs', arm: wideSpecFor(card), leg: towerSpec(id, paletteFor(card), 1.5, 'commercial/building-skyscraper-d'), ground: 'plaza' }
+    if (size >= 8) return { kind: 'runs', arm: wideSpecFor(card), leg: towerSpec(id, paletteFor(card), 1.0), ground: 'plaza' }
+    return { kind: 'runs', arm: wideSpecFor(card), ground: 'plaza' }
+  }
+  // Homes: the leg is a house, not a block.
+  const leg = fam === 'residential' ? { id: `leg:${id}`, type: 'whole', src: pickH(WHOLE.filter(m => m.startsWith('suburban/')), id), palette: paletteFor(card), props: [] } : specForCard(card)
+  return { kind: 'runs', arm: wideSpecFor(card), leg, ground: fam === 'landmark' ? 'plaza' : fam === 'residential' ? 'park' : 'built' }
 }
 
 /** A look for any building card: { parts, ground }. */

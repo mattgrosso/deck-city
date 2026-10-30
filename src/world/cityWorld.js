@@ -95,17 +95,18 @@ export function createCityWorld (canvas, { reducedMotion = false } = {}) {
 
   // A generated building (buildgen.js) is assembled once per spec and cloned.
   const generated = new Map()
-  const genBuilding = (spec) => {
-    if (!generated.has(spec.id)) {
-      const made = fittedBuilding(spec, (name) => prototypes.get(name), { base: process.env.BASE_URL || '/' })
+  const genBuilding = (spec, fit = null, depth = null) => {
+    const key = `${spec.id}|${fit}|${depth}`
+    if (!generated.has(key)) {
+      const made = fittedBuilding(spec, (name) => prototypes.get(name), { base: process.env.BASE_URL || '/', ...(fit ? { fit } : {}), ...(depth ? { depth } : {}) })
       if (!made) return null
       made.group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true } })
-      generated.set(spec.id, made.group)
+      generated.set(key, made.group)
     }
-    return generated.get(spec.id)
+    return generated.get(key)
   }
-  const instance = (model, tint = null, ghost = false, gen = null) => {
-    const proto = gen ? genBuilding(gen) : prototypes.get(model)
+  const instance = (model, tint = null, ghost = false, gen = null, fit = null, depth = null) => {
+    const proto = gen ? genBuilding(gen, fit, depth) : prototypes.get(model)
     if (!proto) { const g = new THREE.Group(); g.userData.missing = true; return g }
     const clone = proto.clone()
     if (tint !== null || ghost) {
@@ -283,7 +284,7 @@ export function createCityWorld (canvas, { reducedMotion = false } = {}) {
           continue
         }
       }
-      const group = instance(p.model, p.tint, false, p.gen)
+      const group = instance(p.model, p.tint, false, p.gen, p.fit, p.depth)
       group.userData.placement = p
       place(group, p)
       world.add(group)
@@ -299,7 +300,7 @@ export function createCityWorld (canvas, { reducedMotion = false } = {}) {
       let entry = ghosts.get(id)
       if (!entry || entry.placement.model !== p.model || entry.placement.gen?.id !== p.gen?.id || (entry.group.userData.missing && prototypes.has(p.model))) {
         if (entry) world.remove(entry.group)
-        const group = instance(p.model, p.tint, true, p.gen)
+        const group = instance(p.model, p.tint, true, p.gen, p.fit, p.depth)
         world.add(group)
         entry = { group, placement: p }
         ghosts.set(id, entry)

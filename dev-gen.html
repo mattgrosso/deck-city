@@ -24,7 +24,8 @@ const labels = document.getElementById('labels')
 for (let i = 0; i < n; i++) {
   const seed = from + i
   const srcs = q.get('srcs') ? q.get('srcs').split(',') : null
-  const spec = srcs ? { id: 'x', type: 'block', src: srcs[Math.floor(i / 2)], floors: 0, palette: 'a', props: [] } : specFromSeed(seed, { kind, kit })
+  const wides = q.get('wide') ? q.get('wide').split(',') : null
+  const spec = wides ? { id: 'w' + i, type: 'wide', src: wides[i % wides.length], bays: Math.floor(i / wides.length) * 2, palette: ['a', 'cream', 'slate', 'sand'][i % 4], props: [] } : srcs ? { id: 'x', type: 'block', src: srcs[Math.floor(i / 2)], floors: 0, palette: 'a', props: [] } : specFromSeed(seed, { kind, kit })
   const s = new THREE.Scene(); s.background = new THREE.Color(0xeef3e6)
   s.add(new THREE.HemisphereLight(0xeaf2ff, 0x8a7a5a, 1.35)); const sun = new THREE.DirectionalLight(0xfff6e6, 2.1); sun.position.set(4, 8, 3); s.add(sun); s.add(new THREE.AmbientLight(0xffffff, 0.35))
   const orig = srcs && i % 2 === 0
@@ -32,7 +33,7 @@ for (let i = 0; i < n; i++) {
   const plate = new THREE.Mesh(new THREE.BoxGeometry(1.48, 0.04, 1.48), new THREE.MeshStandardMaterial({ color: 0x8ccf7a })); plate.position.y = -0.02; s.add(plate)
   tiles.push({ s, i, spec, height })
   const d = document.createElement('div')
-  d.textContent = `#${seed} ${spec.src.split('/')[1].replace('building-', '')} ${spec.type === 'tower' ? `x${spec.stretch}` : `+${spec.floors}`} ${spec.palette}`
+  d.textContent = `#${seed} ${spec.src.split('/')[1].replace('building-', '')} ${spec.type === 'tower' ? `x${spec.stretch}` : spec.type === 'wide' ? `bays+${spec.bays}` : `+${spec.floors}`} ${spec.palette}`
   d.style.left = `${((i % cols) + 0.5) * tw}px`; d.style.top = `${(Math.floor(i / cols) + 1) * th - 22}px`; labels.appendChild(d)
 }
 // One scale for the whole sheet, so tall reads as tall.
