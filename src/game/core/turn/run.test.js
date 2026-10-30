@@ -86,7 +86,8 @@ describe('the run', () => {
     game.actions.advance()
     game.state.treasury = 5
     game.actions.acquireCard('road')
-    expect(game.supply.map(c => c.id)).toEqual(['road'])
+    expect(game.supply.map(c => c.id)).toEqual(['road', 'police-station', 'fire-station', 'clinic', 'sanitation-center'])
+    expect(game.cityRow.sourceDeck.drawPile.concat(game.cityRow.cards).some(c => c.id === 'police-station')).toBe(false)
     expect(game.state.deck.discardPile.some(c => c.id === 'road')).toBe(true)
     expect(game.state.buys).toBe(0)
   })

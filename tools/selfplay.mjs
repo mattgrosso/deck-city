@@ -75,9 +75,10 @@ function play () {
     }
     while (s.buys > 0) {
       const affordable = game.cityRow.cards.filter(c => (c.price ?? c.cost) <= s.treasury)
-      if (!affordable.length) break
+      const services = game.supply.filter(c => !c.placesRoad && (c.price ?? c.cost) <= s.treasury)
+      if (!affordable.length && !services.length) break
       const worst = badKinds[0]
-      const clearer = worst[1] >= 3 && affordable.find(c => clearsOf(c).includes(worst[0]) && !deckOwns(c) && !s.builtStructures.some(i => clearsOf(i.card).includes(worst[0])))
+      const clearer = worst[1] >= 3 && [...affordable, ...services].find(c => clearsOf(c).includes(worst[0]) && !deckOwns(c) && !s.builtStructures.some(i => clearsOf(i.card).includes(worst[0])))
       const best = clearer || affordable.map(c => ({ c, v: valueOfBuild(c).value / ((c.price ?? 1) + (c.cost ?? 0) + 1) })).sort((a, b) => b.v - a.v)[0]?.c
       if (!best || (!clearer && valueOfBuild(best).value < (best.cost ?? 0))) break
       game.actions.acquireCard(best.id)

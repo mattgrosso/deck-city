@@ -4,6 +4,9 @@
 
 import { starterCards, facilityCards, goalCards, disasterCards, cityCards } from './core'
 
+/** The services the city can always buy, never shuffled into the city deck. */
+export const SERVICES = ['police-station', 'fire-station', 'clinic', 'sanitation-center']
+
 /** The whole map; each era opens a wider part of it. */
 export const GRID = { width: 24, height: 16 }
 /** A short street in the middle. */
@@ -40,7 +43,7 @@ export function runGameOptions ({ rng } = {}) {
       ...goalCards.GOAL_CATALOG, ...disasterCards.DISASTER_CATALOG, ...cityCards.CITY_CATALOG
     ],
     startingDeckCardIds: starterCards.STARTER_DECK_CARDS,
-    cityDeckCardIds: [...facilityCards.CITY_DECK_CARDS, ...cityCards.cityCardsOfTier(1)],
+    cityDeckCardIds: [...facilityCards.CITY_DECK_CARDS.filter(id => !SERVICES.includes(id)), ...cityCards.cityCardsOfTier(1)],
     goalDeckCardIds: goalCards.GOAL_DECK_CARDS,
     disasterCardIds: disasterCards.DISASTER_CARDS,
     baseRevenue: 0,
@@ -48,9 +51,10 @@ export function runGameOptions ({ rng } = {}) {
     startingRoadEdges: STARTING_ROAD_EDGES,
     startingBuildings: STARTING_BUILDINGS,
     run: RUN,
-    // Roads are always for sale beside the city row (yarn selfplay: cities
-    // stalled with budget to spare and no street to build on).
-    supplyCardIds: ['road'],
+    // Always for sale beside the city row: Roads (yarn selfplay: cities
+    // stalled with budget to spare and no street to build on) and the four
+    // services (Matt: "I didn't see a police station for a long time").
+    supplyCardIds: ['road', ...SERVICES],
     // A new map each game: a river, a lake or a coast, never on the town.
     terrain: { dry: { x0: 9, y0: 5, x1: 15, y1: 11 }, firstEra: RUN.eras[0].limits },
     ...(rng ? { rng } : {})
