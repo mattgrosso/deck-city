@@ -5,7 +5,7 @@ import { runGameOptions } from '@/game/runSetup'
 import { valueOfBuild } from '@/game/core/economy/priceList'
 import {
   createGame,
-  calcStatTotal, effectiveCost, canCombine, combineCost, isCellEmpty, isBuildable, listConnectedEdges, evaluateCondition, previewPlacement, clearsOf
+  calcStatTotal, effectiveCost, canCombine, canCombinePair, combineCost, isCellEmpty, isBuildable, listConnectedEdges, evaluateCondition, previewPlacement, clearsOf
 } from '@/game/core'
 
 const GAMES = Number(process.argv[2] ?? 20)
@@ -52,8 +52,9 @@ function play () {
       if (road) { const e = listConnectedEdges(grid); if (e.length) { const a = e[Math.floor(rng() * e.length)].key; const more = listConnectedEdges(grid, [a]); game.actions.playCard(road.id, { edges: more.length ? [a, more[0].key] : [a] }); continue } }
       // Nothing left worth building: combine two leftover buildings if the budget allows.
       if (process.env.COMBINE !== '0') {
-        const pair = hand.filter(canCombine)
-        if (pair.length >= 2 && s.treasury >= combineCost(pair[0], pair[1])) { game.actions.combineCards(pair[0].id, pair[1].id, 0); COMBOS.n++; continue }
+        const ok = hand.filter(canCombine)
+        const pair = ok.flatMap((x, i) => ok.slice(i + 1).filter(y => canCombinePair(x, y)).map(y => [x, y]))[0]
+        if (pair && s.treasury >= combineCost(pair[0], pair[1])) { game.actions.combineCards(pair[0].id, pair[1].id, 0); COMBOS.n++; continue }
       }
       break
     }

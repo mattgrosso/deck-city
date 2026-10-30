@@ -7,7 +7,7 @@ import { CARD_TYPES, buildCardCatalog } from './cards/cardSchema'
 import { createPlayerState, buildStructure, placeRoad, spendTreasury, seedStructure, clearStatusCard, effectiveCost } from './state/playerState'
 import { isCellEmpty, isBuildable, isEdgeInBounds, isEdgeConnected, isInLimits, isEdgeInLimits } from './state/cityGrid'
 import { generateTerrain } from './state/terrain'
-import { canCombine, combineCost, combineOptions } from './cards/combine'
+import { canCombine, canCombinePair, combineCost, combineOptions } from './cards/combine'
 import { createRun, chooseMandate as chooseRunMandate, callElection as callRunElection, goEndless } from './turn/run'
 import { createDeck, addToDiscardPile, shuffle } from './piles/deck'
 import { createRow, acquireFromRow } from './piles/row'
@@ -257,7 +257,7 @@ export function createGame ({
     acquireFromRow(goalRow, goalId)
     addToDiscardPile(state.deck, [goal])
     state.goalsClaimedThisTurn = (state.goalsClaimedThisTurn ?? 0) + 1
-    log.push(`Goal claimed: ${goal.name}. It is a Monument in your deck now.`)
+    log.push(`Goal claimed: ${goal.name}. It is a Monument in your deck now: build it once and it's gone.`)
     return goal
   }
 
@@ -300,7 +300,8 @@ export function createGame ({
     if (ia === -1 || ib === -1) throw new Error('Both cards must be in your hand')
     const a = state.hand[ia]
     const b = state.hand[ib]
-    if (!canCombine(a) || !canCombine(b)) throw new Error('Only buildings combine (not Roads, one-of-a-kinds, or a card already combined)')
+    if (!canCombine(a) || !canCombine(b)) throw new Error('Only buildings combine (not Roads or one-of-a-kinds)')
+    if (!canCombinePair(a, b)) throw new Error('Only buildings the same size combine: two singles, two pairs, two Quarters...')
     const cost = combineCost(a, b)
     if (state.treasury < cost) throw new Error(`Combining costs ${cost} budget`)
     const made = combineOptions(a, b)[choice]

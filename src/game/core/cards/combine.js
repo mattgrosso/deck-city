@@ -12,13 +12,13 @@
 // to. Its name comes from the pair of families (NAMES below), so every
 // pairing - even a factory and a park - is a real place.
 //
-// Combined cards combine again (Matt: "we need to be able to combine
-// combination buildings... a repeatable pattern"). A pair of plain
-// buildings takes its name from NAMES; anything bigger is named by size
-// and by the family it leans to: three or four buildings make a Quarter,
-// five to eight a District, nine or more a Borough ("Market Quarter",
-// "Garden District"). Each combine adds its +1 lean, so a card grows with
-// every step; `size` counts the plain buildings inside it.
+// Combined cards combine again, but only with one the same size (Matt:
+// "does it have to be two mixed buildings that combine? I kind of like
+// that idea"): two buildings make a pair, two pairs a Quarter, two
+// Quarters a District, two Districts a Borough. A pair takes its name
+// from NAMES; anything bigger is named by its size and the family it
+// leans to ("Market Quarter", "Garden District"). Each combine adds its +1
+// lean; `size` counts the plain buildings inside (1, 2, 4, 8, 16).
 
 import { CARD_TYPES } from './cardSchema'
 
@@ -97,9 +97,14 @@ export function canCombine (card) {
 
 // The repeatable names, for anything bigger than a pair.
 const PLACE = { residential: 'Residential', commercial: 'Market', industrial: 'Mill', transit: 'Station', green: 'Garden', leisure: 'Theatre', facility: 'Civic', landmark: 'Heritage' }
-export function scaleOf (size) { return size >= 9 ? 'Borough' : size >= 5 ? 'District' : 'Quarter' }
+export function scaleOf (size) { return size >= 16 ? 'Borough' : size >= 8 ? 'District' : 'Quarter' }
 
-const sizeOf = (card) => card.size ?? 1
+export const sizeOf = (card) => card.size ?? 1
+
+/** May these two combine with each other? Both combinable, and the same size. */
+export function canCombinePair (a, b) {
+  return canCombine(a) && canCombine(b) && sizeOf(a) === sizeOf(b)
+}
 
 // A short, stable id for a combined card: the same pair always makes the same two.
 function hashOf (text) {
@@ -130,7 +135,9 @@ function merge (a, b) {
     size: sizeOf(a) + sizeOf(b),
     madeFrom: [a.name, b.name],
     // How it looks on the board and on the card: like the dearer half's own building.
-    lookAs: (() => { const d = (b.cost ?? 0) > (a.cost ?? 0) ? b : a; return d.lookAs ?? d })()
+    lookAs: (() => { const d = (b.cost ?? 0) > (a.cost ?? 0) ? b : a; return d.lookAs ?? d })(),
+    // ...and the other half stands beside it as an annex.
+    annexAs: (() => { const d = (b.cost ?? 0) > (a.cost ?? 0) ? a : b; return d.lookAs ?? d })()
   }
   const rules = [...(a.adjacency?.statBonus ?? []), ...(b.adjacency?.statBonus ?? [])]
   if (rules.length) card.adjacency = { statBonus: rules }

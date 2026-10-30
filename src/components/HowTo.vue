@@ -73,7 +73,7 @@ export const PAGES = [
       'Over a hundred buildings come to the City Row across the three eras.',
       'Some draw you extra cards, make others cheaper, or add Tourists and Commuters to your deck.',
       'Look for combinations: a Hotel beside a landmark, a Recycling Plant fed with Trash, a Coal Plant among factories.',
-      'Combine two buildings in your hand (RT, or C) for budget: they leave your deck for good and become one new building with both of their stats and abilities. A home and a shop make a Mixed-Use Block; a factory and a park, a Tree Nursery. Combined buildings combine again, into Quarters, Districts and Boroughs.',
+      'Combine two buildings in your hand (RT, or C) for budget: they leave your deck for good and become one new building with both of their stats and abilities. A home and a shop make a Mixed-Use Block; a factory and a park, a Tree Nursery. Two combined buildings of the same size combine again: two pairs make a Quarter, two Quarters a District, two Districts a Borough.',
       'Every building after your first three costs 1 budget a turn in upkeep (a combined one counts once), and each new era makes buildings dearer to build.'
     ]
   },

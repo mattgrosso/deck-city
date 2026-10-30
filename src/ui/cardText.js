@@ -155,6 +155,7 @@ export function rulesFor (card, catalog = {}) {
   for (const d of (Array.isArray(card.discount) ? card.discount : (card.discount ? [card.discount] : []))) lines.push(`${tagWord(d.tag, 2, catalog).replace(/^./, c => c.toUpperCase())} cost ${d.amount} less to build.`)
 
   if (card.type === 'goal' && card.condition) lines.push(`Needs ${conditionText(card.condition, catalog)}.`)
+  if (card.type === 'goal') lines.push('Single use: once built, the card is gone.')
 
   for (const [trigger, effects] of Object.entries(card.effects ?? {})) {
     const when = TRIGGERS[trigger] ?? trigger

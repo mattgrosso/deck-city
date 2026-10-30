@@ -306,7 +306,10 @@ export function buildStructure (state, card, context = {}) {
       resolveTrigger(neighbor.card, 'onNeighborBuilt', { ...context, state, instanceId: neighbor.instanceId, neighbor: instance })
     }
   }
-  addToDiscardPile(state.deck, [card])
+  // A Monument (a claimed goal) is single use (Matt, 2026-10-29: "the
+  // monument you get to build, then that card's gone"); every other
+  // building card goes round again.
+  if (card.type !== 'goal' && !card.exhaust) addToDiscardPile(state.deck, [card])
 
   return instance
 }

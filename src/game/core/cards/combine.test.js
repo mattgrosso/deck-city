@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { combineOptions, combineCost, canCombine, NAMES, buildingFamily } from './combine'
+import { combineOptions, combineCost, canCombine, canCombinePair, NAMES, buildingFamily } from './combine'
 import { createGame, calcStatTotal } from '../index'
 import { runGameOptions } from '@/game/runSetup'
 import { CITY_CATALOG } from './cityCards'
@@ -37,20 +37,21 @@ describe('combining', () => {
     expect(buildingFamily(card('residential'))).toBe('residential')
   })
 
-  it('combined cards combine again, named by size: Quarter, District, Borough', () => {
+  it('combined cards combine again, two of a size: pair, Quarter, District, Borough', () => {
     const home = card('residential'); const shop = card('commercial'); const mill = card('industrial')
     const mixed = combineOptions(home, shop)[1] // Mixed-Use Block, leans residential
-    expect(canCombine(mixed)).toBe(true)
-    const q = combineOptions(mixed, mill)
-    expect(q.map(c => c.name)).toEqual(['Mill Quarter', 'Residential Quarter'])
-    expect(q[1].size).toBe(3)
-    expect(q[1].stats.population).toBe(mixed.stats.population + (mill.stats.population ?? 0) + 1)
-    expect(q[1].lookAs.id).not.toMatch(/^combo:/)
-    const big = combineOptions(q[1], combineOptions(home, home)[0])
-    expect(big[0].name).toBe('Residential District'); expect(big[1].name).toBe('Old Residential District')
-    let b = big[0]
-    for (let i = 0; i < 4; i++) b = combineOptions(b, home)[0]
-    expect(b.size).toBe(9); expect(b.name).toBe('Residential Borough')
+    const company = combineOptions(home, mill)[1] // Loft Conversion, leans residential
+    expect(canCombinePair(mixed, mill)).toBe(false)
+    expect(canCombinePair(mixed, company)).toBe(true)
+    const q = combineOptions(mixed, company)
+    expect(q.map(c => c.name)).toEqual(['Residential Quarter', 'Old Residential Quarter'])
+    expect(q[0].size).toBe(4)
+    expect(q[0].stats.population).toBe(mixed.stats.population + company.stats.population + 1)
+    expect(q[0].lookAs.id).not.toMatch(/^combo:/)
+    const d = combineOptions(q[0], q[1])[0]
+    expect(d.size).toBe(8); expect(d.name).toBe('Residential District')
+    const b = combineOptions(d, d)[0]
+    expect(b.size).toBe(16); expect(b.name).toBe('Residential Borough')
     expect(b.id.length).toBeLessThan(30)
   })
 

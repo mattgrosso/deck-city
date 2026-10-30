@@ -145,7 +145,7 @@ import BugResolutionNotice from '@/components/shared/BugResolutionNotice.vue'
 import {
   createGame, effectiveCost, clearsOf, isInLimits, isWater,
   calcStatTotal, countCardsByTag, evaluateCondition, isCellEmpty, isBuildable, listConnectedEdges,
-  previewPlacement, instanceStats, canCombine, combineCost, combineOptions, calcBudget, calcUpkeep
+  previewPlacement, instanceStats, canCombine, canCombinePair, sizeOf, combineCost, combineOptions, calcBudget, calcUpkeep
 } from '@/game/core'
 import { attachInput, GLYPHS } from '@/ui/input'
 import { stepCursor, nearestCell } from '@/ui/layout'
@@ -780,8 +780,8 @@ export default {
     startCombine (i) {
       const card = this.game.state.hand[i]
       if (!canCombine(card)) return this.refuse(card ? `${card.name} can't be combined: only buildings, not Roads or one-of-a-kinds.` : 'No card.')
-      const others = this.game.state.hand.map((c, j) => j).filter(j => j !== i && canCombine(this.game.state.hand[j]))
-      if (!others.length) return this.refuse('Nothing else in your hand to combine it with.')
+      const others = this.game.state.hand.map((c, j) => j).filter(j => j !== i && canCombinePair(card, this.game.state.hand[j]))
+      if (!others.length) return this.refuse(sizeOf(card) > 1 ? `${card.name} combines only with another ${sizeOf(card) === 2 ? 'combined pair' : `building of ${sizeOf(card)}`}.` : 'Nothing else in your hand to combine it with.')
       this.selectedIndex = i
       this.picks = []
       this.handIndex = others[0]
@@ -789,7 +789,7 @@ export default {
     },
     toggleCombinePick (i) {
       if (this.picks[0] === i) { this.picks = []; return }
-      if (!canCombine(this.game.state.hand[i])) return this.refuse(`${this.game.state.hand[i]?.name ?? 'That'} can't be combined.`)
+      if (!canCombinePair(this.game.state.hand[this.selectedIndex], this.game.state.hand[i])) return this.refuse(`${this.game.state.hand[i]?.name ?? 'That'} can't combine with ${this.selectedCard.name}: only the same size, two singles or two pairs.`)
       this.picks = [i]
     },
     openCombineChoice () {

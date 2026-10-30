@@ -324,3 +324,20 @@ describe('createGame', () => {
     })
   })
 })
+
+describe('monuments', () => {
+  it('a claimed goal is built once, then gone from the deck', async () => {
+    const { runGameOptions } = await import('@/game/runSetup')
+    const game = createGame({ ...runGameOptions(), terrain: null })
+    game.actions.advance()
+    const s = game.state
+    game.actions.chooseMandate(s.run.offer[0].id)
+    const monument = { ...game.goalRow.cards[0] }
+    s.hand.push(monument)
+    s.treasury = 50
+    game.actions.playCard(monument.id, { x: 11, y: 8 })
+    const all = [...s.deck.drawPile, ...s.deck.discardPile, ...s.hand]
+    expect(all.some(c => c.id === monument.id)).toBe(false)
+    expect(s.builtStructures.some(i => i.card.id === monument.id)).toBe(true)
+  })
+})

@@ -52,6 +52,7 @@ export default {
     hasArt () { return ART_IDS.includes(this.artId) },
     typeLabel () {
       if (this.card.type === 'goal') return `Goal · Tier ${this.card.tier ?? 1}`
+      if (this.card.combo) return `${this.colors.label} · ${this.card.size} buildings`
       return this.colors.label
     },
     rules () { return rulesFor(this.card, this.catalog) }

@@ -92,10 +92,65 @@ export const RECIPES = {
   }
 }
 
+// COMBINED BUILDINGS grow on the board (Matt, 2026-10-29: "I'd like for
+// the buildings to get bigger as they combine... look cooler and cooler").
+// One plot always, but more on it at every size:
+//   pair (2)       the dearer half, with the other half beside it as an annex
+//   Quarter (4)    the main building larger, two annexes, a paved plaza
+//   District (8)   a tower over the plaza, low buildings and street lamps
+//   Borough (16)   a tall gold-crowned skyscraper, lamps and trees round it
+const TOWERS = ['commercial/building-skyscraper-a', 'commercial/building-skyscraper-b', 'commercial/building-skyscraper-c']
+const mainPart = (card, seq) => recipeFor(card, seq).parts[0] ?? { model: 'commercial/building-a', scale: 0.8 }
+const at = (part, dx, dz, k, extra = {}) => ({ ...part, dx, dz, scale: (part.scale ?? 1) * k, ...extra })
+function comboRecipe (card, seq) {
+  const size = card.size ?? 2
+  const main = mainPart(card.lookAs, seq)
+  const annex = mainPart(card.annexAs ?? card.lookAs, seq + 1)
+  const h = [...card.id].reduce((n, c) => (n * 31 + c.charCodeAt(0)) >>> 0, 7)
+  if (size >= 16) {
+    return {
+      key: card.id,
+      ground: 'plaza',
+      parts: [
+        { model: 'commercial/building-skyscraper-e', scale: 0.62, dx: -0.04, dz: -0.06, tint: 0xffe6b0 },
+        at(annex, 0.32, 0.3, 0.42),
+        { model: 'roads/light-curved', scale: 0.6, dx: -0.42, dz: 0.42 },
+        { model: 'roads/light-curved', scale: 0.6, dx: 0.42, dz: -0.42, yaw: Math.PI },
+        { model: 'suburban/tree-small', scale: 0.7, dx: -0.4, dz: -0.38 },
+        { model: 'suburban/tree-small', scale: 0.7, dx: 0.4, dz: 0.02 }
+      ]
+    }
+  }
+  if (size >= 8) {
+    return {
+      key: card.id,
+      ground: 'plaza',
+      parts: [
+        { model: TOWERS[h % TOWERS.length], scale: 0.5, dx: -0.12, dz: -0.12 },
+        at(main, 0.3, 0.28, 0.5),
+        at(annex, -0.32, 0.32, 0.45),
+        { model: 'roads/light-square', scale: 0.6, dx: 0.42, dz: -0.4 }
+      ]
+    }
+  }
+  if (size >= 4) {
+    return {
+      key: card.id,
+      ground: 'plaza',
+      parts: [
+        at(main, -0.1, -0.12, 0.95),
+        at(annex, 0.32, 0.3, 0.5),
+        at(annex, -0.34, 0.34, 0.45, { yaw: Math.PI / 2 }),
+        { model: 'suburban/planter', scale: 0.8, dx: 0.38, dz: -0.36 }
+      ]
+    }
+  }
+  return { key: card.id, ground: recipeFor(card.lookAs, seq).ground, parts: [at(main, -0.1, -0.1, 0.85), at(annex, 0.3, 0.3, 0.5)] }
+}
+
 /** The recipe for a built instance: by card id, else goals are monuments, else by family. */
 export function recipeFor (card, seq = 0) {
-  // A combined card looks like the dearer of its two halves.
-  if (card.lookAs) return recipeFor(card.lookAs, seq)
+  if (card.combo) return comboRecipe(card, seq)
   if (RECIPES[card.id] || card.type === 'goal' || !card.tier) {
     const key = RECIPES[card.id] ? card.id : card.type === 'goal' ? 'monument' : familyOf(card)
     const recipe = RECIPES[key] ?? RECIPES.commercial
@@ -203,7 +258,7 @@ export function layoutCity (grid, structures) {
 
 /** Every model any recipe or road can ask for, so the world can preload. */
 export function allModels () {
-  const out = new Set(['suburban/tree-large', 'suburban/tree-small'])
+  const out = new Set(['suburban/tree-large', 'suburban/tree-small', ...TOWERS, 'commercial/building-skyscraper-e', 'roads/light-curved', 'roads/light-square', 'suburban/planter'])
   Object.values(RECIPES).forEach(r => r.variants.forEach(v => v.parts.forEach(p => out.add(p.model))))
   lookModels().forEach(m => out.add(m))
   return [...out]
