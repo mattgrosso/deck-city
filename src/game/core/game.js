@@ -4,12 +4,13 @@
 // future Vue HUD or Phaser scene (or a test) drives the game with.
 
 import { CARD_TYPES, buildCardCatalog } from './cards/cardSchema'
-import { createPlayerState, buildStructure, placeRoad, spendTreasury, seedStructure, clearStatusCard, effectiveCost } from './state/playerState'
+import { addTreasury, createPlayerState, buildStructure, placeRoad, spendTreasury, seedStructure, clearStatusCard, effectiveCost } from './state/playerState'
 import { isEdgeInBounds, isEdgeConnected, isEdgeInLimits, isEdgeInsideBuilding } from './state/cityGrid'
 import { placementProblem } from './state/shapes'
 import { generateTerrain } from './state/terrain'
 import { canCombine, canCombinePair, combineCost, combineOptions } from './cards/combine'
-import { createRun, chooseMandate as chooseRunMandate, callElection as callRunElection, goEndless } from './turn/run'
+import { policyMod, marketPrice, roadSegmentsOf } from './cards/policies'
+import { createRun, choosePolicy as chooseRunPolicy, chooseMandate as chooseRunMandate, callElection as callRunElection, goEndless } from './turn/run'
 import { createDeck, addToDiscardPile, shuffle } from './piles/deck'
 import { createRow, acquireFromRow } from './piles/row'
 import { createTurnManager, advancePhase, assertPhase } from './turn/turnManager'
@@ -104,6 +105,7 @@ export function createGame ({
   // deck was dealt in list order; it is shuffled like every reshuffle after.
   if (shuffleStartingDeck) shuffle(state.deck)
   state.upkeep = upkeep
+  state.policies = [] // the run's relics (cards/policies.js)
 
   // The market and the goals are shuffled at the start (they were not, so the
   // city row dealt in list order and the same three goals opened every game).
@@ -168,7 +170,7 @@ export function createGame ({
     // the ones before it. Never a cell.
     if (card.placesRoad) {
       const edges = position?.edges ?? (position?.edge ? [position.edge] : [])
-      const max = card.roadSegments ?? 2
+      const max = roadSegmentsOf(state, card) // Street Grid Act adds one
       if (!edges.length || edges.length > max) throw new Error(`A ${card.name} lays 1 to ${max} segments, got ${edges.length}`)
       const laid = []
       for (const edge of edges) {
@@ -226,7 +228,7 @@ export function createGame ({
     if (!card) throw new Error(`Card "${cardId}" is not in the city row`)
     if ((state.buys ?? 0) < 1) throw new Error('No buys left this turn')
     // The market charges a card's PRICE; its cost is paid again to build it.
-    spendTreasury(state, card.price ?? card.cost ?? 0)
+    spendTreasury(state, marketPrice(state, card)) // Bulk Buying takes 1 off
     if (inRow) acquireFromRow(cityRow, cardId) // a supply card (Roads) never runs out
     addToDiscardPile(state.deck, [card])
     state.buys -= 1
@@ -267,6 +269,8 @@ export function createGame ({
     const instance = clearStatusCard(state, cardId)
     log.push(`${instance.card.name} took a ${catalog[cardId]?.name ?? cardId} card out of your deck.`)
     resolveTrigger(instance.card, 'onClear', { ...context, instanceId: instance.instanceId })
+    const reward = policyMod(state, 'clearReward') // Recycling Mandate
+    if (reward) { addTreasury(state, reward); log.push(`+${reward} budget (Recycling Mandate).`) }
     return instance
   }
 
@@ -301,7 +305,7 @@ export function createGame ({
     const b = state.hand[ib]
     if (!canCombine(a) || !canCombine(b)) throw new Error('Only buildings combine (not Roads or one-of-a-kinds)')
     if (!canCombinePair(a, b)) throw new Error('Only buildings the same size combine: two singles, two pairs, two Quarters...')
-    const cost = combineCost(a, b)
+    const cost = Math.max(0, combineCost(a, b) - policyMod(state, 'combineDiscount')) // Zoning Reform
     if (state.treasury < cost) throw new Error(`Combining costs ${cost} budget`)
     const made = combineOptions(a, b)[choice]
     if (!made) throw new Error(`No option ${choice}`)
@@ -325,6 +329,6 @@ export function createGame ({
     turnManager,
     catalog,
     log,
-    actions: { playCard, playCivicCard, combineCards, acquireCard, claimGoal, clearStatus, chooseMandate, callElection, keepBuilding, advance }
+    actions: { playCard, playCivicCard, combineCards, choosePolicy: (id) => chooseRunPolicy(context, id), acquireCard, claimGoal, clearStatus, chooseMandate, callElection, keepBuilding, advance }
   }
 }

@@ -35,6 +35,7 @@ export const COST_RISE = [0, 3, 6]
  */
 export const RUN = {
   offerSize: 2,
+  policies: true, // pick one of three at the start and after every election won (cards/policies.js)
   eras: [
     { patience: 180, limits: { x0: 6, y0: 4, x1: 18, y1: 12 }, cardIds: [], costRise: 0 },
     { patience: 140, limits: { x0: 3, y0: 2, x1: 21, y1: 14 }, cardIds: cityCards.cityCardsOfTier(2), costRise: COST_RISE[1] },

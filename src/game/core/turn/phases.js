@@ -16,6 +16,7 @@ import { resolveTrigger } from '../effects/effectRegistry'
 import { draw, discardCards, addToDrawPile, addToDiscardPile, shuffle } from '../piles/deck'
 import { expireOldest, expireLowestValue, tickTimers } from '../piles/row'
 import { drainPatience } from './run'
+import { policyMod } from '../cards/policies'
 
 /**
  * Shuffles a random disaster card (from ctx.disasterCards, resolved by
@@ -143,18 +144,20 @@ export const DEFAULT_PHASES = [
       const fromBuildings = calcStatTotal(ctx.state, 'revenue')
       const base = ctx.baseRevenue ?? 0
       const upkeep = calcUpkeep(ctx.state)
-      const revenue = Math.max(0, fromBuildings + base - upkeep)
+      const fromPolicies = policyMod(ctx.state, 'budget') // Tax Reform, Austerity
+      const revenue = Math.max(0, fromBuildings + base + fromPolicies - upkeep)
       const rollover = Math.min(ctx.state.treasury, ctx.state.treasuryRolloverCap ?? 0)
       ctx.state.treasury = revenue + rollover
       ctx.state.goalsClaimedThisTurn = 0
-      ctx.state.buys = (ctx.buysPerTurn ?? 1) + sumPassive(ctx.state, 'buysBonus')
+      ctx.state.buys = (ctx.buysPerTurn ?? 1) + sumPassive(ctx.state, 'buysBonus') + policyMod(ctx.state, 'buys')
       const parts = [`${fromBuildings} from buildings`]
       if (base) parts.push(`${base} base income`)
+      if (fromPolicies) parts.push(`${fromPolicies} from policies`)
       if (upkeep) parts.push(`${upkeep} upkeep taken off`)
       if (rollover > 0) parts.push(`${rollover} kept from last turn`)
       ctx.log?.push(`Budget this turn: ${ctx.state.treasury} (${parts.join(' + ')}).`)
 
-      const handSize = (ctx.handSize ?? 5) + sumPassive(ctx.state, 'handSizeBonus')
+      const handSize = Math.max(1, (ctx.handSize ?? 5) + sumPassive(ctx.state, 'handSizeBonus') + policyMod(ctx.state, 'handSize'))
       const needed = Math.max(0, handSize - ctx.state.hand.length)
       const drawnCards = draw(ctx.state.deck, needed)
       // onDraw triggers resolve immediately as each card lands in hand -
@@ -200,6 +203,7 @@ export const DEFAULT_PHASES = [
       if (tickDisasterTimer(ctx.state)) {
         triggerDisaster(ctx)
         resetDisasterTimer(ctx.state)
+        ctx.state.disasterTimer.turnsUntilDeadline += policyMod(ctx.state, 'disasterDelay') // Fire Code
         struck = true
       }
 

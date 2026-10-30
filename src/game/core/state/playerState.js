@@ -9,6 +9,7 @@ import { resolveTrigger } from '../effects/effectRegistry'
 import { createCityGrid, placeInstance, addRoadEdge, seedStartingRoads, instanceAt } from './cityGrid'
 import { WATERFRONT, touchesWater } from './terrain'
 import { footprint } from './shapes'
+import { policyMod, policyList, policyRulesFor } from '../cards/policies'
 
 /**
  * @param {Object} options
@@ -196,11 +197,17 @@ export function instanceStats (state, instance) {
   }
   // Waterfront: a home or shop beside water, once however much it touches.
   if (cellsOf(instance).some(c => touchesWater(state.cityGrid, c.x, c.y))) {
+    const mult = 1 + Math.max(0, policyMod(state, 'waterfrontMult') - 1) // Waterfront Plan
     for (const w of WATERFRONT) {
       if (!instance.card.tags?.includes(w.tag)) continue
-      bonus[w.stat] = (bonus[w.stat] ?? 0) + w.amount
-      reasons.push({ stat: w.stat, amount: w.amount, tag: 'water', count: 1, scope: 'near' })
+      bonus[w.stat] = (bonus[w.stat] ?? 0) + w.amount * mult
+      reasons.push({ stat: w.stat, amount: w.amount * mult, tag: 'water', count: 1, scope: 'near' })
     }
+  }
+  // Policies (cards/policies.js): Main Street, Housing First...
+  for (const r of policyRulesFor(state, instance)) {
+    bonus[r.stat] = (bonus[r.stat] ?? 0) + r.amount
+    reasons.push({ stat: r.stat, amount: r.amount, tag: 'policy', policy: r.policy, count: 1, scope: 'near' })
   }
   const total = {}
   for (const key of new Set([...Object.keys(base), ...Object.keys(bonus)])) {
@@ -345,6 +352,7 @@ export function effectiveCost (state, card) {
     const list = Array.isArray(inst.card.discount) ? inst.card.discount : (inst.card.discount ? [inst.card.discount] : [])
     for (const d of list) if (card.tags?.includes(d.tag)) off += d.amount
   }
+  for (const d of policyList(state, 'discount')) if (card.tags?.includes(d.tag)) off += d.amount // Industrial Subsidy
   return Math.max(0, base - off)
 }
 
@@ -357,13 +365,14 @@ export function effectiveCost (state, card) {
 export function calcUpkeep (state) {
   const u = state.upkeep
   if (!u?.per) return 0
-  const count = state.builtStructures.filter(i => i.card.type === 'building').length
-  return Math.max(0, count - (u.free ?? 0)) * u.per
+  const freeTags = policyList(state, 'upkeepFreeTags') // Rent Control
+  const count = state.builtStructures.filter(i => i.card.type === 'building' && !freeTags.some(t => i.card.tags?.includes(t))).length
+  return Math.max(0, count - (u.free ?? 0) - policyMod(state, 'upkeepFree')) * u.per
 }
 
 /** Next turn's budget before anything carried over: revenue less upkeep, never below zero. */
 export function calcBudget (state, baseRevenue = 0) {
-  return Math.max(0, calcStatTotal(state, 'revenue') + baseRevenue - calcUpkeep(state))
+  return Math.max(0, calcStatTotal(state, 'revenue') + baseRevenue + policyMod(state, 'budget') - calcUpkeep(state))
 }
 
 /** Status kinds a facility clears: `clears` is one tag or a list. */

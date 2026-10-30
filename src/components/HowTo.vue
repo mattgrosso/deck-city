@@ -24,7 +24,8 @@ export const PAGES = [
     lines: [
       'You start with a house, a shop, a factory and a street. Every turn you get a budget, draw five cards, and build.',
       'Each era you choose one of two Mandates: what the city must look like when the election comes. Meet all three and you win.',
-      'Public Patience, top right, is the clock. At zero the election is held. Miss the Mandate and you are voted out.'
+      'Public Patience, top right, is the clock. At zero the election is held. Miss the Mandate and you are voted out.',
+      'At the start, and after every election you win, adopt one of three Policies: a rule that stands for the rest of the run. They are listed at the left.'
     ]
   },
   {

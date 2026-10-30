@@ -15,6 +15,7 @@ import { evaluateCondition } from '../conditions/conditionRegistry'
 import { calcStatTotal, countCardsByTag, sumPassive } from '../state/playerState'
 import { addToDrawPile, shuffle } from '../piles/deck'
 import { mandatesOfEra } from '../cards/mandates'
+import { offerPolicies, policyById, policyMod, policyPatience } from '../cards/policies'
 
 export const DEFAULT_DRAIN = {
   base: 2, // every turn
@@ -43,6 +44,8 @@ function enterEra (ctx, era, carry = 0) {
   run.offer = offer(ctx, era)
   run.mandate = null
   run.status = 'choosing'
+  // A policy to pick, one of three: at the start, and after every election won.
+  if (ctx.run.policies) run.policyOffer = offerPolicies(ctx.state, ctx.state.deck.rng, { first: era === 1 })
   ctx.state.disasterTimer.strikes = 0 // disasters escalate within an era, not across the run
   if (cfg.limits) ctx.state.cityGrid.limits = { ...cfg.limits }
   ctx.state.costRise = cfg.costRise ?? 0 // every building costs this much more to build this era
@@ -57,6 +60,17 @@ export function createRun (ctx) {
   ctx.state.run = { era: 1, status: 'choosing', patience: 0, patienceStart: 0, offer: [], mandate: null, lastDrain: null, elections: [], election: null }
   enterEra(ctx, 1)
   return ctx.state.run
+}
+
+/** Take one of the policies on offer: it stands for the rest of the run. */
+export function choosePolicy (ctx, policyId) {
+  const run = ctx.state.run
+  const policy = (run?.policyOffer ?? []).find(p => p.id === policyId)
+  if (!policy) throw new Error(`Policy "${policyId}" is not on offer`)
+  ctx.state.policies = [...(ctx.state.policies ?? []), policyById(policy.id)]
+  run.policyOffer = []
+  ctx.log?.push(`Policy adopted: ${policy.name}.`)
+  return policy
 }
 
 export function chooseMandate (ctx, mandateId) {
@@ -129,10 +143,13 @@ export function drainPatience (ctx, { struck = false } = {}) {
   if (calcStatTotal(ctx.state, 'population') > calcStatTotal(ctx.state, 'jobs')) add('unemployment', d.unemployment)
   if (struck) add('disaster', d.disaster)
   add('the mood of the town', Math.floor(ctx.state.deck.rng() * (d.chance + 1)))
+  add('policies', policyMod(ctx.state, 'drainMore')) // Night Economy
   // Civic pride slows the clock but never stops it: the drain can't fall below the floor.
-  const gross = parts.reduce((n, [, v]) => n + v, 0)
-  const pride = Math.min(sumPassive(ctx.state, 'patience'), Math.max(0, gross - d.floor))
+  const floor = Math.max(1, d.floor - policyMod(ctx.state, 'drainLess')) // Civic Pride Campaign
+  const gross = parts.reduce((n, [, v]) => n + v, 0) - policyMod(ctx.state, 'drainLess')
+  const pride = Math.min(sumPassive(ctx.state, 'patience') + policyPatience(ctx.state), Math.max(0, gross - floor))
   add('parks, culture and civic pride', -pride)
+  add('Civic Pride Campaign', -policyMod(ctx.state, 'drainLess'))
   const total = parts.reduce((n, [, v]) => n + v, 0)
   run.patience = Math.min(run.patienceStart, run.patience - total)
   run.lastDrain = { total, parts }

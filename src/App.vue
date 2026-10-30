@@ -30,6 +30,7 @@
 
         <CardInfo v-if="mode === 'hand' || mode === 'civic' || (mode === 'target' && !aimPreview)" :card="focusedHandCard" :catalog="game.catalog" />
         <PlacementPreview v-if="mode === 'target' && aimPreview" v-bind="aimPreview.panel" />
+        <PolicyList v-if="mode !== 'target' && mode !== 'look' && mode !== 'stats'" :policies="policies" />
         <InfoPanel v-if="mode === 'look' && lookInfo" v-bind="lookInfo" />
         <InfoPanel v-if="mode === 'stats'" v-bind="statInfo" />
 
@@ -87,6 +88,16 @@
           </div>
           <div class="overlay-mandate__hint"><span class="btn-a">{{ glyphs.select }}</span> Combine into this · <span class="btn-a">{{ glyphs.back }}</span> Back</div>
         </div>
+        <div v-if="mode === 'policy' && run && run.policyOffer && run.policyOffer.length" class="overlay-mandate">
+          <div class="overlay-mandate__eyebrow">{{ run.elections.length ? 'Re-elected · adopt a policy' : 'A new administration · adopt a policy' }}</div>
+          <div class="overlay-mandate__lede">It stands for the rest of the run. Choose one.</div>
+          <div class="overlay-mandate__row">
+            <div v-for="(p, i) in run.policyOffer" :key="p.id" @mouseenter="policyIndex = i" @click="policyIndex = i; act('select', 'click')">
+              <PolicyTile :policy="p" :focused="i === policyIndex" />
+            </div>
+          </div>
+          <div class="overlay-mandate__hint"><span class="btn-a">{{ glyphs.select }}</span> Adopt</div>
+        </div>
         <div v-if="mode === 'mandate'" class="overlay-mandate">
           <div class="overlay-mandate__eyebrow">Era {{ ['I', 'II', 'III'][run.era - 1] }} · choose your mandate</div>
           <div class="overlay-mandate__lede">The city will judge you on it at the election. Patience: {{ run.patienceStart }}. Fail it and you're out.</div>
@@ -139,6 +150,8 @@ import InfoPanel from '@/components/InfoPanel.vue'
 import HowTo, { PAGES as HOWTO_PAGES } from '@/components/HowTo.vue'
 import MandateTile from '@/components/MandateTile.vue'
 import PlacementPreview from '@/components/PlacementPreview.vue'
+import PolicyList from '@/components/PolicyList.vue'
+import PolicyTile from '@/components/PolicyTile.vue'
 import { runGameOptions } from '@/game/runSetup'
 import BugReportButton from '@/components/shared/BugReportButton.vue'
 import BugResolutionNotice from '@/components/shared/BugResolutionNotice.vue'
@@ -146,7 +159,7 @@ import {
   createGame, effectiveCost, clearsOf, isInLimits, isWater,
   calcStatTotal, countCardsByTag, evaluateCondition, isBuildable, listConnectedEdges,
   previewPlacement, instanceStats, canCombine, canCombinePair, sizeOf, combineCost, combineOptions, calcBudget, calcUpkeep,
-  isMultiTile, shapeOf, footprint, placementProblem
+  isMultiTile, shapeOf, footprint, placementProblem, marketPrice, roadSegmentsOf, policyMod
 } from '@/game/core'
 import { attachInput, GLYPHS } from '@/ui/input'
 import { stepCursor, nearestCell } from '@/ui/layout'
@@ -177,7 +190,7 @@ const STATS = [
 
 export default {
   name: 'App',
-  components: { TopBar, CityScene, Market, Hand, PileView, Overlay, ButtonLegend, CardInfo, InfoPanel, HowTo, MandateTile, PlacementPreview, BugReportButton, BugResolutionNotice },
+  components: { TopBar, CityScene, Market, Hand, PileView, Overlay, ButtonLegend, CardInfo, InfoPanel, HowTo, MandateTile, PlacementPreview, PolicyList, PolicyTile, BugReportButton, BugResolutionNotice },
   // The house bug button has no store to read; it asks this for a snapshot.
   provide () {
     return { bugSnapshot: () => this.bugSnapshot() }
@@ -207,6 +220,7 @@ export default {
       lastAim: { x: 560, y: 420 },
       picks: [],
       comboIndex: 0,
+      policyIndex: 0,
       market: { row: 0, index: 0 },
       statIndex: 0,
       pileTab: 0,
@@ -265,6 +279,7 @@ export default {
     treasury () { void this.tick; return this.game.state.treasury },
     population () { void this.tick; return calcStatTotal(this.game.state, 'population') },
     jobs () { void this.tick; return calcStatTotal(this.game.state, 'jobs') },
+    policies () { void this.tick; return this.game.state.policies ?? [] },
     nextBudget () { void this.tick; return calcBudget(this.game.state) },
     run () { void this.tick; return this.game.state.run ?? null },
     supply () { void this.tick; return this.game.supply ?? [] },
@@ -307,7 +322,7 @@ export default {
       return [this.game.state.hand[this.selectedIndex], this.game.state.hand[this.picks[0]]]
     },
     combineOpts () { return this.combinePair ? combineOptions(toRaw(this.combinePair[0]), toRaw(this.combinePair[1])) : null },
-    combinePrice () { return this.combinePair ? combineCost(this.combinePair[0], this.combinePair[1]) : 0 },
+    combinePrice () { return this.combinePair ? Math.max(0, combineCost(this.combinePair[0], this.combinePair[1]) - policyMod(this.game.state, 'combineDiscount')) : 0 },
     combinePrompt () {
       if (this.mode !== 'combine' || !this.selectedCard) return ''
       return this.combinePair ? `Combine for ${this.combinePrice} budget` : `${this.selectedCard.name}: pick a building to combine it with`
@@ -345,7 +360,7 @@ export default {
       const st = instanceStats(this.game.state, inst)
       const now = Object.entries(st.total).filter(([, v]) => v).map(([k, v]) => `${v} ${k}`).join(', ')
       const lines = [now ? `Gives ${now} here.` : 'Gives nothing here.']
-      for (const r of st.reasons) lines.push(`${r.amount > 0 ? '+' : '−'}${Math.abs(r.amount)} ${r.stat}: ${r.tag === 'water' ? 'on the waterfront' : `${r.count} ${this.game.catalog[r.tag]?.name ?? r.tag} next door`}.`)
+      for (const r of st.reasons) lines.push(`${r.amount > 0 ? '+' : '−'}${Math.abs(r.amount)} ${r.stat}: ${r.tag === 'policy' ? `from ${r.policy}` : r.tag === 'water' ? 'on the waterfront' : `${r.count} ${this.game.catalog[r.tag]?.name ?? r.tag} next door`}.`)
       lines.push(...rulesFor(inst.card, this.game.catalog).slice(1))
       if (inst.slots) lines.push(`${inst.slots.used} of ${inst.slots.capacity} slots used this turn.`)
       return { eyebrow: FAMILIES[familyOf(inst.card)].label, title: inst.card.name, lines, tone: inst.card.type === 'goal' ? 'gold' : 'plain' }
@@ -364,7 +379,7 @@ export default {
       const reasons = p.ownReasons.map(r => ({
         stat: r.stat,
         amount: r.amount,
-        label: r.tag === 'water' ? 'Waterfront' : r.scope === 'city' ? `${r.count} ${tagName(r.tag)} in the city` : `${r.count} ${tagName(r.tag)} next door`
+        label: r.tag === 'policy' ? r.policy : r.tag === 'water' ? 'Waterfront' : r.scope === 'city' ? `${r.count} ${tagName(r.tag)} in the city` : `${r.count} ${tagName(r.tag)} next door`
       }))
       const marks = p.neighbours.map(n => ({ x: n.position.x, y: n.position.y, text: stat(n.delta), tone: Object.values(n.delta).some(v => v < 0) ? 'bad' : 'good' }))
       // The panel sits top-left; it drops lower when the cursor is under it.
@@ -418,6 +433,7 @@ export default {
         case 'menu': return [L('dpad', 'Choose'), L('select', 'Pick'), L('back', 'Resume')]
         case 'howto': return [L('lr', 'Page'), L('select', 'Next'), L('back', 'Close')]
         case 'mandate': return [L('lr', 'Choose'), L('select', 'Take this mandate')]
+        case 'policy': return [L('lr', 'Choose'), L('select', 'Adopt this policy')]
         case 'over': return [L('dpad', 'Choose'), L('select', 'Pick')]
         default: return [L('select', 'Continue')]
       }
@@ -443,8 +459,28 @@ export default {
       this.mandateIndex = 0
       this.overIndex = 0
       this.electionsSeen = 0
-      if (this.game.state.run?.status === 'choosing') this.mode = 'mandate'
+      if (this.game.state.run?.status === 'choosing') this.toMandate()
       this.refresh()
+    },
+    /** A new era (or run): adopt a policy first if one is on offer, then choose the mandate. */
+    toMandate () {
+      this.mandateIndex = 0
+      this.policyIndex = 0
+      this.mode = this.game.state.run?.policyOffer?.length ? 'policy' : 'mandate'
+    },
+    in_policy (action) {
+      const offer = this.game.state.run.policyOffer ?? []
+      const n = offer.length
+      if (!n) { this.mode = 'mandate'; return }
+      if (action === 'left' || action === 'up') this.policyIndex = (this.policyIndex + n - 1) % n
+      else if (action === 'right' || action === 'down') this.policyIndex = (this.policyIndex + 1) % n
+      else if (action === 'select' || action === 'confirm') {
+        const p = offer[this.policyIndex]
+        this.game.actions.choosePolicy(p.id)
+        this.say(`Policy adopted: ${p.name}.`, 'good')
+        this.mode = 'mandate'
+        this.refresh()
+      } else if (action === 'menu') this.openMenu()
     },
     enterFullscreen (source) {
       const el = document.documentElement
@@ -606,7 +642,7 @@ export default {
       if (action !== 'select' && action !== 'confirm') return
       this.electionsSeen = this.game.state.run.elections.length
       const status = this.game.state.run.status
-      if (status === 'choosing') { this.mandateIndex = 0; this.mode = 'mandate' } else if (status === 'won' || status === 'lost') { this.overIndex = 0; this.mode = 'over' } else this.mode = 'hand'
+      if (status === 'choosing') this.toMandate(); else if (status === 'won' || status === 'lost') { this.overIndex = 0; this.mode = 'over' } else this.mode = 'hand'
       this.refresh()
     },
     in_menu (action) {
@@ -763,7 +799,7 @@ export default {
         // so far, or commit when the card is spent.
         const edges = [...this.pendingEdges, target.key]
         this.lastAim = { x: target.sx, y: target.sy }
-        if (edges.length < (card.roadSegments ?? 2)) {
+        if (edges.length < roadSegmentsOf(this.game.state, card)) {
           const more = listConnectedEdges(this.game.state.cityGrid, edges).map(e => ({ id: e.key, kind: 'edge', key: e.key }))
           if (more.length) {
             this.pendingEdges = edges
@@ -873,7 +909,7 @@ export default {
     endBuild () {
       this.game.actions.advance() // build -> acquire
       this.mode = 'market'
-      const firstAffordable = this.cityRow.findIndex(c => (c.price ?? c.cost ?? 0) <= this.treasury)
+      const firstAffordable = this.cityRow.findIndex(c => marketPrice(this.game.state, c) <= this.treasury)
       const firstReady = this.goalRow.findIndex(g => this.goalMet(g))
       this.market = firstReady !== -1 ? { row: 1, index: firstReady } : { row: 0, index: Math.max(0, firstAffordable) }
       this.refresh()
@@ -888,7 +924,7 @@ export default {
       if (row === 0) {
         const card = [...this.cityRow, ...this.supply][index]
         if (!card) return
-        const price = card.price ?? card.cost ?? 0
+        const price = marketPrice(this.game.state, card)
         if ((this.game.state.buys ?? 0) < 1) return this.refuse('No buys left this turn. A Trade Fair gives another.')
         if (price > this.treasury) return this.refuse(`${card.name} sells for ${price}. You have ${this.treasury}.`, 'orb')
         try { this.game.actions.acquireCard(card.id) } catch (err) { return this.refuse(err.message) }

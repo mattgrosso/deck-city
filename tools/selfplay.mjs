@@ -23,6 +23,7 @@ function play () {
   game.actions.advance()
   let turn = 1
   for (; turn <= 200 && s.gameStatus === 'playing'; turn++) {
+    if (s.run?.policyOffer?.length) game.actions.choosePolicy(s.run.policyOffer[Math.floor(rng() * s.run.policyOffer.length)].id)
     if (s.run?.status === 'choosing') game.actions.chooseMandate(s.run.offer[0].id)
     // Build: clear status cards, play tokens and civics, then the best-value buildings, roads when stuck.
     if (process.env.TRACE && turn % 4 === 0) console.log(`t${turn} budget ${s.treasury} hand ${s.hand.map(c => `${c.id}(${effectiveCost(s, c)})`).join(' ')}`)
@@ -69,6 +70,7 @@ function play () {
     if (s.run?.status === 'playing' && s.run.mandate && evaluateCondition(s.run.mandate.condition, { state: s, catalog: game.catalog }) && process.env.EARLY !== '0') {
       game.actions.callElection()
       if (s.gameStatus !== 'playing') break
+      if (s.run.policyOffer?.length) game.actions.choosePolicy(s.run.policyOffer[0].id)
       game.actions.chooseMandate(s.run.offer[0].id)
     }
     const goal = game.goalRow.cards.find(g => evaluateCondition(g.condition, { state: s, catalog: game.catalog }))

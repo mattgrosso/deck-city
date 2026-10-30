@@ -34,8 +34,8 @@
           @mouseenter="$emit('focus', { row: 0, index: i })"
           @click="$emit('select', { row: 0, index: i })"
         >
-          <GameCard :card="card" :catalog="catalog" size="market" :cost="costOf(card)" :cant="active && (buys < 1 || (card.price ?? card.cost) > treasury)" :class="{ 'focus-ring': isFocused(0, i) }" />
-          <div class="market__price">Buy {{ card.price ?? card.cost }}</div>
+          <GameCard :card="card" :catalog="catalog" size="market" :cost="costOf(card)" :cant="active && (buys < 1 || priceOf(card) > treasury)" :class="{ 'focus-ring': isFocused(0, i) }" />
+          <div class="market__price">Buy {{ priceOf(card) }}</div>
         </div>
         <div v-if="!cityRow.length" class="market__empty">Sold out</div>
       </div>
@@ -44,10 +44,10 @@
         <span
           v-for="(card, j) in supply" :key="`s${j}`" class="market__supply"
           :style="{ borderColor: familyColor(card) }"
-          :class="{ 'focus-ring': isFocused(0, cityRow.length + j), 'market__supply--cant': active && (buys < 1 || (card.price ?? card.cost) > treasury) }"
+          :class="{ 'focus-ring': isFocused(0, cityRow.length + j), 'market__supply--cant': active && (buys < 1 || priceOf(card) > treasury) }"
           @mouseenter="$emit('focus', { row: 0, index: cityRow.length + j })"
           @click="$emit('select', { row: 0, index: cityRow.length + j })"
-        ><i class="market__dot" :style="{ background: familyColor(card) }" />{{ card.name.replace(/ (Station|Center)$/, '') }} <span class="market__chip-price">{{ card.price ?? card.cost }}</span></span>
+        ><i class="market__dot" :style="{ background: familyColor(card) }" />{{ card.name.replace(/ (Station|Center)$/, '') }} <span class="market__chip-price">{{ priceOf(card) }}</span></span>
       </div>
     </div>
   </div>
@@ -58,7 +58,7 @@ import GameCard from './GameCard.vue'
 import GoalTile from './GoalTile.vue'
 import MandateTile from './MandateTile.vue'
 import { FAMILIES, familyOf } from '@/ui/cardText'
-import { effectiveCost } from '@/game/core'
+import { effectiveCost, marketPrice } from '@/game/core'
 
 // The goals sit ABOVE the city row now, in gold, each with its own clock.
 // Matt: "I sort of accidentally fulfilled one of the goals... they just look
@@ -76,6 +76,7 @@ export default {
   methods: {
     // tick: the engine mutates state outside Vue, so a bump re-reads the cost.
     costOf (card) { void this.tick; return effectiveCost(this.state, card) },
+    priceOf (card) { void this.tick; return marketPrice(this.state, card) },
     familyColor (card) { return FAMILIES[familyOf(card)]?.color ?? '#c98a12' },
     isFocused (row, index) { return this.active && this.focus && this.focus.row === row && this.focus.index === index }
   }
