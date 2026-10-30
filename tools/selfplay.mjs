@@ -5,7 +5,7 @@ import { runGameOptions } from '@/game/runSetup'
 import { valueOfBuild } from '@/game/core/economy/priceList'
 import {
   createGame,
-  calcStatTotal, effectiveCost, isMultiTile, placementProblem, canCombine, canCombinePair, combineCost, isCellEmpty, isBuildable, listConnectedEdges, evaluateCondition, previewPlacement, clearsOf
+  calcStatTotal, computeTraffic, effectiveCost, isMultiTile, placementProblem, canCombine, canCombinePair, combineCost, isCellEmpty, isBuildable, listConnectedEdges, evaluateCondition, previewPlacement, clearsOf
 } from '@/game/core'
 
 const GAMES = Number(process.argv[2] ?? 20)
@@ -103,7 +103,8 @@ function play () {
     DRAIN.__turns = (DRAIN.__turns ?? 0) + 1
   }
   const deckAll = s.deck.drawPile.concat(s.deck.discardPile, s.hand)
-  STATS.push({ bad: deckAll.filter(c => c.type === 'status' || c.type === 'disaster').length, buildingsCards: deckAll.filter(c => c.type === 'building').length, civic: deckAll.filter(c => c.type === 'civic').length, clearers: s.builtStructures.filter(i => clearsOf(i.card).length).length, budget: calcStatTotal(s, 'revenue'), jobs: calcStatTotal(s, 'jobs'), plays: PLAYS.n / Math.max(1, turn) })
+  const tr = computeTraffic(s)
+  STATS.push({ jams: tr.jammed.length, streets: s.cityGrid.roads.size, trips: tr.trips, bad: deckAll.filter(c => c.type === 'status' || c.type === 'disaster').length, buildingsCards: deckAll.filter(c => c.type === 'building').length, civic: deckAll.filter(c => c.type === 'civic').length, clearers: s.builtStructures.filter(i => clearsOf(i.card).length).length, budget: calcStatTotal(s, 'revenue'), jobs: calcStatTotal(s, 'jobs'), plays: PLAYS.n / Math.max(1, turn) })
   PLAYS.n = 0
   return { status: s.gameStatus, turn, pop: pop(), buildings: s.builtStructures.length, deck: s.deck.drawPile.length + s.deck.discardPile.length + s.hand.length, elections: s.run.elections.map(e => ({ era: e.era, mandate: e.mandate.id, passed: e.passed, early: e.early, turn: e.turn })) }
 }

@@ -440,6 +440,8 @@ export function clearStatusCard (state, cardId) {
  */
 export function placeRoad (state, card, context = {}) {
   addRoadEdge(state.cityGrid, context.edge)
+  // Wider streets carry more traffic (state/traffic.js): a Boulevard is two lanes, a Highway three.
+  if (card.lanes > 1) { state.cityGrid.lanes ??= {}; state.cityGrid.lanes[context.edge] = card.lanes }
   resolveTrigger(card, 'onBuild', { ...context, state })
   if (context.intoDeck !== false) addToDiscardPile(state.deck, [card])
 }

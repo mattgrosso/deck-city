@@ -197,6 +197,69 @@ export function createCityWorld (canvas, { reducedMotion = false } = {}) {
   }
   const now = () => performance.now()
 
+  // TRAFFIC (state/traffic.js): little low-poly cars on every busy street,
+  // more of them the busier it is, crawling where it is jammed; in look
+  // mode each street is tinted by its load (green, amber, red).
+  const carGroup = new THREE.Group(); world.add(carGroup)
+  const CAR_COLOURS = [0xe8574a, 0x3d7fd6, 0xf2c94c, 0xf4f4f4, 0x2f3542, 0x5bb36a, 0xe38b2c]
+  const carBody = new THREE.BoxGeometry(0.17, 0.06, 0.085)
+  const carCabin = new THREE.BoxGeometry(0.085, 0.05, 0.075)
+  const carMats = CAR_COLOURS.map(c => mat(c, { roughness: 0.5 }))
+  const glass = mat(0x9fc4e8, { roughness: 0.2 })
+  const makeCar = (i) => {
+    const g = new THREE.Group()
+    const body = new THREE.Mesh(carBody, carMats[i % carMats.length]); body.position.y = 0.07; body.castShadow = true
+    const cabin = new THREE.Mesh(carCabin, glass); cabin.position.set(-0.012, 0.125, 0); cabin.castShadow = true
+    g.add(body); g.add(cabin)
+    return g
+  }
+  let cars = []
+  let trafficSig = ''
+  const loadBars = new Map()
+  function syncTraffic (traffic, showLoad) {
+    const sig = traffic.map(t => `${t.key}:${Math.min(4, Math.round(t.load))}:${t.jammed ? 1 : 0}`).join('|')
+    if (sig !== trafficSig) {
+      trafficSig = sig
+      for (const c of cars) carGroup.remove(c.mesh)
+      cars = []
+      let n = 0
+      for (const t of traffic) {
+        const count = Math.min(4, Math.round(t.load))
+        for (let k = 0; k < count && n < 180; k++, n++) {
+          const dir = k % 2 ? 1 : -1
+          const mesh = makeCar(n * 7 + k)
+          carGroup.add(mesh)
+          cars.push({ mesh, t, dir, pos: (k / Math.max(1, count)) - 0.5 + Math.random() * 0.1, speed: t.jammed ? 0.05 : 0.22 + Math.random() * 0.08 })
+        }
+      }
+    }
+    // Load tint on every street, in look mode.
+    const want = new Set(showLoad ? traffic.map(t => t.key) : [])
+    for (const [k, m] of loadBars) if (!want.has(k)) { world.remove(m); loadBars.delete(k) }
+    if (!showLoad) return
+    for (const t of traffic) {
+      let m = loadBars.get(t.key)
+      if (!m) {
+        m = new THREE.Mesh(edgeBarGeo[t.axis], new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false }))
+        m.rotation.x = -Math.PI / 2; m.position.set(t.x, 0.065, t.z)
+        world.add(m); loadBars.set(t.key, m)
+      }
+      const r = t.load / t.capacity
+      m.material.color.set(r > 1 ? 0xe5484d : r > 0.7 ? 0xf2a93b : 0x4cbb6c)
+      m.material.opacity = r > 1 ? 0.7 : 0.45
+    }
+  }
+  function moveCars (dt) {
+    const len = PITCH
+    for (const c of cars) {
+      c.pos += c.dir * c.speed * dt / len
+      if (c.pos > 0.5) c.pos -= 1
+      if (c.pos < -0.5) c.pos += 1
+      const lane = GAP * 0.2 * c.dir
+      if (c.t.axis === 'x') { c.mesh.position.set(c.t.x + c.pos * len, 0, c.t.z + lane); c.mesh.rotation.y = c.dir > 0 ? 0 : Math.PI } else { c.mesh.position.set(c.t.x - lane, 0, c.t.z + c.pos * len); c.mesh.rotation.y = c.dir > 0 ? -Math.PI / 2 : Math.PI / 2 }
+    }
+  }
+
   // Paving across the gaps inside a multi-tile building (cityLayout bridges).
   const bridgeMeshes = new Map()
   const bridgeGeo = { x: new THREE.BoxGeometry(LOT + GAP * 0.3, 0.06, GAP + 0.02), z: new THREE.BoxGeometry(GAP + 0.02, 0.06, LOT + GAP * 0.3), node: new THREE.BoxGeometry(GAP + 0.3, 0.06, GAP + 0.3) }
@@ -211,9 +274,10 @@ export function createCityWorld (canvas, { reducedMotion = false } = {}) {
     }
   }
 
-  function update ({ grid = null, lots = [], placements = [], roadEdges = [], roadNodes = [], bridges = [], valid = new Set(), cursor = null, cursorCells = [], ghost = null, validEdges = [], cursorEdge = null, plannedEdges = [], extraPoints = [] } = {}, { instant = false } = {}) {
+  function update ({ grid = null, lots = [], placements = [], roadEdges = [], roadNodes = [], bridges = [], traffic = [], showLoad = false, valid = new Set(), cursor = null, cursorCells = [], ghost = null, validEdges = [], cursorEdge = null, plannedEdges = [], extraPoints = [] } = {}, { instant = false } = {}) {
     if (!fieldBuilt && lots.length && grid) buildField(lots, grid)
     syncBridges(bridges)
+    syncTraffic(traffic, showLoad)
     const aiming = valid.size > 0 || validEdges.length > 0
     // A plain field at rest; the plot lines show only while aiming.
     gridLines.forEach(m => { m.material.color.set(aiming ? PALETTE.gridLineHot : PALETTE.gridLine); m.material.opacity = aiming ? 0.55 : 0 })
@@ -416,9 +480,12 @@ export function createCityWorld (canvas, { reducedMotion = false } = {}) {
 
   let running = false
   const easeOutBack = (t) => { const c1 = 1.70158; const c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2) }
+  let lastTick = 0
   function tick () {
     if (!running) return
     const t = now()
+    if (!reducedMotion) moveCars(Math.min(0.1, (t - (lastTick || t)) / 1000))
+    lastTick = t
     for (const entry of live.values()) {
       if (!entry.born) continue
       const k = Math.min(1, (t - entry.born) / 420)

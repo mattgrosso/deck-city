@@ -65,7 +65,8 @@ export const PAGES = [
     lines: [
       'Patience drains every turn: faster with bad cards in your deck, idle workers and disasters. Parks, culture and civic buildings slow it, never stop it.',
       'Met the Mandate early? Pick it in the market to call the election now: half the patience left carries into the next era.',
-      'Each new era widens the city limits and brings a new tier of buildings to the City Row. Roads are always for sale beside it.'
+      'Each new era widens the city limits and brings a new tier of buildings to the City Row. Roads are always for sale beside it.',
+      'Traffic: every building sends trips onto the streets beside it. A street carrying more than it can jams, and jams cost patience. More streets, Boulevards and Highways (wider), and transit nearby all help. Look at the city to see each street coloured by its load.'
     ]
   },
   {

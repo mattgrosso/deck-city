@@ -40,7 +40,7 @@ function B (id, name, tier, tags, cost, o = {}) {
   if (o.onClear) effects.onClear = o.onClear
   if (Object.keys(effects).length) card.effects = effects
   if (o.clears) { card.clears = o.clears; card.slots = { capacity: o.slots ?? 2 } }
-  for (const k of ['handSize', 'buysBonus', 'discount', 'blocks', 'unique', 'flavor', 'patience', 'placesRoad', 'roadSegments']) if (o[k] !== undefined) card[k === 'handSize' ? 'handSizeBonus' : k === 'blocks' ? 'blocksDisasters' : k] = o[k]
+  for (const k of ['handSize', 'buysBonus', 'discount', 'blocks', 'unique', 'flavor', 'patience', 'placesRoad', 'roadSegments', 'lanes']) if (o[k] !== undefined) card[k === 'handSize' ? 'handSizeBonus' : k === 'blocks' ? 'blocksDisasters' : k] = o[k]
   return card
 }
 
@@ -190,8 +190,8 @@ export const SERVICE_CARDS = [
 
 // ================================================================ TRANSIT
 export const TRANSIT_CARDS = [
-  B('boulevard', 'Boulevard', 2, ['infrastructure', 'transit-road'], 3, { placesRoad: true, roadSegments: 3, flavor: 'Three street segments, tree-lined.' }),
-  B('highway', 'Highway', 3, ['infrastructure', 'transit-road'], 4, { placesRoad: true, roadSegments: 4, flavor: 'Four street segments at once.' }),
+  B('boulevard', 'Boulevard', 2, ['infrastructure', 'transit-road'], 3, { placesRoad: true, roadSegments: 3, lanes: 2, flavor: 'Three street segments, tree-lined, two lanes each way.' }),
+  B('highway', 'Highway', 3, ['infrastructure', 'transit-road'], 4, { placesRoad: true, roadSegments: 4, lanes: 3, flavor: 'Four street segments at once, three lanes wide.' }),
   B('bus-stop', 'Bus Stop', 1, ['transit'], 4, { onTurn: [perAdj('commercial', 1)], onBuild: [draw(1)] }),
   B('parking-garage', 'Parking Garage', 1, ['transit'], 4, { stats: { revenue: 1 }, near: [nd('revenue', 1, 'commercial')] }),
   B('bike-share', 'Bike Share', 1, ['transit', 'green'], 4, { onTurn: [perAdj('residential', 1)] }),
