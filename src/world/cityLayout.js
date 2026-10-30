@@ -9,7 +9,7 @@
 // roads meeting gets the matching junction tile. Kenney's road tiles are
 // 1×1 with pavements, so an edge tile is scaled to the gap's width.
 
-import { cellEdgeKeys, parseEdgeKey } from '@/game/core'
+import { cellEdgeKeys, parseEdgeKey, innerEdges } from '@/game/core'
 import { familyOf } from '@/ui/cardText'
 import { lookFor, lookModels } from './looks'
 
@@ -176,6 +176,30 @@ export function treesFor (x, y) {
 const seqOf = (instance) => Number((instance.instanceId.split('#')[1] ?? 0)) || 0
 
 /**
+ * Where a building's parts stand, for any number of cells (a multi-tile
+ * building, state/shapes.js). One cell: its recipe on the lot. A row or an
+ * L: a building on every cell, each a variant, so a School reads as a small
+ * campus. A 2×2: one centrepiece, twice the size, in the middle. Returns
+ * placements with ids under `prefix`.
+ */
+export function buildingPlacements (grid, card, seq, cells, prefix) {
+  const recipe = recipeFor(card, seq)
+  const at = cells.map(c => cellCentre(grid, c.x, c.y))
+  const out = []
+  const put = (part, x, z, i, k = 1) => out.push({ id: `${prefix}:${i}`, model: part.model, gen: part.gen ?? null, x: x + (part.dx ?? 0) * LOT * k, z: z + (part.dz ?? 0) * LOT * k, yaw: part.yaw ?? 0, scale: (part.scale ?? 1) * k, tint: part.tint ?? null, kind: recipe.key })
+  if (cells.length === 4) {
+    const cx = at.reduce((n, p) => n + p.x, 0) / 4; const cz = at.reduce((n, p) => n + p.z, 0) / 4
+    recipe.parts.forEach((part, i) => put(part, cx, cz, i, 1.9))
+    return { placements: out, ground: recipe.ground }
+  }
+  at.forEach((p, c) => {
+    const parts = c === 0 ? recipe.parts : recipeFor(card, seq + c).parts
+    parts.forEach((part, i) => put(part, p.x, p.z, `${c}.${i}`))
+  })
+  return { placements: out, ground: recipe.ground }
+}
+
+/**
  * @param {Object} grid - the engine's cityGrid (width, height, cells, roads: Set of edge keys)
  * @param {Object[]} structures - the engine's builtStructures
  * @returns {{ lots: Object[], placements: Object[], roadEdges: Object[], roadNodes: Object[] }}
@@ -193,6 +217,11 @@ export function layoutCity (grid, structures) {
       const recipe = instance ? recipeFor(instance.card, seqOf(instance)) : null
       const water = !instance && grid.terrain?.[y * grid.width + x] === 'water'
       lots.push({ id: `lot:${x},${y}`, x, y, wx, wz, ground: water ? 'water' : recipe?.ground ?? (instance ? 'built' : 'empty'), instanceId: id ?? null })
+      // A building on more than one cell is laid out once, from its anchor.
+      if (instance?.cells?.length > 1) {
+        if (instance.position.x === x && instance.position.y === y) placements.push(...buildingPlacements(grid, instance.card, seqOf(instance), instance.cells, instance.instanceId).placements)
+        continue
+      }
       if (water) continue
       if (!instance) {
         // Empty land is not empty: a tree or two, placed by the cell's own
@@ -253,7 +282,26 @@ export function layoutCity (grid, structures) {
     }
   }
 
-  return { lots, placements, roadEdges, roadNodes }
+  // The gaps between a multi-tile building's own cells are paved over (or
+  // grassed, for a park), so it reads as one site.
+  const bridges = []
+  for (const s of structures) {
+    if (!(s.cells?.length > 1)) continue
+    const ground = recipeFor(s.card, seqOf(s)).ground ?? 'built'
+    for (const key of innerEdges(s.cells)) {
+      const { kind, x, y } = parseEdgeKey(key)
+      const c = cornerPoint(grid, x, y)
+      bridges.push({ id: `bridge:${key}`, x: kind === 'h' ? c.x + PITCH / 2 : c.x, z: kind === 'h' ? c.z : c.z + PITCH / 2, axis: kind === 'h' ? 'x' : 'z', ground })
+    }
+    // ...and the square where four cells meet, for a 2×2.
+    if (s.cells.length === 4) {
+      const mx = Math.max(...s.cells.map(c => c.x)); const my = Math.max(...s.cells.map(c => c.y))
+      const c = cornerPoint(grid, mx, my)
+      bridges.push({ id: `bridge:mid:${s.instanceId}`, x: c.x, z: c.z, axis: 'node', ground })
+    }
+  }
+
+  return { lots, placements, roadEdges, roadNodes, bridges }
 }
 
 /** Every model any recipe or road can ask for, so the world can preload. */

@@ -83,6 +83,7 @@ export const PAGES = [
       'Every building counts its four neighbours. Houses grow beside houses and shrink beside factories.',
       'Shops earn more beside houses and less beside other shops. Factories earn more in a cluster.',
       'Each game has its own map: a river, a lake or a coast. Nothing builds on water, but a home beside it houses one more and a shop beside it earns one more. A Road can bridge it.',
+      'Big places cover more than one plot: a School two, a University an L of three, a Stadium a 2×2. Turn them with LB / RB (Q / R) while aiming. They count every neighbour they touch, and no street may run through them.',
       'While you aim, the panel shows what the spot is worth and what changes next door.'
     ]
   }

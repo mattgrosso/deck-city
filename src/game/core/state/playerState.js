@@ -8,6 +8,7 @@ import { createDeck, addToDiscardPile } from '../piles/deck'
 import { resolveTrigger } from '../effects/effectRegistry'
 import { createCityGrid, placeInstance, addRoadEdge, seedStartingRoads, instanceAt } from './cityGrid'
 import { WATERFRONT, touchesWater } from './terrain'
+import { footprint } from './shapes'
 
 /**
  * @param {Object} options
@@ -116,12 +117,20 @@ export function getAdjacentInstances (state, instanceId) {
   const instance = findInstance(state, instanceId)
   if (!instance?.position) return []
 
-  const { x, y } = instance.position
-  return [[0, -1], [0, 1], [-1, 0], [1, 0]]
-    .map(([dx, dy]) => instanceAt(state.cityGrid, x + dx, y + dy))
-    .filter(Boolean)
-    .map(neighborId => findInstance(state, neighborId))
-    .filter(Boolean)
+  // Every cell it covers (a multi-tile building, state/shapes.js), each once.
+  const ids = new Set()
+  for (const { x, y } of cellsOf(instance)) {
+    for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+      const id = instanceAt(state.cityGrid, x + dx, y + dy)
+      if (id && id !== instanceId) ids.add(id)
+    }
+  }
+  return [...ids].map(id => findInstance(state, id)).filter(Boolean)
+}
+
+/** The cells an instance covers: all of them for a multi-tile building. */
+export function cellsOf (instance) {
+  return instance.cells ?? (instance.position ? [instance.position] : [])
 }
 
 /**
@@ -186,7 +195,7 @@ export function instanceStats (state, instance) {
     }
   }
   // Waterfront: a home or shop beside water, once however much it touches.
-  if (instance.position && touchesWater(state.cityGrid, instance.position.x, instance.position.y)) {
+  if (cellsOf(instance).some(c => touchesWater(state.cityGrid, c.x, c.y))) {
     for (const w of WATERFRONT) {
       if (!instance.card.tags?.includes(w.tag)) continue
       bonus[w.stat] = (bonus[w.stat] ?? 0) + w.amount
@@ -217,14 +226,15 @@ export function calcStatTotal (state, statKey) {
  * always takes it back out.
  * @returns {{ own: Object, ownReasons: Object[], neighbours: {instanceId: string, position: Object, name: string, delta: Object}[], delta: Object }}
  */
-export function previewPlacement (state, card, position) {
+export function previewPlacement (state, card, position, rotation = 0) {
   const before = new Map(state.builtStructures.map(i => [i.instanceId, instanceStats(state, i).total]))
   const totalsBefore = sumTotals([...before.values()])
-  const probe = { instanceId: '__preview__', card, position }
-  const index = position.y * state.cityGrid.width + position.x
-  const prevCell = state.cityGrid.cells[index]
+  const cells = footprint(card, position, rotation).filter(c => c.x >= 0 && c.y >= 0 && c.x < state.cityGrid.width && c.y < state.cityGrid.height)
+  const probe = { instanceId: '__preview__', card, position, cells }
+  const indexes = cells.map(c => c.y * state.cityGrid.width + c.x)
+  const prevCells = indexes.map(i => state.cityGrid.cells[i])
   state.builtStructures.push(probe)
-  state.cityGrid.cells[index] = probe.instanceId
+  for (const i of indexes) state.cityGrid.cells[i] = probe.instanceId
   try {
     const own = instanceStats(state, probe)
     const neighbours = []
@@ -240,7 +250,7 @@ export function previewPlacement (state, card, position) {
     return { own: own.total, ownReasons: own.reasons, neighbours, delta: diffStats(totalsBefore, sumTotals(totalsAfter)) }
   } finally {
     state.builtStructures.pop()
-    state.cityGrid.cells[index] = prevCell
+    indexes.forEach((i, k) => { state.cityGrid.cells[i] = prevCells[k] })
   }
 }
 
@@ -293,11 +303,13 @@ export function buildStructure (state, card, context = {}) {
       ? { capacity: card.slots.capacity, used: 0 }
       : undefined
   }
+  if (context.position) {
+    instance.rotation = context.rotation ?? 0
+    instance.cells = footprint(card, context.position, instance.rotation)
+  }
   state.builtStructures.push(instance)
 
-  if (context.position) {
-    placeInstance(state.cityGrid, context.position.x, context.position.y, instance.instanceId)
-  }
+  for (const c of instance.cells ?? []) placeInstance(state.cityGrid, c.x, c.y, instance.instanceId)
 
   resolveTrigger(card, 'onBuild', { ...context, state, instanceId: instance.instanceId })
   // Neighbours react to what was built beside them (card.effects.onNeighborBuilt).
@@ -371,10 +383,12 @@ export function seedStructure (state, card, position) {
     instanceId: `${card.id}#${state.structureSeq++}`,
     card,
     position,
+    rotation: position.rotation ?? 0,
+    cells: footprint(card, position, position.rotation ?? 0),
     slots: card.slots ? { capacity: card.slots.capacity, used: 0 } : undefined
   }
   state.builtStructures.push(instance)
-  placeInstance(state.cityGrid, position.x, position.y, instance.instanceId)
+  for (const c of instance.cells) placeInstance(state.cityGrid, c.x, c.y, instance.instanceId)
   return instance
 }
 

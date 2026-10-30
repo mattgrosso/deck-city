@@ -38,6 +38,7 @@ export default {
     cursorEdge: { type: String, default: null },
     plannedEdges: { type: Array, default: () => [] }, // segments already aimed by the Road card in hand
     previewCard: { type: Object, default: null },
+    ghostCells: { type: Array, default: () => [] },
     // Building chips show only while inspecting the map (Matt: "those should
     // only appear when I am inspecting").
     showLabels: { type: Boolean, default: false },
@@ -65,6 +66,7 @@ export default {
   watch: {
     layout () { this.sync() },
     validCells () { this.sync() },
+    ghostCells () { this.sync() },
     cursor () { this.sync() },
     validEdges () { this.sync() },
     cursorEdge () { this.sync() },
@@ -105,9 +107,11 @@ export default {
         placements: this.layout.placements,
         roadEdges: this.layout.roadEdges,
         roadNodes: this.layout.roadNodes,
+        bridges: this.layout.bridges,
         valid: this.targeting ? this.validSet : new Set(),
         cursor: this.targeting ? this.cursor : null,
-        ghost: this.targeting && this.cursor ? this.world.ghostFor(this.previewCard, cursorLot) : [],
+        cursorCells: this.targeting ? this.ghostCells : [],
+        ghost: this.targeting && this.cursor ? this.world.ghostFor(this.previewCard, cursorLot, this.ghostCells, this.grid) : [],
         validEdges: this.targeting ? this.validEdges : [],
         cursorEdge: this.targeting ? this.cursorEdge : null,
         plannedEdges: this.targeting ? this.plannedEdges : [],

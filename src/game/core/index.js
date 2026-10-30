@@ -58,7 +58,8 @@ export {
   clearsOf,
   sumPassive,
   calcUpkeep,
-  calcBudget
+  calcBudget,
+  cellsOf
 } from './state/playerState'
 export {
   DEFAULT_CITY_GRID_SIZE,
@@ -72,6 +73,7 @@ export {
   edgeNodes,
   isEdgeConnected,
   listConnectedEdges,
+  isEdgeInsideBuilding,
   isInLimits,
   isEdgeInLimits,
   createCityGrid,
@@ -89,6 +91,7 @@ export {
 } from './state/cityGrid'
 
 export { generateTerrain, isWater, touchesWater, WATERFRONT } from './state/terrain'
+export { SHAPES, shapeOf, isMultiTile, turnOffsets, footprint, innerEdges, placementProblem } from './state/shapes'
 
 export { DEFAULT_PHASES } from './turn/phases'
 export {

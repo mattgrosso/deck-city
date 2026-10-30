@@ -127,6 +127,7 @@ function merge (a, b) {
   for (const k of new Set([...Object.keys(a.stats ?? {}), ...Object.keys(b.stats ?? {})])) stats[k] = sumNumbers(a.stats?.[k], b.stats?.[k])
   const card = {
     type: CARD_TYPES.BUILDING,
+    // The shape is set by size below, not taken from either half.
     tier: Math.max(a.tier ?? 1, b.tier ?? 1),
     tags: [...new Set([...(a.tags ?? []), ...(b.tags ?? [])])],
     cost: (a.cost ?? 0) + (b.cost ?? 0),
@@ -174,5 +175,7 @@ export function combineOptions (a, b) {
   else names = [`${PLACE[fa]} ${scaleOf(size)}`, `${PLACE[fb]} ${scaleOf(size)}`]
   const leans = fa === fb ? [[fa, LEAN[fa][0]], [fa, LEAN[fa][1]]] : [[fa, LEAN[fa][0]], [fb, LEAN[fb][0]]]
   const key = hashOf([a.id, b.id].sort().join('+'))
-  return leans.map(([family, stat], k) => lean({ ...merge(first, second), id: `combo:${key}:${k}`, name: names[k], family }, stat))
+  // Bigger on the map too: a Quarter covers two plots, a District an L of three, a Borough a 2×2.
+  const shape = size >= 16 ? 'O4' : size >= 8 ? 'L3' : size >= 4 ? 'I2' : undefined
+  return leans.map(([family, stat], k) => lean({ ...merge(first, second), id: `combo:${key}:${k}`, name: names[k], family, ...(shape ? { shape } : {}) }, stat))
 }

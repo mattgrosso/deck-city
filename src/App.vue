@@ -13,7 +13,7 @@
             ref="scene"
             :grid="game.state.cityGrid" :structures="game.state.builtStructures" :tick="tick"
             :targeting="mode === 'target' || mode === 'look'" :valid-cells="validCells" :cursor="cursorCell"
-            :valid-edges="validEdges" :cursor-edge="cursorEdge" :planned-edges="pendingEdges" :preview-card="mode === 'target' ? selectedCard : null"
+            :valid-edges="validEdges" :cursor-edge="cursorEdge" :planned-edges="pendingEdges" :preview-card="mode === 'target' ? selectedCard : null" :ghost-cells="ghostCells"
             :width="1920" :height="1080" :rect="VIEW_RECT" :stage-scale="scale" :show-labels="mode === 'look'" :marks="aimPreview ? aimPreview.marks : []"
             @cell="onCellClick"
           />
@@ -144,8 +144,9 @@ import BugReportButton from '@/components/shared/BugReportButton.vue'
 import BugResolutionNotice from '@/components/shared/BugResolutionNotice.vue'
 import {
   createGame, effectiveCost, clearsOf, isInLimits, isWater,
-  calcStatTotal, countCardsByTag, evaluateCondition, isCellEmpty, isBuildable, listConnectedEdges,
-  previewPlacement, instanceStats, canCombine, canCombinePair, sizeOf, combineCost, combineOptions, calcBudget, calcUpkeep
+  calcStatTotal, countCardsByTag, evaluateCondition, isBuildable, listConnectedEdges,
+  previewPlacement, instanceStats, canCombine, canCombinePair, sizeOf, combineCost, combineOptions, calcBudget, calcUpkeep,
+  isMultiTile, shapeOf, footprint, placementProblem
 } from '@/game/core'
 import { attachInput, GLYPHS } from '@/ui/input'
 import { stepCursor, nearestCell } from '@/ui/layout'
@@ -201,7 +202,8 @@ export default {
       // positions, so the d-pad moves in SCREEN directions on an isometric board.
       targets: [],
       targetIndex: 0,
-      pendingEdges: [], // street segments laid so far by the Road card in hand
+      pendingEdges: [],
+      aimRotation: 0, // street segments laid so far by the Road card in hand
       lastAim: { x: 560, y: 420 },
       picks: [],
       comboIndex: 0,
@@ -322,6 +324,12 @@ export default {
     currentTarget () { return this.targets[this.targetIndex] ?? null },
     validCells () { return this.mode === 'target' ? this.targets.filter(t => t.kind === 'cell').map(t => ({ x: t.x, y: t.y })) : [] },
     validEdges () { return this.mode === 'target' ? this.targets.filter(t => t.kind === 'edge').map(t => t.key) : [] },
+    /** Every plot the building being aimed would cover. */
+    ghostCells () {
+      const c = this.cursorCell
+      if (this.mode !== 'target' || !c || !this.selectedCard || this.selectedCard.placesRoad) return []
+      return footprint(this.selectedCard, c, this.aimRotation)
+    },
     cursorCell () { const t = this.currentTarget; return (this.mode === 'target' || this.mode === 'look') && t?.kind === 'cell' ? { x: t.x, y: t.y } : null },
     cursorEdge () { const t = this.currentTarget; return this.mode === 'target' && t?.kind === 'edge' ? t.key : null },
     canEndPhase () { return this.mode === 'hand' || this.mode === 'market' },
@@ -350,7 +358,7 @@ export default {
       if (this.mode !== 'target' || !card || card.placesRoad || !t || t.kind !== 'cell') return null
       // toRaw: the preview stands the building in for a moment; on the reactive
       // proxy that write would re-run this computed forever.
-      const p = previewPlacement(toRaw(this.game).state, toRaw(card), { x: t.x, y: t.y })
+      const p = previewPlacement(toRaw(this.game).state, toRaw(card), { x: t.x, y: t.y }, this.aimRotation)
       const stat = (o) => Object.entries(o).filter(([, v]) => v).map(([k, v]) => `${v > 0 ? '+' : '−'}${Math.abs(v)} ${SHORT[k] ?? k}`).join(', ')
       const tagName = (tag) => this.game.catalog[tag]?.name ?? tag
       const reasons = p.ownReasons.map(r => ({
@@ -399,7 +407,7 @@ export default {
       switch (this.screen === 'title' ? 'title' : this.mode) {
         case 'title': return [L('select', 'Start')]
         case 'hand': return [L('lr', 'Choose card'), L('select', 'Play'), ...(canCombine(this.focusedHandCard) ? [L('combine', 'Combine')] : []), L('up', 'Look at the city'), L('confirm', this.endLabel), L('deck', 'Deck'), L('menu', 'Menu')]
-        case 'target': return this.pendingEdges.length ? [L('dpad', 'Aim the second segment'), L('select', 'Place'), L('back', 'Keep just one')] : [L('dpad', 'Aim'), L('select', 'Place'), L('back', 'Back')]
+        case 'target': return this.pendingEdges.length ? [L('dpad', 'Aim the second segment'), L('select', 'Place'), L('back', 'Keep just one')] : [L('dpad', 'Aim'), ...(isMultiTile(this.selectedCard) ? [L('prevPile', 'Turn'), L('nextPile', 'Turn')] : []), L('select', 'Place'), L('back', 'Back')]
         case 'combine': return [L('lr', 'Choose'), L('select', 'Pick / put back'), ...(this.picks.length ? [L('confirm', 'Combine')] : []), L('back', 'Back')]
         case 'combineChoice': return [L('lr', 'Choose'), L('select', 'Combine into this'), L('back', 'Back')]
         case 'civic': return [L('lr', 'Choose'), L('select', 'Pick / put back'), ...(this.picks.length >= this.civicNeed ? [L('confirm', 'Discard these')] : []), L('back', 'Back')]
@@ -505,6 +513,7 @@ export default {
     },
     in_target (action) {
       if (['up', 'down', 'left', 'right'].includes(action)) this.moveAim(action)
+      else if (action === 'prevPile' || action === 'nextPile') this.turnAim(action === 'nextPile' ? 1 : -1)
       else if (action === 'select') this.placeAt(this.currentTarget)
       else if (action === 'back') {
         // A Road with one segment already aimed: B keeps that one and plays the card.
@@ -712,19 +721,39 @@ export default {
         this.pendingEdges = []
         targets = listConnectedEdges(grid).map(e => ({ id: e.key, kind: 'edge', key: e.key }))
       } else {
+        // A multi-tile building keeps the last way it was turned, if it fits that way anywhere.
+        const turns = isMultiTile(card) ? [this.aimRotation, 0, 1, 2, 3].filter((r, i, all) => all.indexOf(r) === i) : [0]
         targets = []
-        for (let y = 0; y < grid.height; y++) {
-          for (let x = 0; x < grid.width; x++) {
-            if (!isCellEmpty(grid, x, y)) continue
-            if (card.skipsRoadRequirement || isBuildable(grid, x, y)) targets.push({ id: `${x},${y}`, kind: 'cell', x, y })
-          }
-        }
+        for (const r of turns) { targets = this.cellTargets(card, r); if (targets.length) { this.aimRotation = r; break } }
+        if (!isMultiTile(card)) this.aimRotation = 0
       }
-      if (!targets.length) return this.refuse(card.placesRoad ? 'Nowhere left to lay a street.' : 'No empty plot beside a street. Lay a Road first.', 'board')
+      if (!targets.length) return this.refuse(card.placesRoad ? 'Nowhere left to lay a street.' : isMultiTile(card) ? `No room for ${card.name} (${shapeOf(card).length} plots) beside a street. Lay more Road.` : 'No empty plot beside a street. Lay a Road first.', 'board')
       this.selectedIndex = index
       this.targets = this.withScreen(targets)
       this.aimNearest(this.lastAim)
       this.mode = 'target'
+    },
+    /** Every anchor plot where `card` fits, turned `rotation` (state/shapes.js). */
+    cellTargets (card, rotation) {
+      const s = toRaw(this.game).state
+      const out = []
+      for (let y = 0; y < s.cityGrid.height; y++) for (let x = 0; x < s.cityGrid.width; x++) if (!placementProblem(s, toRaw(card), { x, y }, rotation)) out.push({ id: `${x},${y}`, kind: 'cell', x, y })
+      return out
+    },
+    /** Turn a multi-tile building a quarter (LB / RB), keeping the cursor near where it was. */
+    turnAim (step) {
+      const card = this.selectedCard
+      if (!card || !isMultiTile(card)) return
+      const here = this.currentTarget
+      for (let k = 1; k <= 4; k++) {
+        const r = (this.aimRotation + step * k + 8) % 4
+        const targets = this.cellTargets(card, r)
+        if (!targets.length) continue
+        this.aimRotation = r
+        this.targets = this.withScreen(targets)
+        this.aimNearest(here ? { x: here.sx, y: here.sy } : this.lastAim)
+        return
+      }
     },
     placeAt (target) {
       const card = this.selectedCard
@@ -746,7 +775,7 @@ export default {
         return this.commitRoad(edges)
       }
       try {
-        this.game.actions.playCard(card.id, { x: target.x, y: target.y })
+        this.game.actions.playCard(card.id, { x: target.x, y: target.y, rotation: this.aimRotation })
       } catch (err) {
         return this.refuse(err.message, 'board')
       }

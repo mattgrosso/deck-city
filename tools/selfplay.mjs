@@ -5,7 +5,7 @@ import { runGameOptions } from '@/game/runSetup'
 import { valueOfBuild } from '@/game/core/economy/priceList'
 import {
   createGame,
-  calcStatTotal, effectiveCost, canCombine, canCombinePair, combineCost, isCellEmpty, isBuildable, listConnectedEdges, evaluateCondition, previewPlacement, clearsOf
+  calcStatTotal, effectiveCost, isMultiTile, placementProblem, canCombine, canCombinePair, combineCost, isCellEmpty, isBuildable, listConnectedEdges, evaluateCondition, previewPlacement, clearsOf
 } from '@/game/core'
 
 const GAMES = Number(process.argv[2] ?? 20)
@@ -41,12 +41,18 @@ function play () {
       const builds = hand.filter(c => c.type === 'building' && !c.placesRoad && effectiveCost(s, c) <= s.treasury && !(c.unique && s.builtStructures.some(i => i.card.id === c.id)))
       if (builds.length && cells.length) {
         let best = null
-        for (const c of builds) for (const at of cells) {
-          const p = previewPlacement(s, c, at)
-          const v = (p.delta.population ?? 0) * 1.5 + (p.delta.revenue ?? 0) * 2.4 + (p.delta.jobs ?? 0) * 0.5
-          if (!best || v > best.v) best = { c, at, v }
+        for (const c of builds) {
+          for (const at of cells) {
+            // Multi-tile buildings (state/shapes.js): every way round that fits.
+            for (const rotation of isMultiTile(c) ? [0, 1, 2, 3] : [0]) {
+              if (placementProblem(s, c, at, rotation)) continue
+              const p = previewPlacement(s, c, at, rotation)
+              const v = (p.delta.population ?? 0) * 1.5 + (p.delta.revenue ?? 0) * 2.4 + (p.delta.jobs ?? 0) * 0.5
+              if (!best || v > best.v) best = { c, at: { ...at, rotation }, v }
+            }
+          }
         }
-        game.actions.playCard(best.c.id, best.at); PLAYS.n++; continue
+        if (best) { game.actions.playCard(best.c.id, best.at); PLAYS.n++; continue }
       }
       const road = hand.find(c => c.placesRoad && effectiveCost(s, c) <= s.treasury)
       if (road) { const e = listConnectedEdges(grid); if (e.length) { const a = e[Math.floor(rng() * e.length)].key; const more = listConnectedEdges(grid, [a]); game.actions.playCard(road.id, { edges: more.length ? [a, more[0].key] : [a] }); continue } }

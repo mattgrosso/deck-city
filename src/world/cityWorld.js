@@ -12,7 +12,7 @@
 
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
-import { PITCH, LOT, GAP, allModels, recipeFor, cornerPoint, edgeCentre } from './cityLayout'
+import { PITCH, LOT, GAP, allModels, recipeFor, cornerPoint, edgeCentre, buildingPlacements } from './cityLayout'
 import { makeStreetEdge, makeStreetNode } from './streets'
 
 const MODEL_PATH = `${process.env.BASE_URL || '/'}models/`
@@ -184,8 +184,23 @@ export function createCityWorld (canvas, { reducedMotion = false } = {}) {
   }
   const now = () => performance.now()
 
-  function update ({ grid = null, lots = [], placements = [], roadEdges = [], roadNodes = [], valid = new Set(), cursor = null, ghost = null, validEdges = [], cursorEdge = null, plannedEdges = [], extraPoints = [] } = {}, { instant = false } = {}) {
+  // Paving across the gaps inside a multi-tile building (cityLayout bridges).
+  const bridgeMeshes = new Map()
+  const bridgeGeo = { x: new THREE.BoxGeometry(LOT + GAP * 0.3, 0.06, GAP + 0.02), z: new THREE.BoxGeometry(GAP + 0.02, 0.06, LOT + GAP * 0.3), node: new THREE.BoxGeometry(GAP + 0.3, 0.06, GAP + 0.3) }
+  function syncBridges (bridges) {
+    const want = new Map(bridges.map(b => [b.id, b]))
+    for (const [id, m] of bridgeMeshes) if (!want.has(id)) { world.remove(m); bridgeMeshes.delete(id) }
+    for (const [id, b] of want) {
+      if (bridgeMeshes.has(id)) continue
+      const m = new THREE.Mesh(bridgeGeo[b.axis], mat(PALETTE[b.ground] ?? PALETTE.plate))
+      m.position.set(b.x, -0.01, b.z); m.receiveShadow = true
+      world.add(m); bridgeMeshes.set(id, m)
+    }
+  }
+
+  function update ({ grid = null, lots = [], placements = [], roadEdges = [], roadNodes = [], bridges = [], valid = new Set(), cursor = null, cursorCells = [], ghost = null, validEdges = [], cursorEdge = null, plannedEdges = [], extraPoints = [] } = {}, { instant = false } = {}) {
     if (!fieldBuilt && lots.length && grid) buildField(lots, grid)
+    syncBridges(bridges)
     const aiming = valid.size > 0 || validEdges.length > 0
     // A plain field at rest; the plot lines show only while aiming.
     gridLines.forEach(m => { m.material.color.set(aiming ? PALETTE.gridLineHot : PALETTE.gridLine); m.material.opacity = aiming ? 0.55 : 0 })
@@ -215,7 +230,8 @@ export function createCityWorld (canvas, { reducedMotion = false } = {}) {
         ov = { valid: v, ring }; overlays.set(lot.id, ov)
       }
       ov.valid.userData.lot = lot
-      const isCursor = cursor && cursor.x === lot.x && cursor.y === lot.y
+      // The ring marks every plot the building being aimed would cover.
+      const isCursor = (cursor && cursor.x === lot.x && cursor.y === lot.y) || cursorCells.some(c => c.x === lot.x && c.y === lot.y)
       const isValid = valid.has(`${lot.x},${lot.y}`)
       ov.valid.material.opacity = isValid ? (isCursor ? 0.75 : 0.42) : 0
       ov.ring.material.opacity = isCursor ? 1 : 0
@@ -430,8 +446,9 @@ export function createCityWorld (canvas, { reducedMotion = false } = {}) {
     /** Stage-pixel centre of a cell / an edge, for aiming in screen directions. */
     screenOfCell: (grid, x, y) => { const c = cornerPoint(grid, x, y); return project(c.x + PITCH / 2, 0, c.z + PITCH / 2) },
     screenOfEdge: (grid, key) => { const e = edgeCentre(grid, key); return project(e.x, 0, e.z) },
-    ghostFor: (card, lot) => {
+    ghostFor: (card, lot, cells = [], grid = null) => {
       if (!card || !lot) return []
+      if (cells.length > 1 && grid) return buildingPlacements(grid, card, 0, cells, 'ghost').placements
       const recipe = recipeFor(card, 0)
       return recipe.parts.map((part, i) => ({ id: `ghost:${i}`, model: part.model, x: lot.wx + (part.dx ?? 0) * LOT, z: lot.wz + (part.dz ?? 0) * LOT, yaw: part.yaw ?? 0, scale: part.scale ?? 1, tint: part.tint ?? null }))
     },

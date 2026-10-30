@@ -204,10 +204,18 @@ export function isEdgeConnected (grid, key, extra = []) {
   return false
 }
 
+/** Does this edge run between two cells of one (multi-tile) building? No street may go there. */
+export function isEdgeInsideBuilding (grid, key) {
+  const { kind, x, y } = parseEdgeKey(key)
+  const [a, b] = kind === 'h' ? [[x, y - 1], [x, y]] : [[x - 1, y], [x, y]]
+  const ia = instanceAt(grid, a[0], a[1])
+  return !!ia && ia === instanceAt(grid, b[0], b[1])
+}
+
 /** Every unroaded edge a new street may go on right now. */
 export function listConnectedEdges (grid, extra = []) {
   const laid = new Set(extra)
-  return listAllEdges(grid).filter(e => !e.roaded && !laid.has(e.key) && isEdgeInLimits(grid, e.key) && isEdgeConnected(grid, e.key, extra))
+  return listAllEdges(grid).filter(e => !e.roaded && !laid.has(e.key) && isEdgeInLimits(grid, e.key) && !isEdgeInsideBuilding(grid, e.key) && isEdgeConnected(grid, e.key, extra))
 }
 
 /**

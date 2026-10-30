@@ -5,7 +5,8 @@
 
 import { CARD_TYPES, buildCardCatalog } from './cards/cardSchema'
 import { createPlayerState, buildStructure, placeRoad, spendTreasury, seedStructure, clearStatusCard, effectiveCost } from './state/playerState'
-import { isCellEmpty, isBuildable, isEdgeInBounds, isEdgeConnected, isInLimits, isEdgeInLimits } from './state/cityGrid'
+import { isEdgeInBounds, isEdgeConnected, isEdgeInLimits, isEdgeInsideBuilding } from './state/cityGrid'
+import { placementProblem } from './state/shapes'
 import { generateTerrain } from './state/terrain'
 import { canCombine, canCombinePair, combineCost, combineOptions } from './cards/combine'
 import { createRun, chooseMandate as chooseRunMandate, callElection as callRunElection, goEndless } from './turn/run'
@@ -175,6 +176,7 @@ export function createGame ({
         if (state.cityGrid.roads.has(edge) || laid.includes(edge)) throw new Error(`Edge ${edge} already has a road`)
         if (!isEdgeConnected(state.cityGrid, edge, laid)) throw new Error(`Edge ${edge} does not touch a street`)
         if (!isEdgeInLimits(state.cityGrid, edge)) throw new Error(`Edge ${edge} is outside the city limits`)
+        if (isEdgeInsideBuilding(state.cityGrid, edge)) throw new Error('A street cannot run through a building')
         laid.push(edge)
       }
       state.hand.splice(index, 1)
@@ -183,23 +185,20 @@ export function createGame ({
       return edges
     }
 
-    if (!position || !isCellEmpty(state.cityGrid, position.x, position.y)) {
-      throw new Error(`Invalid or occupied cell: ${JSON.stringify(position)}`)
-    }
-    if (!isInLimits(state.cityGrid, position.x, position.y)) throw new Error('That plot is outside the city limits')
+    if (!position) throw new Error('Invalid or occupied cell: undefined')
     if (card.unique && state.builtStructures.some(i => i.card.id === card.id)) {
       throw new Error(`There can only be one ${card.name}`)
     }
     // Monuments (claimed goals) skip the requirement entirely (see
     // cards/goalCards.js); everything else can only be built on a cell with
     // an adjacent road.
-    if (!card.skipsRoadRequirement && !isBuildable(state.cityGrid, position.x, position.y)) {
-      throw new Error(`Cell (${position.x}, ${position.y}) has no road access`)
-    }
+    // Every cell it covers (state/shapes.js): on the map, in the limits, empty, a street beside one.
+    const problem = placementProblem(state, card, position, position.rotation ?? 0)
+    if (problem) throw new Error(problem)
 
     state.hand.splice(index, 1)
     spendTreasury(state, effectiveCost(state, card))
-    return buildStructure(state, card, { ...context, position })
+    return buildStructure(state, card, { ...context, position: { x: position.x, y: position.y }, rotation: position.rotation ?? 0 })
   }
 
   function playCivicCard (cardId, discardCardIds = []) {

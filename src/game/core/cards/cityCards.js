@@ -235,6 +235,18 @@ export const CIVIC_CARDS = [
 ]
 
 export const CITY_CARDS = [...RESIDENTIAL_CARDS, ...COMMERCIAL_CARDS, ...INDUSTRIAL_CARDS, ...GREEN_CARDS, ...SERVICE_CARDS, ...TRANSIT_CARDS, ...LEISURE_CARDS, ...CIVIC_CARDS]
+// MULTI-TILE (Matt, 2026-10-29: "maybe a school takes two tiles... I like
+// the idea of sort of having to Tetris them in"): the big places cover
+// more than one plot (state/shapes.js). I2 = two in a row, I3 = three,
+// L3 = an L of three, O4 = a 2×2 square. Turned when placing.
+export const SHAPED = {
+  I2: ['school', 'high-school', 'hospital', 'courthouse', 'mall', 'department-store', 'convention-center', 'office-park', 'factory-complex', 'steel-mill', 'auto-plant', 'distribution-center', 'train-station', 'museum', 'concert-hall', 'city-park', 'botanical-garden', 'townhouses', 'tech-campus', 'solar-farm', 'cathedral'],
+  I3: ['greenbelt', 'restaurant-row', 'freight-hub'],
+  L3: ['university', 'prison', 'zoo', 'cul-de-sac', 'garden-city-estate'],
+  O4: ['stadium', 'airport', 'theme-park', 'nature-reserve']
+}
+for (const [shape, ids] of Object.entries(SHAPED)) for (const id of ids) { const card = CITY_CARDS.find(c => c.id === id); if (card) card.shape = shape }
+
 export const CITY_CATALOG = [...CITY_CARDS, ...TOKEN_CATALOG]
 
 /** One copy of each, by tier. */

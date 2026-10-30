@@ -45,3 +45,36 @@ describe('terrain', () => {
     expect(calcStatTotal(game.state, 'population')).toBe(before + 1)
   })
 })
+
+describe('multi-tile buildings', () => {
+  const setup = () => {
+    const game = createGame({ ...runGameOptions({ rng: seeded(5) }), terrain: null })
+    game.actions.advance()
+    game.actions.chooseMandate(game.state.run.offer[0].id)
+    game.state.treasury = 99
+    return game
+  }
+  it('covers every cell, turned; counts neighbours on all of them; streets cannot cut it', async () => {
+    const { footprint, cellsOf, getAdjacentInstances, listConnectedEdges, placementProblem } = await import('../index')
+    const game = setup()
+    const s = game.state
+    const school = game.catalog.school
+    expect(footprint(school, { x: 11, y: 8 }, 1)).toEqual([{ x: 11, y: 8 }, { x: 11, y: 9 }])
+    expect(placementProblem(s, school, { x: 11, y: 8 }, 0)).toMatch(/in the way/) // (12, 8) has the factory
+    s.hand.push(school)
+    const inst = game.actions.playCard('school', { x: 11, y: 8, rotation: 1 })
+    expect(cellsOf(inst)).toHaveLength(2)
+    expect(s.cityGrid.cells[9 * s.cityGrid.width + 11]).toBe(inst.instanceId)
+    // Touches the house above and the factory beside its top cell.
+    expect(getAdjacentInstances(s, inst.instanceId).map(i => i.card.id).sort()).toEqual(['industrial', 'residential'])
+    expect(listConnectedEdges(s.cityGrid).some(e => e.key === 'h:11,9')).toBe(false)
+  })
+  it('needs a street beside one of its cells, and none through it', async () => {
+    const { placementProblem } = await import('../index')
+    const game = setup()
+    const s = game.state
+    expect(placementProblem(s, game.catalog.school, { x: 11, y: 10 }, 0)).toMatch(/road access/)
+    s.cityGrid.roads.add('v:12,10')
+    expect(placementProblem(s, game.catalog.school, { x: 11, y: 10 }, 0)).toMatch(/street runs through/)
+  })
+})

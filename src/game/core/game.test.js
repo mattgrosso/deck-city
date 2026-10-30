@@ -335,7 +335,7 @@ describe('monuments', () => {
     const monument = { ...game.goalRow.cards[0] }
     s.hand.push(monument)
     s.treasury = 50
-    game.actions.playCard(monument.id, { x: 11, y: 8 })
+    game.actions.playCard(monument.id, { x: 11, y: 8, rotation: 1 }) // two plots, turned to run south
     const all = [...s.deck.drawPile, ...s.deck.discardPile, ...s.hand]
     expect(all.some(c => c.id === monument.id)).toBe(false)
     expect(s.builtStructures.some(i => i.card.id === monument.id)).toBe(true)

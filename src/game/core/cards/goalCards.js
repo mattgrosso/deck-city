@@ -134,5 +134,8 @@ export const GOAL_CATALOG = [
   GOAL_GREEN_CITY, GOAL_COMMUTER_TOWN, GOAL_INDUSTRIAL_HEARTLAND, GOAL_SCHOOL_DISTRICT, GOAL_TOURIST_TRAP, GOAL_FULL_SERVICE
 ]
 
+// Monuments are big: two plots, an L of three for the top tier (state/shapes.js).
+for (const g of GOAL_CATALOG) g.shape = (g.tier ?? 1) >= 3 ? 'L3' : 'I2'
+
 /** The goal deck: one copy of each goal, revealed 3 at a time. */
 export const GOAL_DECK_CARDS = GOAL_CATALOG.map(card => card.id)
