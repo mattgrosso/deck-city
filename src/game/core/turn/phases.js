@@ -16,6 +16,7 @@ import { resolveTrigger } from '../effects/effectRegistry'
 import { draw, discardCards, addToDrawPile, addToDiscardPile, shuffle } from '../piles/deck'
 import { expireOldest, expireLowestValue, tickTimers } from '../piles/row'
 import { drainPatience } from './run'
+import { beginTurn } from '../effects/synergy'
 import { policyMod, policyBudget } from '../cards/policies'
 import { jamToll } from '../state/traffic'
 
@@ -142,6 +143,7 @@ export const DEFAULT_PHASES = [
       // revenue - without it, turn 1 (zero buildings, zero revenue) resets
       // straight to 0 before the player can ever afford a first Road, which
       // a pure production-based reset can never recover from on its own.
+      beginTurn(ctx.state) // a new turn: nothing played or built yet (synergy.js)
       const fromBuildings = calcStatTotal(ctx.state, 'revenue')
       const base = ctx.baseRevenue ?? 0
       const upkeep = calcUpkeep(ctx.state)

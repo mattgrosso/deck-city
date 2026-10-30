@@ -13,11 +13,32 @@ const TRIGGERS = {
   onDraw: 'When drawn',
   onComplete: 'When claimed',
   onNeighborBuilt: 'When anything is built next door',
-  onClear: 'For each card it takes'
+  onClear: 'For each card it takes',
+  onCityBuilt: 'Whenever you build anything',
+  onAnyClear: 'Whenever a bad card is cleared',
+  onTokenPlayed: 'Whenever you play a token',
+  onCombine: 'Whenever you combine buildings'
+}
+
+const ORDINAL = ['', 'first', 'second', 'third', 'fourth', 'fifth', 'sixth']
+const a1 = (word) => (/^[aeiou]/i.test(word) ? `an ${word}` : `a ${word}`)
+
+/** How a trigger reads once its effects name what they react to (effects/synergy.js). */
+function whenText (trigger, effect, card, catalog) {
+  const what = effect.ifCard ? (catalog?.[effect.ifCard]?.name ?? effect.ifCard) : effect.ifTag ? tagWord(effect.ifTag, 1, catalog) : null
+  switch (trigger) {
+    case 'onCityBuilt': return what ? `Whenever you build ${a1(what)}` : 'Whenever you build anything'
+    case 'onNeighborBuilt': return what ? `When ${a1(what)} is built next door` : 'When anything is built next door'
+    case 'onAnyClear': return what ? `Whenever ${a1(what)} card is cleared` : 'Whenever a bad card is cleared'
+    case 'onTokenPlayed': return what ? `Each ${what} you play` : 'Each token you play'
+    case 'onNthPlay': return `Every ${ORDINAL[card.every ?? 3] ?? `${card.every}th`} card you play in a turn`
+    default: return TRIGGERS[trigger] ?? trigger
+  }
 }
 
 // Tags that are not card names, in words.
 const TAG_WORDS = {
+  residential: ['home', 'homes'], commercial: ['shop', 'shops'], industrial: ['factory', 'factories'],
   green: ['green space', 'green spaces'], transit: ['transit stop', 'transit stops'], landmark: ['landmark', 'landmarks'],
   education: ['school', 'schools'], culture: ['cultural building', 'cultural buildings'], leisure: ['venue', 'venues'],
   health: ['health building', 'health buildings'], rural: ['farm', 'farms'], arts: ['arts building', 'arts buildings'],
@@ -87,6 +108,8 @@ export function effectText (effect, catalog) {
     case 'clearAnyStatus': return `remove ${plural(amount, effect.disasters ? 'bad or disaster card' : 'bad card')} from your deck`
     case 'gainCard': return `add ${amount === 1 ? 'a' : amount} ${catalog[effect.card]?.name ?? effect.card} card${amount === 1 ? '' : 's'} to your deck${effect.max ? ` (up to ${effect.max})` : ''}`
     case 'offerPolicy': return 'adopt a policy (choose one of three)'
+    case 'growSelf': return `this grows +${amount} ${effect.stat} for good${effect.max ? ` (up to +${effect.max})` : ''}`
+    case 'growNeighbors': return `every ${effect.tag ? tagWord(effect.tag, 1, catalog) : 'building'} next door grows +${amount} ${effect.stat} for good`
     case 'gainCardPerAdjacent': return `add a ${catalog[effect.card]?.name ?? effect.card} card per neighbouring ${tagWord(effect.targetTag, 1, catalog)}${effect.max ? ` (up to ${effect.max})` : ''}`
     case 'gainBuys': return `+${amount} buy at the city row this turn`
     case 'gainPatience': return `+${amount} patience`
@@ -152,8 +175,11 @@ export function rulesFor (card, catalog = {}) {
   if (card.blocksDisasters) lines.push(`While it stands, blocks ${Number(card.blocksDisasters) === 1 ? 'one disaster card' : `${Number(card.blocksDisasters)} disaster cards`} every strike.`)
 
   const sign = (b) => `${b.amount > 0 ? '+' : '−'}${Math.abs(b.amount)} ${b.stat}`
-  const near = (card.adjacency?.statBonus ?? []).filter(b => b.scope !== 'city').map(b => `${sign(b)} per ${nameOf(b.targetTag, catalog)}`)
+  const near = (card.adjacency?.statBonus ?? []).filter(b => b.scope !== 'city' && b.scope !== 'deck').map(b => `${sign(b)} per ${nameOf(b.targetTag, catalog)}`)
   if (near.length) lines.push(`Next door: ${near.join(', ')}.`)
+  for (const b of (card.adjacency?.statBonus ?? []).filter(b => b.scope === 'deck')) {
+    lines.push(`${sign(b)} for each ${catalog?.[b.targetTag]?.name ?? tagWord(b.targetTag, 1, catalog)} card in your deck${b.max ? ` (up to ${b.max})` : ''}.`)
+  }
   for (const b of (card.adjacency?.statBonus ?? []).filter(b => b.scope === 'city')) {
     lines.push(`${sign(b)} for every ${tagWord(b.targetTag, 1, catalog)} in the city${b.max ? ` (up to ${b.max})` : ''}.`)
   }
@@ -166,10 +192,12 @@ export function rulesFor (card, catalog = {}) {
   if (card.type === 'goal') lines.push('Single use: once built, the card is gone.')
 
   for (const [trigger, effects] of Object.entries(card.effects ?? {})) {
-    const when = TRIGGERS[trigger] ?? trigger
-    const what = effects.map(e => effectText(e, catalog)).join(', ')
-    lines.push(`${when}: ${what}.`)
+    // Effects that react to different things read as separate lines.
+    const groups = new Map()
+    for (const e of effects) { const k = e.ifCard ?? e.ifTag ?? ''; groups.set(k, [...(groups.get(k) ?? []), e]) }
+    for (const list of groups.values()) lines.push(`${whenText(trigger, list[0], card, catalog)}: ${list.map(e => effectText(e, catalog)).join(', ')}.`)
   }
+  if (card.freeFirst) lines.push(`The first ${tagWord(card.freeFirst, 1, catalog)} you build each turn costs 0.`)
 
   if (card.unique) lines.push('Only one in the city.')
   if (card.exhaust) lines.push('Play it once, free; then it is gone.')

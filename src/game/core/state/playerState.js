@@ -5,10 +5,11 @@
 // tracked in a separate counter that can drift out of sync).
 
 import { createDeck, addToDiscardPile } from '../piles/deck'
-import { resolveTrigger } from '../effects/effectRegistry'
+import { resolveTrigger, resolveEffects } from '../effects/effectRegistry'
 import { createCityGrid, placeInstance, addRoadEdge, seedStartingRoads, instanceAt } from './cityGrid'
 import { WATERFRONT, touchesWater } from './terrain'
 import { footprint } from './shapes'
+import { accepts, fireWatchers, firstOfTurn } from '../effects/synergy'
 import { policyMod, policyList, policyRulesFor, slotCapacity, policyBudget } from '../cards/policies'
 import { isMultiTile } from './shapes'
 
@@ -187,8 +188,15 @@ export function instanceStats (state, instance) {
     const neighbors = getAdjacentInstances(state, instance.instanceId)
     for (const rule of rules) {
       // scope 'city': every matching building anywhere (not this one), not just next door.
-      const pool = rule.scope === 'city' ? state.builtStructures.filter(o => o !== instance) : neighbors
-      let count = pool.filter(n => n.card.tags?.includes(rule.targetTag)).length
+      // scope 'deck': every card of that kind in your deck (synergy.js: a Chemical Plant
+      // that pays for the Pollution it makes).
+      let count
+      if (rule.scope === 'deck') {
+        count = [...state.deck.drawPile, ...state.deck.discardPile, ...state.hand].filter(c => c.id === rule.targetTag || c.tags?.includes(rule.targetTag)).length
+      } else {
+        const pool = rule.scope === 'city' ? state.builtStructures.filter(o => o !== instance) : neighbors
+        count = pool.filter(n => n.card.tags?.includes(rule.targetTag)).length
+      }
       if (rule.per) count = Math.floor(count / rule.per)
       if (rule.max) count = Math.min(count, rule.max)
       if (!count) continue
@@ -204,6 +212,12 @@ export function instanceStats (state, instance) {
       bonus[w.stat] = (bonus[w.stat] ?? 0) + w.amount * mult
       reasons.push({ stat: w.stat, amount: w.amount * mult, tag: 'water', count: 1, scope: 'near' })
     }
+  }
+  // What this building has grown for good (synergy.js growSelf / growNeighbors).
+  for (const [stat, n] of Object.entries(instance.growth ?? {})) {
+    if (!n) continue
+    bonus[stat] = (bonus[stat] ?? 0) + n
+    reasons.push({ stat, amount: n, tag: 'growth', count: 1, scope: 'near' })
   }
   // Policies (cards/policies.js): Main Street, Housing First...
   for (const r of policyRulesFor(state, instance)) {
@@ -323,9 +337,13 @@ export function buildStructure (state, card, context = {}) {
   // Neighbours react to what was built beside them (card.effects.onNeighborBuilt).
   if (context.position) {
     for (const neighbor of getAdjacentInstances(state, instance.instanceId)) {
-      resolveTrigger(neighbor.card, 'onNeighborBuilt', { ...context, state, instanceId: neighbor.instanceId, neighbor: instance })
+      // A neighbour's effects may name what they react to (`ifTag`, effects/synergy.js).
+      const list = (neighbor.card.effects?.onNeighborBuilt ?? []).filter(e => accepts(e, card))
+      if (list.length) resolveEffects(list, { ...context, state, card: neighbor.card, instanceId: neighbor.instanceId, neighbor: instance, subject: card })
     }
   }
+  // Everything else in the city that watches what you build.
+  fireWatchers({ ...context, state }, 'onCityBuilt', card, { except: instance.instanceId })
   // A Monument (a claimed goal) is single use (Matt, 2026-10-29: "the
   // monument you get to build, then that card's gone"); every other
   // building card goes round again.
@@ -345,6 +363,8 @@ export function sumPassive (state, key) {
  * amount }` or a list of them), never below zero.
  */
 export function effectiveCost (state, card) {
+  // The first of its kind each turn is free where a building says so (synergy.js freeFirst).
+  if (card.type === 'building' && !card.placesRoad && state.builtStructures.some(i => i.card.freeFirst && card.tags?.includes(i.card.freeFirst) && firstOfTurn(state, i.card.freeFirst))) return 0
   // Each era raises what buildings cost to build (turn/run.js sets costRise); Roads stay cheap.
   const rise = card.type === 'building' && !card.placesRoad ? (state.costRise ?? 0) : 0
   const base = (card.cost ?? 0) + rise

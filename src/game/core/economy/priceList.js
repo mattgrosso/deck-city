@@ -37,7 +37,9 @@ export function valueOfBuild (card) {
   const add = (label, v) => { if (v) parts.push([label, round2(v)]) }
   add('stats', valueOfStats(card.stats))
   add('next door', valueOfAdjacency(card))
-  add('effects', valueOfEffects(card.effects, CATALOG))
+  add('effects', valueOfEffects(card.effects, CATALOG, card))
+  // The first of a kind each turn free: about half a turn's build of it saved, every turn.
+  if (card.freeFirst) add(`first ${card.freeFirst} free`, 0.5 * 4 * HORIZON * 0.5)
   const kinds = Array.isArray(card.clears) ? card.clears : (card.clears ? [card.clears] : [])
   if (kinds.length) {
     const capacity = card.slots?.capacity ?? 1

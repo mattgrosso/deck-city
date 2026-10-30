@@ -4,6 +4,7 @@
 
 import './effects/coreEffects' // registers the starter effect vocabulary as a side effect
 import './conditions/coreConditions' // registers the starter condition vocabulary as a side effect
+import './effects/synergy' // growSelf, growNeighbors (and the watchers the engine fires)
 
 export { createGame, discardsNeeded } from './game'
 

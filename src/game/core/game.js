@@ -8,6 +8,7 @@ import { addTreasury, createPlayerState, buildStructure, placeRoad, spendTreasur
 import { isEdgeInBounds, isEdgeConnected, isEdgeInLimits, isEdgeInsideBuilding } from './state/cityGrid'
 import { placementProblem } from './state/shapes'
 import { generateTerrain } from './state/terrain'
+import { notePlay, fireWatchers } from './effects/synergy'
 import { canCombine, canCombinePair, combineCost, combineOptions } from './cards/combine'
 import { policyMod, marketPrice, roadSegmentsOf, policyPrice } from './cards/policies'
 import { createRun, choosePolicy as chooseRunPolicy, chooseMandate as chooseRunMandate, callElection as callRunElection, goEndless } from './turn/run'
@@ -190,6 +191,7 @@ export function createGame ({
       spendTreasury(state, effectiveCost(state, card))
       // A one-use card (a Street Permit) is gone once its segments are down.
       edges.forEach((edge, i) => placeRoad(state, i === 0 ? card : { ...card, effects: {} }, { ...context, edge, intoDeck: i === 0 && !card.exhaust }))
+      notePlay(context, card)
       return edges
     }
 
@@ -206,7 +208,9 @@ export function createGame ({
 
     state.hand.splice(index, 1)
     spendTreasury(state, effectiveCost(state, card))
-    return buildStructure(state, card, { ...context, position: { x: position.x, y: position.y }, rotation: position.rotation ?? 0 })
+    const built = buildStructure(state, card, { ...context, position: { x: position.x, y: position.y }, rotation: position.rotation ?? 0 })
+    notePlay(context, card)
+    return built
   }
 
   function playCivicCard (cardId, discardCardIds = []) {
@@ -227,6 +231,7 @@ export function createGame ({
     resolveTrigger(card, 'onPlay', { ...context, cardIds: discardCardIds })
     // `exhaust` cards (Tourists, Commuters...) are spent: gone after one play.
     if (!card.exhaust) addToDiscardPile(state.deck, [card])
+    notePlay(context, card)
     return card
   }
 
@@ -282,6 +287,7 @@ export function createGame ({
     const instance = clearStatusCard(state, cardId)
     log.push(`${instance.card.name} took a ${catalog[cardId]?.name ?? cardId} card out of your deck.`)
     resolveTrigger(instance.card, 'onClear', { ...context, instanceId: instance.instanceId })
+    fireWatchers(context, 'onAnyClear', catalog[cardId] ?? { id: cardId })
     const reward = policyMod(state, 'clearReward') // Recycling Mandate
     if (reward) { addTreasury(state, reward); log.push(`+${reward} budget (Recycling Mandate).`) }
     return instance
@@ -327,6 +333,7 @@ export function createGame ({
     if (!catalog[made.id]) catalog[made.id] = made
     addToDiscardPile(state.deck, [made])
     log.push(`Combined ${a.name} and ${b.name} into ${made.name}.`)
+    fireWatchers(context, 'onCombine', made)
     return made
   }
 

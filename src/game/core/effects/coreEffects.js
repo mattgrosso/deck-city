@@ -6,6 +6,7 @@
 // game/core/index.js) once before resolving any card effects.
 
 import { registerEffect } from './effectRegistry'
+import { fireWatchers } from './synergy'
 import { queuePolicyPick } from '../cards/policies'
 import {
   addTreasury,
@@ -166,14 +167,18 @@ registerEffect('gainTreasuryPerStatus', (effect, { state, log }) => {
 })
 
 /** Removes up to `amount` status cards of any kind (discard pile first, then draw pile). */
-registerEffect('clearAnyStatus', (effect, { state, log }) => {
+registerEffect('clearAnyStatus', (effect, context) => {
+  const { state, log } = context
   let left = effect.amount ?? 1
   let removed = 0
+  const gone = []
   for (const pile of [state.deck.discardPile, state.deck.drawPile]) {
     for (let i = pile.length - 1; i >= 0 && left > 0; i--) {
-      if (pile[i].type === 'status' || (effect.disasters && pile[i].type === 'disaster')) { pile.splice(i, 1); left--; removed++ }
+      if (pile[i].type === 'status' || (effect.disasters && pile[i].type === 'disaster')) { gone.push(pile.splice(i, 1)[0]); left--; removed++ }
     }
   }
+  // Whatever watches bad cards being cleared reacts to each (synergy.js).
+  for (const c of gone) fireWatchers({ ...context, instanceId: undefined, card: undefined }, 'onAnyClear', c)
   if (removed) log?.push(`${removed} bad card${removed === 1 ? '' : 's'} cleared from your deck.`)
 })
 

@@ -107,6 +107,9 @@ export function valueOfEffect (effect, catalog = {}) {
   switch (effect.type) {
     case 'gainTreasury': return amount
     case 'offerPolicy': return 8 // a pick of three policies: worth about a turn's spare budget
+    // Growth is kept for the rest of the horizon - on average half of it - and stops at its cap.
+    case 'growSelf': return Math.min(amount, effect.max ?? amount) * (VALUE[effect.stat] ?? 0) * 0.5
+    case 'growNeighbors': return NEIGHBOURS.good * amount * (VALUE[effect.stat] ?? 0) * 0.5
     case 'spendTreasury': return -amount
     case 'gainStatus': return amount * VALUE.status
     case 'consumeStatus': return -amount * VALUE.status
@@ -140,6 +143,10 @@ export function valueOfCardInDeck (card, catalog = {}) {
   return round2(card.exhaust ? once : once * (HORIZON / CYCLE))
 }
 
+/** Cards played a turn (for "every Nth card"), tokens played a turn, builds of a watched kind. */
+export const PLAYS_PER_TURN = 2
+export const TOKENS_PER_TURN = 0.6
+export const CITY_BUILDS = 2
 /** How many times a trigger fires over the horizon. */
 export const TIMES = {
   onBuild: 1,
@@ -148,18 +155,23 @@ export const TIMES = {
   onTurnStart: HORIZON,
   onDraw: HORIZON / CYCLE,
   onNeighborBuilt: NEIGHBOUR_BUILDS,
-  onClear: 0.5 * HORIZON // CLEARS_PER_TURN x HORIZON
+  onClear: 0.5 * HORIZON, // CLEARS_PER_TURN x HORIZON
+  onCityBuilt: CITY_BUILDS,
+  onAnyClear: 0.5 * HORIZON,
+  onTokenPlayed: TOKENS_PER_TURN * HORIZON,
+  onCombine: 0.3 * HORIZON
 }
 
 /** Budget for every effect on a card, counted by how often each trigger fires. */
-export function valueOfEffects (effects = {}, catalog = {}) {
-  return round2(Object.entries(effects).reduce((n, [trigger, list]) => n + (TIMES[trigger] ?? 1) * list.reduce((m, e) => m + valueOfEffect(e, catalog), 0), 0))
+export function valueOfEffects (effects = {}, catalog = {}, card = {}) {
+  const times = (trigger) => (trigger === 'onNthPlay' ? HORIZON * Math.min(1, PLAYS_PER_TURN / (card.every ?? 3)) : (TIMES[trigger] ?? 1))
+  return round2(Object.entries(effects).reduce((n, [trigger, list]) => n + times(trigger) * list.reduce((m, e) => m + valueOfEffect(e, catalog), 0), 0))
 }
 
 /** Budget for a card's "next door" rules, at the expected number of neighbours. */
 export function valueOfAdjacency (card) {
   return round2((card.adjacency?.statBonus ?? []).reduce((n, b) => {
-    const count = b.scope === 'city'
+    const count = b.scope === 'city' || b.scope === 'deck'
       ? Math.min(b.max ?? 99, CITY_COUNT) / (b.per ?? 1)
       : (b.amount > 0 ? NEIGHBOURS.good : NEIGHBOURS.bad)
     return n + b.amount * count * (VALUE[b.stat] ?? 0)
