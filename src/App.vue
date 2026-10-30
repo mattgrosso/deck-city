@@ -117,7 +117,7 @@
 
       <Overlay v-if="screen === 'title'" kind="title" eyebrow="A deck-building city builder" title="Deck City" :lines="['Three eras. Choose a mandate for each and meet it before the public runs out of patience.', 'Press A, Enter or click to start.']" hint="Start" :glyph="glyphs.select" @click="act('select', 'click')" />
 
-      <div v-if="playtest.on" class="pt" :class="`pt--${playtest.mic}`">
+      <div v-if="playtest.on && !['target', 'look', 'stats'].includes(mode)" class="pt" :class="`pt--${playtest.mic}`">
         <span class="pt__dot" />
         <span class="pt__state">{{ { phone: 'Playtest · listening on your phone', on: 'Playtest · listening', paused: 'Playtest · mic paused (press P twice)', denied: 'Playtest · the browser blocked the mic', unsupported: 'Playtest · this browser cannot transcribe', off: 'Playtest' }[playtest.mic] }} · {{ playtest.lines }} lines</span>
         <span v-if="playtest.heard" class="pt__heard">“{{ playtest.heard }}”</span>
@@ -165,7 +165,7 @@ import {
   createGame, effectiveCost, clearsOf, isInLimits, isWater,
   calcStatTotal, countCardsByTag, evaluateCondition, isBuildable, listConnectedEdges,
   previewPlacement, instanceStats, canCombine, canCombinePair, sizeOf, combineCost, combineOptions, calcBudget, calcUpkeep,
-  isMultiTile, shapeOf, footprint, placementProblem, marketPrice, roadSegmentsOf, policyMod, policyPrice, slotCapacity, computeTraffic, jamsIfBuilt, JAMS_PER_PATIENCE
+  isMultiTile, shapeOf, footprint, placementProblem, marketPrice, roadSegmentsOf, policyMod, policyPrice, slotCapacity, computeTraffic, discardsNeeded, jamsIfBuilt, JAMS_PER_PATIENCE
 } from '@/game/core'
 import { attachInput, GLYPHS } from '@/ui/input'
 import { stepCursor, nearestCell } from '@/ui/layout'
@@ -355,7 +355,7 @@ export default {
       if (this.mode !== 'combine' || !this.selectedCard) return ''
       return this.combinePair ? `Combine for ${this.combinePrice} budget` : `${this.selectedCard.name}: pick a building to combine it with`
     },
-    civicNeed () { void this.tick; return Math.min(2, this.game.state.hand.length - 1) },
+    civicNeed () { void this.tick; return this.selectedCard ? discardsNeeded(this.selectedCard) : 2 },
     civicPrompt () {
       if (this.mode !== 'civic' || !this.selectedCard) return ''
       const left = this.civicNeed - this.picks.length
@@ -811,7 +811,8 @@ export default {
         return
       }
       if (card.type === 'civic') {
-        if (this.game.state.hand.length < 2) return this.refuse('Nothing else in hand to discard.')
+        const need = discardsNeeded(card)
+        if (this.game.state.hand.length - 1 < need) return this.refuse(`${card.name} needs ${need} other cards in your hand to discard.`)
         this.selectedIndex = index
         this.picks = []
         this.mode = 'civic'
@@ -1199,13 +1200,13 @@ export default {
 .fs-btn__key { display: inline-grid; place-items: center; min-width: 22px; height: 22px; border-radius: 6px; background: #eef2f7; font-size: 12px; }
 .fs-btn--title { z-index: 41; right: 50%; transform: translateX(50%); bottom: 300px; font-size: 20px; padding: 10px 22px; }
 .build-stamp { position: absolute; right: 36px; bottom: 48px; margin: 0; font-size: 12px; color: var(--ink-3); z-index: 21; cursor: pointer; }
-.pt { position: absolute; right: 36px; bottom: 182px; z-index: 22; display: flex; align-items: center; gap: 10px; max-width: 520px; padding: 6px 14px; border-radius: 999px; background: #fff; border: 1.5px solid var(--line); font-size: 14px; font-weight: 700; color: var(--ink-2); box-shadow: 0 4px 14px rgba(27,33,48,0.12); }
+.pt { position: absolute; left: 36px; top: 128px; z-index: 22; display: flex; align-items: center; gap: 8px; max-width: 520px; padding: 4px 12px; font-size: 13px; border-radius: 999px; background: #fff; border: 1.5px solid var(--line); font-weight: 700; color: var(--ink-2); box-shadow: 0 4px 14px rgba(27,33,48,0.12); }
 .pt__dot { width: 10px; height: 10px; border-radius: 50%; background: var(--red); flex: none; animation: pt-pulse 1.4s ease-in-out infinite; }
 .pt--phone .pt__dot { background: #7a5cf0; }
 .pt--paused .pt__dot, .pt--denied .pt__dot, .pt--unsupported .pt__dot { animation: none; background: #b8c0cc; }
 .pt__heard { font-weight: 600; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 @keyframes pt-pulse { 50% { opacity: 0.35; } }
-.pt-qr { position: absolute; left: 36px; top: 130px; z-index: 22; display: flex; align-items: center; gap: 12px; padding: 10px 14px 10px 10px; border-radius: 14px; background: #fff; border: 2px solid #7a5cf0; box-shadow: 0 6px 20px rgba(27,33,48,0.15); font-size: 14px; font-weight: 600; color: var(--ink-2); line-height: 1.3; }
+.pt-qr { position: absolute; left: 36px; top: 168px; z-index: 22; display: flex; align-items: center; gap: 12px; padding: 10px 14px 10px 10px; border-radius: 14px; background: #fff; border: 2px solid #7a5cf0; box-shadow: 0 6px 20px rgba(27,33,48,0.15); font-size: 14px; font-weight: 600; color: var(--ink-2); line-height: 1.3; }
 .pt-qr img { width: 112px; height: 112px; display: block; }
 .pt-qr b { color: #3b2a8f; font-size: 15px; }
 .pt-note { position: absolute; left: 590px; top: 150px; transform: translateX(-50%); z-index: 22; max-width: 820px; padding: 14px 22px; border-radius: 14px; background: #fff; border: 2px solid #7a5cf0; font-size: 20px; font-weight: 600; line-height: 1.35; box-shadow: 0 8px 26px rgba(27,33,48,0.18); }

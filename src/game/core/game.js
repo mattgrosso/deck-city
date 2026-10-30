@@ -60,6 +60,11 @@ function assertPlaying (state) {
  * @param {boolean} [options.shuffleStartingDeck] - default true; tests turn it off to deal in list order
  * @param {() => number} [options.rng]
  */
+/** How many cards a civic card makes you discard when played (0 for most). */
+export function discardsNeeded (card) {
+  return (card.effects?.onPlay ?? []).filter(e => e.type === 'discardCards').reduce((n, e) => n + (e.amount ?? 1), 0)
+}
+
 export function createGame ({
   cardCatalog = [],
   startingDeckCardIds = [],
@@ -212,6 +217,10 @@ export function createGame ({
 
     const card = state.hand[index]
     if (card.type !== CARD_TYPES.CIVIC) throw new Error(`Card "${cardId}" is not a civic card`)
+    // A card that discards N takes exactly N (Matt, 2026-10-30: Civic Works took
+    // one card and still drew two).
+    const need = discardsNeeded(card)
+    if (discardCardIds.length !== need) throw new Error(`${card.name} needs ${need} other card${need === 1 ? '' : 's'} to discard`)
 
     state.hand.splice(index, 1)
     spendTreasury(state, effectiveCost(state, card))
@@ -259,6 +268,9 @@ export function createGame ({
     acquireFromRow(goalRow, goalId)
     addToDiscardPile(state.deck, [goal])
     state.goalsClaimedThisTurn = (state.goalsClaimedThisTurn ?? 0) + 1
+    // The reward printed on the goal (budget, cards, a policy). Never paid until
+    // 2026-10-30: Matt claimed "adopt a policy now" and no policy came.
+    resolveTrigger(goal, 'onComplete', { ...context, state })
     log.push(`Goal claimed: ${goal.name}. It is a Monument in your deck now: build it once and it's gone.`)
     return goal
   }

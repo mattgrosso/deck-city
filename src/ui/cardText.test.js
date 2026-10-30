@@ -28,6 +28,7 @@ describe('rulesFor', () => {
 
   it('states a goal\'s condition, reward, and what it becomes', () => {
     expect(rulesFor(goalCards.GOAL_CITY_BANK, catalog)).toEqual([
+      'Covers 3 plots in an L.',
       '+1 revenue, +1 population',
       'Needs 8 budget unspent at once.',
       'Single use: once built, the card is gone.',

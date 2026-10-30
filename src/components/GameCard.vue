@@ -61,7 +61,10 @@ export default {
       if (this.card.combo) return `${this.colors.label} · ${this.card.size} buildings`
       return this.colors.label
     },
-    rules () { return rulesFor(this.card, this.catalog) }
+    // A goal in hand is a Monument already claimed and paid: what it needed and
+    // what it paid out are history, and crowded the card (Grand Opening ran off
+    // its foot, 2026-10-30).
+    rules () { return rulesFor(this.card, this.catalog).filter(l => this.card.type !== 'goal' || !(l.startsWith('Needs ') || l.startsWith('When claimed'))) }
   }
 }
 </script>

@@ -13,7 +13,7 @@ const ROAD_CARD = { id: 'test-road', type: CARD_TYPES.BUILDING, name: 'Test Road
 const PLAIN_BUILDING_CARD = { id: 'test-building', type: CARD_TYPES.BUILDING, name: 'Test Building', cost: 1 }
 const CIVIC_CARD = {
   id: 'test-civic', type: CARD_TYPES.CIVIC, name: 'Test Civic', cost: 0,
-  effects: { onPlay: [{ type: 'discardCards' }, { type: 'drawCards', amount: 2 }] }
+  effects: { onPlay: [{ type: 'discardCards', amount: 2 }, { type: 'drawCards', amount: 2 }] }
 }
 
 describe('createGame', () => {
@@ -339,5 +339,33 @@ describe('monuments', () => {
     const all = [...s.deck.drawPile, ...s.deck.discardPile, ...s.hand]
     expect(all.some(c => c.id === monument.id)).toBe(false)
     expect(s.builtStructures.some(i => i.card.id === monument.id)).toBe(true)
+  })
+})
+
+describe('claiming a goal', () => {
+  it('pays the reward printed on it: the budget now and, from tier II, a policy pick', async () => {
+    const { runGameOptions } = await import('@/game/runSetup')
+    const game = createGame({ ...runGameOptions(), terrain: null })
+    game.actions.advance()
+    const s = game.state
+    game.actions.chooseMandate(s.run.offer[0].id)
+    game.actions.choosePolicy(s.run.policyOffer[0].id)
+    const goal = game.catalog['goal-school-district'] // tier II: +6 budget and a policy
+    game.goalRow.cards.splice(0, 1, goal)
+    s.builtStructures.push({ instanceId: 's#1', card: { id: 'school', type: 'building', tags: ['education'], stats: {} } }, { instanceId: 's#2', card: { id: 'school', type: 'building', tags: ['education'], stats: {} } })
+    game.actions.advance() // to the acquire phase
+    const before = s.treasury
+    game.actions.claimGoal(goal.id)
+    expect(s.treasury).toBe(before + 6)
+    expect(s.run.policyOffer).toHaveLength(3)
+  })
+})
+
+describe('a civic card that discards', () => {
+  it('takes exactly as many cards as it says (Civic Works: two, not one)', () => {
+    const game = createGame({ cardCatalog: [CIVIC_CARD, ...EXAMPLE_CARDS], startingDeckCardIds: ['road', 'road', 'test-civic'], handSize: 5, shuffleStartingDeck: false })
+    game.actions.advance()
+    expect(() => game.actions.playCivicCard('test-civic', ['road'])).toThrow(/needs 2/)
+    expect(game.state.hand.map(c => c.id)).toContain('test-civic') // nothing happened
   })
 })

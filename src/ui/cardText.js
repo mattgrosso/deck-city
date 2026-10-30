@@ -4,6 +4,8 @@
 // copy here - and an effect this file doesn't know is printed as its name
 // rather than hidden, so a missing sentence is visible, not silent.
 
+import { shapeOf } from '@/game/core/state/shapes'
+
 const TRIGGERS = {
   onBuild: 'When built',
   onTurnStart: 'Each turn',
@@ -137,6 +139,8 @@ export function rulesFor (card, catalog = {}) {
   if (card.exhaust && card.placesRoad) lines.push('One use: gone once laid.')
 
   if (card.madeFrom) lines.push(`${card.madeFrom.join(' + ')}, combined.`)
+  const plots = shapeOf(card).length
+  if (plots > 1) lines.push(`Covers ${plots} plots${card.shape === 'L3' ? ' in an L' : card.shape === 'O4' ? ', 2 by 2' : ''}.`)
 
   const stats = Object.entries(card.stats ?? {}).filter(([, v]) => v)
   if (stats.length) lines.push(stats.map(([k, v]) => `+${v} ${k}`).join(', '))

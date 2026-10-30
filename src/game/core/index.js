@@ -5,7 +5,7 @@
 import './effects/coreEffects' // registers the starter effect vocabulary as a side effect
 import './conditions/coreConditions' // registers the starter condition vocabulary as a side effect
 
-export { createGame } from './game'
+export { createGame, discardsNeeded } from './game'
 
 export { CARD_TYPES, validateCard, buildCardCatalog } from './cards/cardSchema'
 export * as exampleCards from './cards/exampleCards'

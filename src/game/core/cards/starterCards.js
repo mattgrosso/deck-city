@@ -117,7 +117,7 @@ export const CIVIC_RECYCLE = {
   tags: ['civic'],
   effects: {
     onPlay: [
-      { type: 'discardCards' },
+      { type: 'discardCards', amount: 2 },
       { type: 'drawCards', amount: 2 }
     ]
   }
