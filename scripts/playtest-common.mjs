@@ -24,6 +24,7 @@ export async function liveSession ({ ended = false } = {}) {
   const all = (await db.ref(ROOT).get()).val() || {}
   let best = null; let bestAt = 0
   for (const [id, s] of Object.entries(all)) {
+    if (id === 'live' || typeof s !== 'object') continue // the TV's pointer for the phone mic, not a session
     if (!s?.on && !ended) continue
     const newest = Math.max(1, ...Object.values(s.lines || {}).map(l => l.at || 0))
     if (newest >= bestAt) { best = id; bestAt = newest }

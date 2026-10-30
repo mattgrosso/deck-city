@@ -4,9 +4,9 @@
 import { db, ROOT, liveSession, fmt, arg } from './playtest-common.mjs'
 
 let session = await liveSession()
+if (!session) console.log('No playtest switched on yet; waiting (pause menu → Playtest mode, or P).')
 while (!session) {
-  console.log('No playtest switched on yet; waiting (pause menu → Playtest mode, or P).')
-  await new Promise(resolve => setTimeout(resolve, 15000))
+  await new Promise(resolve => setTimeout(resolve, 10000))
   session = await liveSession()
 }
 console.log(`PLAYTEST ${session} — listening`)
