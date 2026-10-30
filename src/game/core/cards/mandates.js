@@ -19,7 +19,7 @@ export const MANDATES = [
   m('mill-town', 'Mill Town', 1, all(jobs(45), tagged('industrial', 6)), 'Smokestacks and a paycheck for everyone.'),
   m('garden-suburb', 'Garden Suburb', 1, all(pop(32), tagged('green', 4), { type: 'statusCountAtMost', tag: 'crime', amount: 3 }), 'Lawns, trees, and nobody locks their door.'),
   m('boomtown', 'Boomtown', 1, pop(42), 'Just grow. Fast.'),
-  m('clean-start', 'Clean Start', 1, all(pop(30), badAtMost(3)), 'A town with nothing to hide.'),
+  m('clean-start', 'Clean Start', 1, all(pop(30), badAtMost(5)), 'A town with nothing to hide.'),
   // ---- Era II: the city
   m('rail-city', 'Rail City', 2, all(pop(85), tagged('transit', 4)), 'Everyone gets there by train.'),
   m('industrial-powerhouse', 'Industrial Powerhouse', 2, all(jobs(120), tagged('industrial', 12)), 'The factory floor of the nation.'),

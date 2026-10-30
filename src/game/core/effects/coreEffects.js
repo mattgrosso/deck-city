@@ -6,6 +6,7 @@
 // game/core/index.js) once before resolving any card effects.
 
 import { registerEffect } from './effectRegistry'
+import { queuePolicyPick } from '../cards/policies'
 import {
   addTreasury,
   spendTreasury,
@@ -25,6 +26,13 @@ registerEffect('gainTreasury', (effect, { state, log }) => {
 })
 
 // A loss takes what there is: with upkeep a disaster can strike an empty purse.
+// A goal's reward: a policy pick, one of three (cards/policies.js).
+registerEffect('offerPolicy', (effect, { state, log }) => {
+  if (!state.run) return
+  queuePolicyPick(state, state.deck.rng, 'Goal reached')
+  log?.push('The council offers a policy.')
+})
+
 registerEffect('spendTreasury', (effect, { state, log }) => {
   const lost = Math.min(effect.amount, state.treasury)
   if (lost) spendTreasury(state, lost)
@@ -170,10 +178,19 @@ registerEffect('clearAnyStatus', (effect, { state, log }) => {
 })
 
 /** Puts `amount` copies of a card (a token: Tourist, Commuter...) into your discard pile. */
+// `max`: never more than that many of the card in the deck (per-turn token
+// makers - a Museum's Tourists - would otherwise pile up without end).
+const roomFor = (state, card, n, max) => {
+  if (max == null) return n
+  const have = [...state.deck.drawPile, ...state.deck.discardPile, ...state.hand].filter(c => c.id === card.id).length
+  return Math.max(0, Math.min(n, max - have))
+}
+
 registerEffect('gainCard', (effect, { state, catalog, log }) => {
   const card = catalog?.[effect.card]
   if (!card) return
-  const n = effect.amount ?? 1
+  const n = roomFor(state, card, effect.amount ?? 1, effect.max)
+  if (!n) return
   addToDiscardPile(state.deck, Array(n).fill(card))
   log?.push(`+${n} ${card.name} card${n === 1 ? '' : 's'} in your deck.`)
 })
@@ -181,8 +198,9 @@ registerEffect('gainCard', (effect, { state, catalog, log }) => {
 /** One copy of a card per neighbour tagged targetTag. */
 registerEffect('gainCardPerAdjacent', (effect, { state, catalog, log, instanceId }) => {
   const card = catalog?.[effect.card]
-  const n = neighborsOf(state, instanceId).filter(i => hasTag(i, effect.targetTag)).length
-  if (!card || !n) return
+  if (!card) return
+  const n = roomFor(state, card, neighborsOf(state, instanceId).filter(i => hasTag(i, effect.targetTag)).length, effect.max)
+  if (!n) return
   addToDiscardPile(state.deck, Array(n).fill(card))
   log?.push(`+${n} ${card.name} card${n === 1 ? '' : 's'} in your deck.`)
 })

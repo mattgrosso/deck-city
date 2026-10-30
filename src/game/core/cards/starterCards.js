@@ -5,6 +5,22 @@
 
 import { CARD_TYPES } from './cardSchema'
 
+// The supply's Road (2026-10-29): one use. Self-play decks carried 15-30
+// Road cards, every one bought from the supply and never gone again; a
+// permit lays its segments and leaves. The starting Roads stay, and combine.
+export const STREET_PERMIT = {
+  id: 'street-permit',
+  type: CARD_TYPES.BUILDING,
+  name: 'Street Permit',
+  cost: 1,
+  price: 1,
+  placesRoad: true,
+  roadSegments: 2,
+  exhaust: true,
+  tags: ['infrastructure'],
+  flavor: 'Two street segments, then it is gone.'
+}
+
 export const ROAD = {
   id: 'road',
   type: CARD_TYPES.BUILDING,
@@ -109,7 +125,7 @@ export const CIVIC_RECYCLE = {
 
 /** Every unique card used by the starter deck — pass as createGame's cardCatalog. */
 export const STARTER_CARD_CATALOG = [
-  ROAD, RESIDENTIAL, COMMERCIAL, INDUSTRIAL, CIVIC_RECYCLE, CRIME, TRASH, POLLUTION
+  ROAD, STREET_PERMIT, RESIDENTIAL, COMMERCIAL, INDUSTRIAL, CIVIC_RECYCLE, CRIME, TRASH, POLLUTION
 ]
 
 /** The 10-card starting deck: 3 Road, 2 Residential, 2 Commercial, 2 Industrial, 1 Civic Works. */

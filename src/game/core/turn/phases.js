@@ -16,7 +16,8 @@ import { resolveTrigger } from '../effects/effectRegistry'
 import { draw, discardCards, addToDrawPile, addToDiscardPile, shuffle } from '../piles/deck'
 import { expireOldest, expireLowestValue, tickTimers } from '../piles/row'
 import { drainPatience } from './run'
-import { policyMod } from '../cards/policies'
+import { policyMod, policyBudget } from '../cards/policies'
+import { jamToll } from '../state/traffic'
 
 /**
  * Shuffles a random disaster card (from ctx.disasterCards, resolved by
@@ -144,9 +145,9 @@ export const DEFAULT_PHASES = [
       const fromBuildings = calcStatTotal(ctx.state, 'revenue')
       const base = ctx.baseRevenue ?? 0
       const upkeep = calcUpkeep(ctx.state)
-      const fromPolicies = policyMod(ctx.state, 'budget') // Tax Reform, Austerity
+      const fromPolicies = policyBudget(ctx.state) + jamToll(ctx.state) // Tax Reform, Merchant Guild, Congestion Charge
       const revenue = Math.max(0, fromBuildings + base + fromPolicies - upkeep)
-      const rollover = Math.min(ctx.state.treasury, ctx.state.treasuryRolloverCap ?? 0)
+      const rollover = Math.min(ctx.state.treasury, (ctx.state.treasuryRolloverCap ?? 0) + policyMod(ctx.state, 'rollover'))
       ctx.state.treasury = revenue + rollover
       ctx.state.goalsClaimedThisTurn = 0
       ctx.state.buys = (ctx.buysPerTurn ?? 1) + sumPassive(ctx.state, 'buysBonus') + policyMod(ctx.state, 'buys')

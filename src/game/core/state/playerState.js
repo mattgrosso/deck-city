@@ -9,7 +9,8 @@ import { resolveTrigger } from '../effects/effectRegistry'
 import { createCityGrid, placeInstance, addRoadEdge, seedStartingRoads, instanceAt } from './cityGrid'
 import { WATERFRONT, touchesWater } from './terrain'
 import { footprint } from './shapes'
-import { policyMod, policyList, policyRulesFor } from '../cards/policies'
+import { policyMod, policyList, policyRulesFor, slotCapacity, policyBudget } from '../cards/policies'
+import { isMultiTile } from './shapes'
 
 /**
  * @param {Object} options
@@ -352,7 +353,11 @@ export function effectiveCost (state, card) {
     const list = Array.isArray(inst.card.discount) ? inst.card.discount : (inst.card.discount ? [inst.card.discount] : [])
     for (const d of list) if (card.tags?.includes(d.tag)) off += d.amount
   }
-  for (const d of policyList(state, 'discount')) if (card.tags?.includes(d.tag)) off += d.amount // Industrial Subsidy
+  for (const d of policyList(state, 'discount')) if (card.tags?.includes(d.tag)) off += d.amount // Industrial Subsidy, Land Trust
+  if (card.type === 'building' && !card.placesRoad) {
+    off += policyMod(state, 'costAll') // Fast-Track Permits
+    if (isMultiTile(card)) off += policyMod(state, 'multiDiscount') // Planning Board
+  }
   return Math.max(0, base - off)
 }
 
@@ -367,12 +372,12 @@ export function calcUpkeep (state) {
   if (!u?.per) return 0
   const freeTags = policyList(state, 'upkeepFreeTags') // Rent Control
   const count = state.builtStructures.filter(i => i.card.type === 'building' && !freeTags.some(t => i.card.tags?.includes(t))).length
-  return Math.max(0, count - (u.free ?? 0) - policyMod(state, 'upkeepFree')) * u.per
+  return Math.max(0, count - (u.free ?? 0) - policyMod(state, 'upkeepFree')) * u.per * Math.max(1, policyMod(state, 'upkeepMult')) // Big Government doubles it
 }
 
 /** Next turn's budget before anything carried over: revenue less upkeep, never below zero. */
 export function calcBudget (state, baseRevenue = 0) {
-  return Math.max(0, calcStatTotal(state, 'revenue') + baseRevenue + policyMod(state, 'budget') - calcUpkeep(state))
+  return Math.max(0, calcStatTotal(state, 'revenue') + baseRevenue + policyBudget(state) - calcUpkeep(state))
 }
 
 /** Status kinds a facility clears: `clears` is one tag or a list. */
@@ -419,7 +424,7 @@ export function clearStatusCard (state, cardId) {
   const card = state.hand[index]
   if (card.type !== 'status') throw new Error(`${card.name} is not a status card`)
   const tag = card.id
-  const instance = state.builtStructures.find(i => clearsOf(i.card).includes(tag) && i.slots && i.slots.used < i.slots.capacity)
+  const instance = state.builtStructures.find(i => clearsOf(i.card).includes(tag) && i.slots && i.slots.used < slotCapacity(state, i))
   if (!instance) throw new Error(`No free slot for ${card.name}`)
   state.hand.splice(index, 1)
   instance.slots.used += 1

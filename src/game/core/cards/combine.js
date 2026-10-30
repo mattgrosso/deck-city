@@ -90,9 +90,14 @@ export const NAMES = {
   'transit+transit': ['Interchange', 'Grand Terminal']
 }
 
-/** May this card be combined? Buildings only; not Roads, goals or one-of-a-kinds. */
+// Streets combine too (Matt: "road cards could also combine into avenues
+// and then highways"): two Roads make a Boulevard, two Boulevards a Highway.
+export const ROAD_LADDER = { road: 'boulevard', boulevard: 'highway' }
+
+/** May this card be combined? Buildings (not goals or one-of-a-kinds), and Roads up the ladder. */
 export function canCombine (card) {
-  return !!card && card.type === CARD_TYPES.BUILDING && !card.placesRoad && !card.unique
+  if (!card || card.type !== CARD_TYPES.BUILDING || card.unique || card.exhaust) return false
+  return card.placesRoad ? !!ROAD_LADDER[card.id] : true
 }
 
 // The repeatable names, for anything bigger than a pair.
@@ -103,7 +108,9 @@ export const sizeOf = (card) => card.size ?? 1
 
 /** May these two combine with each other? Both combinable, and the same size. */
 export function canCombinePair (a, b) {
-  return canCombine(a) && canCombine(b) && sizeOf(a) === sizeOf(b)
+  if (!canCombine(a) || !canCombine(b)) return false
+  if (a.placesRoad || b.placesRoad) return a.id === b.id // a street only with the same street
+  return sizeOf(a) === sizeOf(b)
 }
 
 // A short, stable id for a combined card: the same pair always makes the same two.
@@ -164,7 +171,8 @@ const lean = (card, stat) => {
 }
 
 /** The two cards combining `a` and `b` would offer. Deterministic: same pair, same two cards. */
-export function combineOptions (a, b) {
+export function combineOptions (a, b, catalog = null) {
+  if (a.placesRoad) return catalog?.[ROAD_LADDER[a.id]] ? [catalog[ROAD_LADDER[a.id]]] : []
   const [first, second] = [a, b].sort((x, y) => (buildingFamily(x) < buildingFamily(y) ? -1 : buildingFamily(x) > buildingFamily(y) ? 1 : 0))
   const fa = buildingFamily(first)
   const fb = buildingFamily(second)

@@ -90,3 +90,26 @@ describe('combining', () => {
     expect(() => game.actions.combineCards('residential', 'road')).toThrow(/Only buildings/)
   })
 })
+
+describe('streets combine', () => {
+  it('two Roads make a Boulevard, two Boulevards a Highway; a permit is used up when laid', async () => {
+    const { runGameOptions: opts } = await import('@/game/runSetup')
+    const game = createGame({ ...opts(), terrain: null })
+    game.actions.advance()
+    game.actions.chooseMandate(game.state.run.offer[0].id)
+    const s = game.state; const c = game.catalog
+    expect(canCombinePair(c.road, c.road)).toBe(true)
+    expect(canCombinePair(c.road, c.residential)).toBe(false)
+    expect(canCombine(c['street-permit'])).toBe(false)
+    s.hand.splice(0, s.hand.length, c.road, c.road)
+    s.treasury = 10
+    expect(game.actions.combineCards('road', 'road', 0).id).toBe('boulevard')
+    expect(s.deck.discardPile.at(-1).id).toBe('boulevard')
+    expect(combineOptions(c.boulevard, c.boulevard, c)[0].id).toBe('highway')
+    s.hand.push(c['street-permit'])
+    const before = s.deck.discardPile.length
+    const key = (await import('../index')).listConnectedEdges(s.cityGrid)[0].key
+    game.actions.playCard('street-permit', { edges: [key] })
+    expect(s.deck.discardPile.length).toBe(before) // gone, not discarded
+  })
+})

@@ -31,7 +31,7 @@ describe('rulesFor', () => {
       '+1 revenue, +1 population',
       'Needs 8 budget unspent at once.',
       'Single use: once built, the card is gone.',
-      'When claimed: +3 budget, keep up to 10 unspent budget between turns.'
+      'When claimed: +3 budget, keep up to 10 unspent budget between turns, adopt a policy (choose one of three).'
     ])
   })
 

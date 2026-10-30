@@ -24,7 +24,14 @@
     <div class="market__row">
       <div class="market__head">
         <span class="market__title">City row <span class="market__buys" :class="{ 'market__buys--none': buys < 1 }">{{ buys }} {{ buys === 1 ? 'buy' : 'buys' }} left</span></span>
-        <span class="market__note">The coin builds it; the tag buys it</span>
+        <span v-if="!forSale.length" class="market__note">The coin builds it; the tag buys it</span>
+        <span
+          v-for="(item, k) in forSale" :key="`p${k}`" class="market__supply market__supply--policy"
+          :class="{ 'focus-ring': isFocused(0, cityRow.length + supply.length + k), 'market__supply--cant': active && item.price > treasury }"
+          :title="item.policy.text"
+          @mouseenter="$emit('focus', { row: 0, index: cityRow.length + supply.length + k })"
+          @click="$emit('select', { row: 0, index: cityRow.length + supply.length + k })"
+        >Policy: {{ item.name }} <span class="market__chip-price">{{ item.price }}</span></span>
       </div>
       <div class="market__cards">
         <div
@@ -70,7 +77,7 @@ export default {
     cityRow: Array, goalRow: Array, goalTimers: { type: Array, default: () => [] }, catalog: Object, treasury: Number,
     state: Object, tick: { type: Number, default: 0 }, buys: { type: Number, default: 1 },
     active: Boolean, focus: Object, goalMet: Function, goalsLeft: Number,
-    mandate: { type: Object, default: null }, supply: { type: Array, default: () => [] }
+    mandate: { type: Object, default: null }, supply: { type: Array, default: () => [] }, forSale: { type: Array, default: () => [] }
   },
   emits: ['focus', 'select'],
   methods: {
@@ -114,6 +121,7 @@ export default {
 .market__always .market__supply { padding: 3px 9px; }
 .market__chip-price { display: inline-grid; place-items: center; min-width: 18px; height: 18px; margin-left: 4px; border-radius: 50%; background: var(--gold); color: #2e2000; font-size: 11px; }
 .market__dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+.market__supply--policy { border-color: #7a5cf0; color: #3b2a8f; }
 .market__supply .muted { color: var(--ink-3); font-weight: 600; }
 .market__supply.focus-ring { outline: 3px solid var(--focus); outline-offset: 2px; }
 .market__supply--cant { opacity: 0.55; }

@@ -15,6 +15,7 @@ const part = (model, o = {}) => ({ model, scale: 1, dx: 0, dz: 0, yaw: 0, ...o }
 export const CARD_ART = {
   // `street` parts are built from src/world/streets.js, the same geometry the board uses.
   road: scene([{ street: 'edge', axis: 'x', length: 2.2, dx: 0, dz: 0 }, { street: 'node', arms: ['e'], dx: -1.34, dz: 0 }, { street: 'node', arms: ['w'], dx: 1.34, dz: 0 }, part('roads/light-curved', { dx: 0.4, dz: 0.42, scale: 1.0 }), part('suburban/tree-small', { dx: -0.7, dz: -0.5, scale: 1.1 })], { ground: 'field', zoom: 0.95 }),
+  'street-permit': scene([{ street: 'edge', axis: 'x', length: 2.2, dx: 0, dz: 0 }, { street: 'node', arms: ['e'], dx: -1.34, dz: 0 }, { street: 'node', arms: ['w'], dx: 1.34, dz: 0 }, part('roads/construction-cone', { dx: 0.4, dz: 0.42, scale: 1.6 }), part('roads/construction-barrier', { dx: -0.6, dz: -0.45, scale: 1.4 })], { ground: 'field', zoom: 0.95 }),
   residential: scene(RECIPES.residential.variants[0].parts.map(p => part(p.model, { scale: 1 }))),
   commercial: scene(RECIPES.commercial.variants[0].parts.map(p => part(p.model, { scale: 1 }))),
   industrial: scene(RECIPES.industrial.variants[0].parts.map(p => part(p.model, { scale: 1 }))),

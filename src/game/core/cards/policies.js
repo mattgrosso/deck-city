@@ -27,7 +27,24 @@ export const POLICIES = [
   { id: 'waterfront-plan', name: 'Waterfront Plan', text: 'Waterfront bonuses count double.', mods: { waterfrontMult: 2 } },
   { id: 'landmark-status', name: 'Landmark Status', text: 'Buildings on 2 or more plots: +1 revenue.', rules: [{ multiTile: true, stat: 'revenue', amount: 1 }] },
   { id: 'austerity', name: 'Austerity', text: '+4 budget every turn, but draw 1 fewer card.', mods: { budget: 4, handSize: -1 }, tradeoff: true },
-  { id: 'night-economy', name: 'Night Economy', text: 'Leisure and culture: +2 revenue each. Patience drains 1 more every turn.', rules: [{ tags: ['leisure', 'culture', 'tourism'], stat: 'revenue', amount: 2 }], mods: { drainMore: 1 }, tradeoff: true }
+  { id: 'night-economy', name: 'Night Economy', text: 'Leisure and culture: +2 revenue each. Patience drains 1 more every turn.', rules: [{ tags: ['leisure', 'culture', 'tourism'], stat: 'revenue', amount: 2 }], mods: { drainMore: 1 }, tradeoff: true },
+  // More, so a run that earns ten of them still sees new ones (2026-10-29).
+  { id: 'tourism-board', name: 'Tourism Board', text: 'Every landmark: +2 revenue.', rules: [{ tags: ['landmark'], stat: 'revenue', amount: 2 }] },
+  { id: 'school-funding', name: 'School Funding', text: 'Every school: +2 people (families move in).', rules: [{ tags: ['education'], stat: 'population', amount: 2 }] },
+  { id: 'sanitation-act', name: 'Sanitation Act', text: 'Every building that takes bad cards takes 1 more a turn.', mods: { slotBonus: 1 } },
+  { id: 'rapid-transit', name: 'Rapid Transit', text: 'Transit: +1 revenue each, and carries 2 more traffic nearby.', rules: [{ tags: ['transit'], stat: 'revenue', amount: 1 }], mods: { trafficRelief: 2 } },
+  { id: 'congestion-charge', name: 'Congestion Charge', text: 'Traffic jams cost no patience: each jammed street pays 1 budget a turn instead.', mods: { jamToll: 1 } },
+  { id: 'one-way-streets', name: 'One-Way Streets', text: 'Every street carries 2 more traffic.', mods: { laneBonus: 2 } },
+  { id: 'zoning-board', name: 'Planning Board', text: 'Buildings on 2 or more plots cost 2 less to build.', mods: { multiDiscount: 2 } },
+  { id: 'land-trust', name: 'Land Trust', text: 'Green spaces cost 2 less to build.', mods: { discount: [{ tag: 'green', amount: 2 }] } },
+  { id: 'enterprise-zone', name: 'Enterprise Zone', text: 'Every factory: +1 revenue.', rules: [{ tags: ['industrial'], stat: 'revenue', amount: 1 }] },
+  { id: 'job-guarantee', name: 'Job Guarantee', text: 'Unemployment never drains patience.', mods: { noUnemployment: 1 } },
+  { id: 'rainy-day-fund', name: 'Rainy Day Fund', text: 'Keep up to 6 unspent budget between turns.', mods: { rollover: 6 } },
+  { id: 'mass-housing', name: 'Mass Housing', text: 'Dense homes: +2 people each.', rules: [{ tags: ['dense'], stat: 'population', amount: 2 }] },
+  { id: 'merchant-guild', name: 'Merchant Guild', text: '+1 budget every turn for every 3 shops.', mods: { budgetPer: [{ tag: 'commercial', per: 3 }] } },
+  { id: 'arts-patronage', name: 'Arts Patronage', text: 'Every culture building: +1 patience a turn.', mods: { patienceTags: [{ tag: 'culture', amount: 1 }] } },
+  { id: 'fast-track', name: 'Fast-Track Permits', text: 'Every building costs 1 less to build, but city row prices are 1 more.', mods: { costAll: 1, priceDiscount: -1 }, tradeoff: true },
+  { id: 'big-government', name: 'Big Government', text: 'Draw 1 more card and +1 buy every turn, but upkeep is doubled.', mods: { handSize: 1, buys: 1, upkeepMult: 2 }, tradeoff: true, rare: true }
 ]
 
 export const policyById = (id) => POLICIES.find(p => p.id === id)
@@ -62,6 +79,42 @@ export function policyPatience (state) {
   return n
 }
 
+// ---- earning policies (Matt: "you get more relics than that in Slay the
+// Spire... relics should be something we can earn in other ways as well").
+// A pick is one of three; picks that arrive while one is open wait their
+// turn (run.policyQueue). Sources: the start of a run, every election won,
+// population milestones, tier II and III goals, and the one for sale (one
+// each era: it restocks when an era opens, not when it is bought).
+
+/** Population marks that earn a policy, each once a run. */
+export const MILESTONES = [30, 70, 130, 200, 300]
+
+/** Queue a pick of three. `reason` heads the offer screen. */
+export function queuePolicyPick (state, rng, reason, { first = false } = {}) {
+  const run = state.run
+  if (!run) return
+  if (run.policyOffer?.length) { run.policyQueue = [...(run.policyQueue ?? []), reason]; return }
+  run.policyOffer = offerPolicies(state, rng, { first })
+  run.policyReason = reason
+}
+
+/** After a pick: the next one waiting, if any. */
+export function nextPolicyPick (state, rng) {
+  const run = state.run
+  const reason = run.policyQueue?.shift()
+  if (reason) { run.policyOffer = offerPolicies(state, rng); run.policyReason = reason }
+}
+
+/** What the policy for sale costs: dearer the more the city has. */
+export const policyPrice = (state) => 10 + 4 * (state.policies?.length ?? 0)
+
+/** Put a new policy up for sale (one the city doesn't have, not on offer). */
+export function restockPolicy (state, rng) {
+  const skip = new Set((state.run?.policyOffer ?? []).map(p => p.id))
+  const pool = offerPolicies(state, rng, { count: 6 }).filter(p => !skip.has(p.id))
+  state.policyForSale = pool[0] ?? null
+}
+
 /** Three policies the city doesn't have, by the game's rng; the first offer of a run leaves out the rare ones. */
 export function offerPolicies (state, rng, { count = 3, first = false } = {}) {
   const owned = new Set((state.policies ?? []).map(p => p.id))
@@ -75,6 +128,16 @@ export function offerPolicies (state, rng, { count = 3, first = false } = {}) {
 
 /** What a card costs at the city row. */
 export const marketPrice = (state, card) => Math.max(card.price ?? card.cost ?? 0 ? 1 : 0, (card.price ?? card.cost ?? 0) - policyMod(state, 'priceDiscount'))
+
+/** How many bad cards a clearing building takes a turn (Sanitation Act adds one). */
+export const slotCapacity = (state, instance) => (instance.slots?.capacity ?? 0) + policyMod(state, 'slotBonus')
+
+/** Budget a turn from policies: flat (Tax Reform) and per building (Merchant Guild). */
+export function policyBudget (state) {
+  let n = policyMod(state, 'budget')
+  for (const { tag, per } of policyList(state, 'budgetPer')) n += Math.floor(state.builtStructures.filter(i => (i.card.tags ?? []).includes(tag)).length / per)
+  return n
+}
 
 /** How many street segments a Road card lays. */
 export const roadSegmentsOf = (state, card) => (card.roadSegments ?? 2) + policyMod(state, 'roadSegments')

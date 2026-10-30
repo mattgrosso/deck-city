@@ -5,7 +5,7 @@ import { runGameOptions } from '@/game/runSetup'
 import { valueOfBuild } from '@/game/core/economy/priceList'
 import {
   createGame,
-  calcStatTotal, computeTraffic, effectiveCost, isMultiTile, placementProblem, canCombine, canCombinePair, combineCost, isCellEmpty, isBuildable, listConnectedEdges, evaluateCondition, previewPlacement, clearsOf
+  POLICIES, calcStatTotal, computeTraffic, slotCapacity, policyPrice, marketPrice, effectiveCost, isMultiTile, placementProblem, canCombine, canCombinePair, combineCost, isCellEmpty, isBuildable, listConnectedEdges, evaluateCondition, previewPlacement, clearsOf
 } from '@/game/core'
 
 const GAMES = Number(process.argv[2] ?? 20)
@@ -21,21 +21,27 @@ function play () {
   const s = game.state
   const pop = () => calcStatTotal(s, 'population')
   game.actions.advance()
+  // FORCE=<policy id>: start with just that policy and take no others (to measure one); NOPICK=1: none at all.
+  if (process.env.FORCE || process.env.NOPICK) { s.policies = process.env.FORCE ? [POLICIES.find(p => p.id === process.env.FORCE)] : []; s.run.policyOffer = []; s.policyForSale = null; s.run.policyQueue = [] }
   let turn = 1
   for (; turn <= 200 && s.gameStatus === 'playing'; turn++) {
-    if (s.run?.policyOffer?.length) game.actions.choosePolicy(s.run.policyOffer[Math.floor(rng() * s.run.policyOffer.length)].id)
+    if (process.env.FORCE || process.env.NOPICK) { s.run.policyOffer = []; s.run.policyQueue = []; s.policyForSale = null }
+    while (s.run?.policyOffer?.length) game.actions.choosePolicy(s.run.policyOffer[Math.floor(rng() * s.run.policyOffer.length)].id)
     if (s.run?.status === 'choosing') game.actions.chooseMandate(s.run.offer[0].id)
     // Build: clear status cards, play tokens and civics, then the best-value buildings, roads when stuck.
     if (process.env.TRACE && turn % 4 === 0) console.log(`t${turn} budget ${s.treasury} hand ${s.hand.map(c => `${c.id}(${effectiveCost(s, c)})`).join(' ')}`)
     for (let guard = 0; guard < 20; guard++) {
       const hand = s.hand
-      const status = hand.find(c => c.type === 'status' && s.builtStructures.some(i => clearsOf(i.card).includes(c.id) && i.slots && i.slots.used < i.slots.capacity))
+      const status = hand.find(c => c.type === 'status' && s.builtStructures.some(i => clearsOf(i.card).includes(c.id) && i.slots && i.slots.used < slotCapacity(s, i)))
       if (status) { game.actions.clearStatus(status.id); continue }
       const civic = hand.find(c => c.type === 'civic' && !(c.effects?.onPlay ?? []).some(e => e.type === 'discardCards') && effectiveCost(s, c) <= s.treasury)
       if (civic) { game.actions.playCivicCard(civic.id); continue }
       const grid = s.cityGrid
       const cells = []
       for (let y = 0; y < grid.height; y++) for (let x = 0; x < grid.width; x++) if (isCellEmpty(grid, x, y) && isBuildable(grid, x, y)) cells.push({ x, y })
+      // A one-use Street Permit in hand is laid now (it was bought to be used).
+      const permit = hand.find(c => c.exhaust && c.placesRoad && effectiveCost(s, c) <= s.treasury)
+      if (permit && cells.length < 10) { const e = listConnectedEdges(grid); if (e.length) { const a = e[Math.floor(rng() * e.length)].key; const more = listConnectedEdges(grid, [a]); game.actions.playCard(permit.id, { edges: more.length ? [a, more[0].key] : [a] }); continue } }
       // Lay streets ahead: keep at least four plots open.
       const roadCard = hand.find(c => c.placesRoad && effectiveCost(s, c) <= s.treasury)
       if (roadCard && cells.length < 4) { const e = listConnectedEdges(grid); if (e.length) { const a = e[Math.floor(rng() * e.length)].key; const more = listConnectedEdges(grid, [a]); game.actions.playCard(roadCard.id, { edges: more.length ? [a, more[0].key] : [a] }); continue } }
@@ -70,9 +76,12 @@ function play () {
     if (s.run?.status === 'playing' && s.run.mandate && evaluateCondition(s.run.mandate.condition, { state: s, catalog: game.catalog }) && process.env.EARLY !== '0') {
       game.actions.callElection()
       if (s.gameStatus !== 'playing') break
+      if (process.env.FORCE || process.env.NOPICK) { s.run.policyOffer = []; s.run.policyQueue = []; s.policyForSale = null }
       if (s.run.policyOffer?.length) game.actions.choosePolicy(s.run.policyOffer[0].id)
       game.actions.chooseMandate(s.run.offer[0].id)
     }
+    // Spare budget at the end of buying? The policy for sale.
+    if (process.env.NOSHOP !== '1' && s.policyForSale && s.treasury >= policyPrice(s) + 4) game.actions.buyPolicy()
     const goal = game.goalRow.cards.find(g => evaluateCondition(g.condition, { state: s, catalog: game.catalog }))
     if (goal) game.actions.claimGoal(goal.id)
     // Buy: the best value for money, but a clearer first for whatever bad
@@ -85,11 +94,11 @@ function play () {
       for (let y = 0; y < g.height; y++) for (let x = 0; x < g.width; x++) if (isCellEmpty(g, x, y) && isBuildable(g, x, y)) open++
       const roads = s.deck.drawPile.concat(s.deck.discardPile, s.hand).filter(c => c.placesRoad).length
       const deckSize = s.deck.drawPile.length + s.deck.discardPile.length + s.hand.length
-      if (s.buys > 0 && open < 6 && roads < deckSize / 6 && s.treasury >= 1) game.actions.acquireCard('road')
+      if (s.buys > 0 && open < 6 && roads < deckSize / 6 && s.treasury >= 1) game.actions.acquireCard('street-permit')
     }
     while (s.buys > 0) {
-      const affordable = game.cityRow.cards.filter(c => (c.price ?? c.cost) <= s.treasury)
-      const services = game.supply.filter(c => !c.placesRoad && (c.price ?? c.cost) <= s.treasury)
+      const affordable = game.cityRow.cards.filter(c => marketPrice(s, c) <= s.treasury)
+      const services = game.supply.filter(c => !c.placesRoad && marketPrice(s, c) <= s.treasury)
       if (!affordable.length && !services.length) break
       const worst = badKinds[0]
       const clearer = worst[1] >= 3 && [...affordable, ...services].find(c => clearsOf(c).includes(worst[0]) && !deckOwns(c) && !s.builtStructures.some(i => clearsOf(i.card).includes(worst[0])))
@@ -103,8 +112,9 @@ function play () {
     DRAIN.__turns = (DRAIN.__turns ?? 0) + 1
   }
   const deckAll = s.deck.drawPile.concat(s.deck.discardPile, s.hand)
+  if (process.env.DECK) { const c = {}; for (const x of deckAll) c[x.id] = (c[x.id] ?? 0) + 1; console.log(Object.entries(c).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, v]) => k + ' ' + v).join(', '), '| policies:', s.policies.map(p => p.id).join(' ')) }
   const tr = computeTraffic(s)
-  STATS.push({ jams: tr.jammed.length, streets: s.cityGrid.roads.size, trips: tr.trips, bad: deckAll.filter(c => c.type === 'status' || c.type === 'disaster').length, buildingsCards: deckAll.filter(c => c.type === 'building').length, civic: deckAll.filter(c => c.type === 'civic').length, clearers: s.builtStructures.filter(i => clearsOf(i.card).length).length, budget: calcStatTotal(s, 'revenue'), jobs: calcStatTotal(s, 'jobs'), plays: PLAYS.n / Math.max(1, turn) })
+  STATS.push({ policies: s.policies.length, jams: tr.jammed.length, streets: s.cityGrid.roads.size, trips: tr.trips, bad: deckAll.filter(c => c.type === 'status' || c.type === 'disaster').length, buildingsCards: deckAll.filter(c => c.type === 'building').length, civic: deckAll.filter(c => c.type === 'civic').length, clearers: s.builtStructures.filter(i => clearsOf(i.card).length).length, budget: calcStatTotal(s, 'revenue'), jobs: calcStatTotal(s, 'jobs'), plays: PLAYS.n / Math.max(1, turn) })
   PLAYS.n = 0
   return { status: s.gameStatus, turn, pop: pop(), buildings: s.builtStructures.length, deck: s.deck.drawPile.length + s.deck.discardPile.length + s.hand.length, elections: s.run.elections.map(e => ({ era: e.era, mandate: e.mandate.id, passed: e.passed, early: e.early, turn: e.turn })) }
 }

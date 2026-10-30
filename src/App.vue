@@ -22,7 +22,7 @@
         <Market
           :city-row="cityRow" :goal-row="goalRow" :goal-timers="goalTimers" :catalog="game.catalog" :treasury="treasury" :state="game.state" :tick="tick" :buys="buys"
           :active="mode === 'market'" :focus="market" :goal-met="goalMet" :goals-left="goalsLeft"
-          :mandate="run && run.status === 'playing' ? run.mandate : null" :supply="supply"
+          :mandate="run && run.status === 'playing' ? run.mandate : null" :supply="supply" :for-sale="forSale"
           @focus="onMarketFocus" @select="onMarketSelect"
         />
 
@@ -33,6 +33,7 @@
         <PolicyList v-if="mode !== 'target' && mode !== 'look' && mode !== 'stats'" :policies="policies" />
         <InfoPanel v-if="mode === 'look' && lookInfo" v-bind="lookInfo" />
         <InfoPanel v-if="mode === 'stats'" v-bind="statInfo" />
+        <InfoPanel v-if="marketPolicy" eyebrow="Policy for sale" :title="marketPolicy.name" :lines="[marketPolicy.policy.text, `Costs ${marketPolicy.price} budget, not a buy. It stands for the rest of the run.`, 'One is for sale each era.']" />
 
         <!-- Budget orb and draw pile: bottom-left (§1). -->
         <div class="orb-wrap" :class="{ shake: shakeOrb }">
@@ -75,7 +76,7 @@
         <PileView v-if="mode === 'pile'" :tabs="pileTabs" :tab-index="pileTab" :focus-index="pileIndex" :catalog="game.catalog" @tab="pileTab = $event; pileIndex = 0" @focus="pileIndex = $event" />
 
         <Overlay v-if="mode === 'summary'" kind="summary" eyebrow="Overnight" :title="summary.title" :lines="summary.lines" hint="Continue" :glyph="glyphs.select" />
-        <div v-if="mode === 'combineChoice' && combineOpts" class="overlay-mandate">
+        <div v-if="mode === 'combineChoice' && combineOpts && combineOpts.length" class="overlay-mandate">
           <div class="overlay-mandate__eyebrow">Combine · {{ combinePair[0].name }} + {{ combinePair[1].name }}</div>
           <div class="overlay-mandate__lede">Costs {{ combinePrice }} budget. Both cards leave your deck for good; the new one goes to your discard pile.</div>
           <div class="overlay-mandate__row">
@@ -89,7 +90,7 @@
           <div class="overlay-mandate__hint"><span class="btn-a">{{ glyphs.select }}</span> Combine into this · <span class="btn-a">{{ glyphs.back }}</span> Back</div>
         </div>
         <div v-if="mode === 'policy' && run && run.policyOffer && run.policyOffer.length" class="overlay-mandate">
-          <div class="overlay-mandate__eyebrow">{{ run.elections.length ? 'Re-elected · adopt a policy' : 'A new administration · adopt a policy' }}</div>
+          <div class="overlay-mandate__eyebrow">{{ run.policyReason || 'The council' }} · adopt a policy</div>
           <div class="overlay-mandate__lede">It stands for the rest of the run. Choose one.</div>
           <div class="overlay-mandate__row">
             <div v-for="(p, i) in run.policyOffer" :key="p.id" @mouseenter="policyIndex = i" @click="policyIndex = i; act('select', 'click')">
@@ -159,7 +160,7 @@ import {
   createGame, effectiveCost, clearsOf, isInLimits, isWater,
   calcStatTotal, countCardsByTag, evaluateCondition, isBuildable, listConnectedEdges,
   previewPlacement, instanceStats, canCombine, canCombinePair, sizeOf, combineCost, combineOptions, calcBudget, calcUpkeep,
-  isMultiTile, shapeOf, footprint, placementProblem, marketPrice, roadSegmentsOf, policyMod, computeTraffic, jamsIfBuilt, JAMS_PER_PATIENCE
+  isMultiTile, shapeOf, footprint, placementProblem, marketPrice, roadSegmentsOf, policyMod, policyPrice, slotCapacity, computeTraffic, jamsIfBuilt, JAMS_PER_PATIENCE
 } from '@/game/core'
 import { attachInput, GLYPHS } from '@/ui/input'
 import { stepCursor, nearestCell } from '@/ui/layout'
@@ -221,6 +222,7 @@ export default {
       picks: [],
       comboIndex: 0,
       policyIndex: 0,
+      policyReturn: null,
       market: { row: 0, index: 0 },
       statIndex: 0,
       pileTab: 0,
@@ -290,6 +292,12 @@ export default {
     nextBudget () { void this.tick; return calcBudget(this.game.state) },
     run () { void this.tick; return this.game.state.run ?? null },
     supply () { void this.tick; return this.game.supply ?? [] },
+    /** The policy for sale beside the city row (cards/policies.js), as a row item. */
+    forSale () { void this.tick; const p = this.game.state.policyForSale; return p ? [{ id: '__policy__', isPolicy: true, policy: p, name: p.name, price: policyPrice(this.game.state) }] : [] },
+    /** The policy for sale, while the market cursor is on it. */
+    marketPolicy () { return this.mode === 'market' && this.market.row === 0 ? (this.row0[this.market.index]?.isPolicy ? this.row0[this.market.index] : null) : null },
+    /** The market's first row: the city row, the supply, the policy for sale. */
+    row0 () { return [...this.cityRow, ...this.supply, ...this.forSale] },
     electionShown () { void this.tick; return this.game.state.run?.election ?? { era: 1, passed: false } },
     electionLines () {
       const e = this.electionShown
@@ -328,7 +336,7 @@ export default {
       if ((this.mode !== 'combine' && this.mode !== 'combineChoice') || this.selectedIndex == null || this.picks.length !== 1) return null
       return [this.game.state.hand[this.selectedIndex], this.game.state.hand[this.picks[0]]]
     },
-    combineOpts () { return this.combinePair ? combineOptions(toRaw(this.combinePair[0]), toRaw(this.combinePair[1])) : null },
+    combineOpts () { return this.combinePair ? combineOptions(toRaw(this.combinePair[0]), toRaw(this.combinePair[1]), this.game.catalog) : null },
     combinePrice () { return this.combinePair ? Math.max(0, combineCost(this.combinePair[0], this.combinePair[1]) - policyMod(this.game.state, 'combineDiscount')) : 0 },
     combinePrompt () {
       if (this.mode !== 'combine' || !this.selectedCard) return ''
@@ -454,7 +462,14 @@ export default {
     fit () {
       this.scale = Math.min(window.innerWidth / 1920, window.innerHeight / 1080)
     },
-    refresh () { this.tick++ },
+    refresh () { this.tick++; this.offerPendingPolicy() },
+    /** A policy earned mid-run (a goal, a milestone) opens its pick at once. */
+    offerPendingPolicy () {
+      if (!['hand', 'market'].includes(this.mode) || !this.game.state.run?.policyOffer?.length) return
+      this.policyReturn = this.mode
+      this.policyIndex = 0
+      this.mode = 'policy'
+    },
     newGame () {
       this.game = createGame(runGameOptions())
       // The engine starts on 'draw'; running it deals the first hand and
@@ -489,8 +504,11 @@ export default {
         const p = offer[this.policyIndex]
         this.game.actions.choosePolicy(p.id)
         this.say(`Policy adopted: ${p.name}.`, 'good')
-        this.mode = 'mandate'
-        this.refresh()
+        this.policyIndex = 0
+        // Another pick waiting? Stay. A new era? The mandate. Otherwise back to play.
+        if (!this.game.state.run.policyOffer?.length) this.mode = this.game.state.run.status === 'choosing' ? 'mandate' : (this.policyReturn ?? 'hand')
+        this.policyReturn = null
+        this.tick++
       } else if (action === 'menu') this.openMenu()
     },
     enterFullscreen (source) {
@@ -554,7 +572,7 @@ export default {
       else if (action === 'back') this.cancelCombine()
     },
     in_combineChoice (action) {
-      if (action === 'left' || action === 'right') this.comboIndex = 1 - this.comboIndex
+      if (action === 'left' || action === 'right') this.comboIndex = (this.comboIndex + 1) % Math.max(1, this.combineOpts?.length ?? 1)
       else if (action === 'select') this.doCombine()
       else if (action === 'back') this.mode = 'combine'
     },
@@ -581,7 +599,7 @@ export default {
     },
     in_market (action) {
       const hasMandate = this.run?.status === 'playing'
-      const rows = [[...this.cityRow, ...this.supply], this.goalRow, hasMandate ? [this.run.mandate] : []]
+      const rows = [this.row0, this.goalRow, hasMandate ? [this.run.mandate] : []]
       const { row, index } = this.market
       const len = rows[row].length
       const clamp = (r, i) => Math.min(i, Math.max(0, rows[r].length - 1))
@@ -727,7 +745,7 @@ export default {
     /** The built facility that could take this status card right now, if any. */
     slotFor (card) {
       void this.tick
-      return this.game.state.builtStructures.find(i => clearsOf(i.card).includes(card.id) && i.slots && i.slots.used < i.slots.capacity) ?? null
+      return this.game.state.builtStructures.find(i => clearsOf(i.card).includes(card.id) && i.slots && i.slots.used < slotCapacity(this.game.state, i)) ?? null
     },
     clearerName (card) {
       return { crime: 'Police Station', trash: 'Sanitation Center', pollution: 'Clinic', debt: 'Bank Branch or Courthouse' }[card.id] ?? 'facility'
@@ -933,8 +951,16 @@ export default {
       const { row, index } = this.market
       if (row === 2) return this.callElection()
       if (row === 0) {
-        const card = [...this.cityRow, ...this.supply][index]
+        const card = this.row0[index]
         if (!card) return
+        if (card.isPolicy) {
+          if (card.price > this.treasury) return this.refuse(`${card.name} costs ${card.price}. You have ${this.treasury}.`, 'orb')
+          try { this.game.actions.buyPolicy() } catch (err) { return this.refuse(err.message) }
+          this.pop(`-${card.price}`, 'orb')
+          this.say(`Policy adopted: ${card.name}.`, 'good')
+          this.refresh()
+          return
+        }
         const price = marketPrice(this.game.state, card)
         if ((this.game.state.buys ?? 0) < 1) return this.refuse('No buys left this turn. A Trade Fair gives another.')
         if (price > this.treasury) return this.refuse(`${card.name} sells for ${price}. You have ${this.treasury}.`, 'orb')
@@ -948,7 +974,7 @@ export default {
         try { this.game.actions.claimGoal(goal.id) } catch (err) { return this.refuse(err.message) }
         this.say(`${goal.name} claimed. It's a Monument in your deck now.`, 'good')
       }
-      const rows = [[...this.cityRow, ...this.supply], this.goalRow]
+      const rows = [this.row0, this.goalRow]
       this.market = { row, index: Math.min(index, Math.max(0, rows[row].length - 1)) }
       this.refresh()
     },

@@ -15,7 +15,7 @@ export * as goalCards from './cards/goalCards'
 export * as disasterCards from './cards/disasterCards'
 export * as cityCards from './cards/cityCards'
 export { MANDATES, mandatesOfEra } from './cards/mandates'
-export { POLICIES, policyById, policyMod, marketPrice, roadSegmentsOf } from './cards/policies'
+export { POLICIES, policyById, policyMod, marketPrice, roadSegmentsOf, policyPrice, slotCapacity, MILESTONES } from './cards/policies'
 export { canCombine, canCombinePair, sizeOf, scaleOf, combineCost, combineOptions, NAMES as COMBO_NAMES } from './cards/combine'
 export { mandateMet, DEFAULT_DRAIN } from './turn/run'
 

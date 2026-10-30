@@ -83,8 +83,9 @@ export function effectText (effect, catalog) {
     case 'gainTreasuryPerCount': return (effect.per ?? 1) > 1 ? `+${amount} budget per ${effect.per} ${tagWord(effect.tag, 2, catalog)} in the city` : `+${amount} budget per ${tagWord(effect.tag, 1, catalog)} in the city`
     case 'gainTreasuryPerStatus': return `+${amount} budget per ${tagWord(effect.tag, 1, catalog)} card in your deck (up to ${effect.max ?? 3})`
     case 'clearAnyStatus': return `remove ${plural(amount, effect.disasters ? 'bad or disaster card' : 'bad card')} from your deck`
-    case 'gainCard': return `add ${amount === 1 ? 'a' : amount} ${catalog[effect.card]?.name ?? effect.card} card${amount === 1 ? '' : 's'} to your deck`
-    case 'gainCardPerAdjacent': return `add a ${catalog[effect.card]?.name ?? effect.card} card per neighbouring ${tagWord(effect.targetTag, 1, catalog)}`
+    case 'gainCard': return `add ${amount === 1 ? 'a' : amount} ${catalog[effect.card]?.name ?? effect.card} card${amount === 1 ? '' : 's'} to your deck${effect.max ? ` (up to ${effect.max})` : ''}`
+    case 'offerPolicy': return 'adopt a policy (choose one of three)'
+    case 'gainCardPerAdjacent': return `add a ${catalog[effect.card]?.name ?? effect.card} card per neighbouring ${tagWord(effect.targetTag, 1, catalog)}${effect.max ? ` (up to ${effect.max})` : ''}`
     case 'gainBuys': return `+${amount} buy at the city row this turn`
     case 'gainPatience': return `+${amount} patience`
     case 'discardCards': return 'discard 2 cards'
@@ -130,7 +131,10 @@ export function rulesFor (card, catalog = {}) {
   const lines = []
   if (!card) return lines
 
-  if (card.placesRoad) lines.push(`Lays up to ${card.roadSegments ?? 2} street segments, joined to a street you have. Buildings need a street on one side.`)
+  if (card.placesRoad) lines.push(`Lays up to ${card.roadSegments ?? 2} street segments${card.lanes > 1 ? `, ${card.lanes} lanes wide` : ''}, joined to a street you have. Buildings need a street on one side.`)
+  if (card.id === 'road') lines.push('Two combine into a Boulevard.')
+  if (card.id === 'boulevard') lines.push('Two combine into a Highway.')
+  if (card.exhaust && card.placesRoad) lines.push('One use: gone once laid.')
 
   if (card.madeFrom) lines.push(`${card.madeFrom.join(' + ')}, combined.`)
 

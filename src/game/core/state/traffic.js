@@ -15,6 +15,7 @@
 import { cellEdgeKeys, parseEdgeKey } from './cityGrid'
 import { instanceStats, cellsOf } from './playerState'
 import { footprint } from './shapes'
+import { policyMod } from '../cards/policies'
 
 export const LANE_CAPACITY = 4
 export const JAMS_PER_PATIENCE = 3
@@ -63,17 +64,24 @@ export function computeTraffic (state) {
   const transit = state.builtStructures.filter(i => isTransit(i.card))
   const capacity = new Map()
   for (const k of grid.roads) {
-    let cap = (grid.lanes?.[k] ?? 1) * LANE_CAPACITY
-    for (const t of transit) if (cellsOf(t).some(c => edgeToCell(k, c) <= 2)) cap += 2 * (t.card.tier ?? 1)
+    let cap = (grid.lanes?.[k] ?? 1) * LANE_CAPACITY + policyMod(state, 'laneBonus') // One-Way Streets
+    const relief = policyMod(state, 'trafficRelief') // Rapid Transit
+    for (const t of transit) if (cellsOf(t).some(c => edgeToCell(k, c) <= 2)) cap += 2 * (t.card.tier ?? 1) + relief
     capacity.set(k, cap)
   }
   const jammed = [...grid.roads].filter(k => (load.get(k) ?? 0) > capacity.get(k))
   return { load, capacity, jammed, trips }
 }
 
-/** Patience lost to jams this turn. */
+/** Patience lost to jams this turn (none under a Congestion Charge). */
 export function jamDrain (state) {
+  if (policyMod(state, 'jamToll')) return 0
   return Math.min(MAX_JAM_DRAIN, Math.ceil(computeTraffic(state).jammed.length / JAMS_PER_PATIENCE))
+}
+
+/** Budget the Congestion Charge raises: 1 a jammed street. */
+export function jamToll (state) {
+  return policyMod(state, 'jamToll') ? computeTraffic(state).jammed.length : 0
 }
 
 /**

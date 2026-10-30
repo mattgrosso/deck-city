@@ -16,7 +16,7 @@ import { calcStatTotal, countCardsByTag, sumPassive } from '../state/playerState
 import { addToDrawPile, shuffle } from '../piles/deck'
 import { mandatesOfEra } from '../cards/mandates'
 import { jamDrain } from '../state/traffic'
-import { offerPolicies, policyById, policyMod, policyPatience } from '../cards/policies'
+import { policyById, policyMod, policyPatience, queuePolicyPick, nextPolicyPick, restockPolicy, MILESTONES } from '../cards/policies'
 
 export const DEFAULT_DRAIN = {
   base: 2, // every turn
@@ -46,7 +46,10 @@ function enterEra (ctx, era, carry = 0) {
   run.mandate = null
   run.status = 'choosing'
   // A policy to pick, one of three: at the start, and after every election won.
-  if (ctx.run.policies) run.policyOffer = offerPolicies(ctx.state, ctx.state.deck.rng, { first: era === 1 })
+  if (ctx.run.policies) {
+    queuePolicyPick(ctx.state, ctx.state.deck.rng, era === 1 ? 'A new administration' : 'Re-elected', { first: era === 1 })
+    restockPolicy(ctx.state, ctx.state.deck.rng) // a new one for sale each era
+  }
   ctx.state.disasterTimer.strikes = 0 // disasters escalate within an era, not across the run
   if (cfg.limits) ctx.state.cityGrid.limits = { ...cfg.limits }
   ctx.state.costRise = cfg.costRise ?? 0 // every building costs this much more to build this era
@@ -70,6 +73,8 @@ export function choosePolicy (ctx, policyId) {
   if (!policy) throw new Error(`Policy "${policyId}" is not on offer`)
   ctx.state.policies = [...(ctx.state.policies ?? []), policyById(policy.id)]
   run.policyOffer = []
+  if (ctx.state.policyForSale?.id === policy.id) restockPolicy(ctx.state, ctx.state.deck.rng)
+  nextPolicyPick(ctx.state, ctx.state.deck.rng)
   ctx.log?.push(`Policy adopted: ${policy.name}.`)
   return policy
 }
@@ -128,6 +133,19 @@ export function goEndless (ctx) {
   ctx.log?.push('Endless city: no more elections. Build.')
 }
 
+/** A policy pick for every population mark passed (cards/policies.js MILESTONES), each once a run. */
+function checkMilestones (ctx) {
+  const run = ctx.state.run
+  const pop = calcStatTotal(ctx.state, 'population')
+  run.milestones ??= []
+  for (const mark of MILESTONES) {
+    if (pop < mark || run.milestones.includes(mark)) continue
+    run.milestones.push(mark)
+    queuePolicyPick(ctx.state, ctx.state.deck.rng, `${mark} people`)
+    ctx.log?.push(`The city passes ${mark} people: the council offers a policy.`)
+  }
+}
+
 /**
  * The end of a turn: patience drains by the city's state, and an election
  * is held when it runs out. Returns the drain's parts for the overnight card.
@@ -135,13 +153,14 @@ export function goEndless (ctx) {
 export function drainPatience (ctx, { struck = false } = {}) {
   const run = ctx.state.run
   if (!run || run.status !== 'playing') return null
+  if (ctx.run.policies) checkMilestones(ctx)
   const d = { ...DEFAULT_DRAIN, ...(ctx.run.drain ?? {}) }
   const bad = countCardsByTag(ctx.state, 'negative')
   const parts = []
   const add = (label, n) => { if (n) parts.push([label, n]) }
   add('time', d.base)
   add(`${bad} bad cards in your deck`, Math.min(d.maxBad, Math.floor(bad / d.perBadCards)))
-  if (calcStatTotal(ctx.state, 'population') > calcStatTotal(ctx.state, 'jobs')) add('unemployment', d.unemployment)
+  if (!policyMod(ctx.state, 'noUnemployment') && calcStatTotal(ctx.state, 'population') > calcStatTotal(ctx.state, 'jobs')) add('unemployment', d.unemployment) // Job Guarantee
   if (struck) add('disaster', d.disaster)
   add('the mood of the town', Math.floor(ctx.state.deck.rng() * (d.chance + 1)))
   add('policies', policyMod(ctx.state, 'drainMore')) // Night Economy

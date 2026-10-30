@@ -90,6 +90,7 @@ export const FAIR = { low: 0.75, high: 1.4 }
  */
 export const BARGAINS = {
   'play:road': 'the city\'s skeleton: cheap so building never stalls for want of a street',
+  'play:street-permit': 'a one-use Road from the supply: cheap for the same reason, and gone once laid',
   'play:civic-recycle': 'free on purpose: the starter deck\'s filter, worth only what it digs past'
 }
 
@@ -105,6 +106,7 @@ export function valueOfEffect (effect, catalog = {}) {
   const amount = effect.amount ?? 1
   switch (effect.type) {
     case 'gainTreasury': return amount
+    case 'offerPolicy': return 8 // a pick of three policies: worth about a turn's spare budget
     case 'spendTreasury': return -amount
     case 'gainStatus': return amount * VALUE.status
     case 'consumeStatus': return -amount * VALUE.status
@@ -118,8 +120,10 @@ export function valueOfEffect (effect, catalog = {}) {
     case 'gainTreasuryPerCount': return amount * CITY_COUNT / (effect.per ?? 1)
     case 'gainTreasuryPerStatus': return amount * Math.min(effect.max ?? 3, 2)
     case 'clearAnyStatus': return amount * -VALUE.status * (effect.disasters ? 2 : 1)
-    case 'gainCard': return amount * valueOfCardInDeck(catalog[effect.card], catalog)
-    case 'gainCardPerAdjacent': return NEIGHBOURS.good * valueOfCardInDeck(catalog[effect.card], catalog)
+    // A capped maker (`max`) only tops the deck back up as its tokens are
+    // played, so a turn of it is worth about half a token.
+    case 'gainCard': return amount * valueOfCardInDeck(catalog[effect.card], catalog) * (effect.max ? 0.5 : 1)
+    case 'gainCardPerAdjacent': return NEIGHBOURS.good * valueOfCardInDeck(catalog[effect.card], catalog) * (effect.max ? 0.5 : 1)
     default: return 0
   }
 }

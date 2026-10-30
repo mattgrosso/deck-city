@@ -76,3 +76,45 @@ describe('policies', () => {
     expect(drains('night-economy')).toBeGreaterThan(drains(null))
   })
 })
+
+describe('earning policies', () => {
+  it('a population milestone queues a pick at the end of the turn; picks wait their turn', () => {
+    const game = newRun()
+    const s = game.state
+    game.actions.chooseMandate(s.run.offer[0].id) // the start-of-run pick is still open
+    expect(s.run.policyOffer).toHaveLength(3)
+    s.builtStructures.push({ instanceId: 'big#9', card: { id: 'big', type: 'building', tags: ['residential'], stats: { population: 75 } }, position: null })
+    for (let i = 0; i < 5; i++) game.actions.advance() // to the end of the turn and round
+    expect(s.run.milestones).toEqual(expect.arrayContaining([30, 70]))
+    expect(s.run.policyQueue.length).toBe(2) // both behind the open start-of-run pick
+    game.actions.choosePolicy(s.run.policyOffer[0].id)
+    expect(s.run.policyOffer).toHaveLength(3)
+    expect(s.run.policyReason).toMatch(/people/)
+    expect(s.run.policyQueue.length).toBe(1)
+  })
+
+  it('tier II and III goals add a pick to their reward', async () => {
+    const { GOAL_CATALOG } = await import('./goalCards')
+    for (const g of GOAL_CATALOG) {
+      const offers = (g.effects?.onComplete ?? []).some(e => e.type === 'offerPolicy')
+      expect(offers).toBe((g.tier ?? 1) >= 2)
+    }
+  })
+
+  it('one policy is for sale each era; buying it costs budget and adopts it', () => {
+    const game = newRun()
+    const s = game.state
+    game.actions.chooseMandate(s.run.offer[0].id)
+    game.actions.choosePolicy(s.run.policyOffer[0].id)
+    game.actions.advance() // to the acquire phase
+    const sale = s.policyForSale
+    expect(sale).toBeTruthy()
+    s.treasury = 50
+    const price = 10 + 4 * s.policies.length
+    game.actions.buyPolicy()
+    expect(s.treasury).toBe(50 - price)
+    expect(s.policies.map(p => p.id)).toContain(sale.id)
+    expect(s.policyForSale).toBe(null)
+    expect(() => game.actions.buyPolicy()).toThrow(/No policy/)
+  })
+})

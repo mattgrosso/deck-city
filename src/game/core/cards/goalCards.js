@@ -136,6 +136,8 @@ export const GOAL_CATALOG = [
 
 // Monuments are big: two plots, an L of three for the top tier (state/shapes.js).
 for (const g of GOAL_CATALOG) g.shape = (g.tier ?? 1) >= 3 ? 'L3' : 'I2'
+// Tier II and III goals also earn a policy (cards/policies.js).
+for (const g of GOAL_CATALOG) if ((g.tier ?? 1) >= 2) g.effects = { ...g.effects, onComplete: [...(g.effects?.onComplete ?? []), { type: 'offerPolicy' }] }
 
 /** The goal deck: one copy of each goal, revealed 3 at a time. */
 export const GOAL_DECK_CARDS = GOAL_CATALOG.map(card => card.id)

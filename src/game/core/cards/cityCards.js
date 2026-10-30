@@ -62,7 +62,11 @@ const buys = (amount) => ({ type: 'gainBuys', amount })
 const status = (card, amount = 1) => ({ type: 'gainStatus', card, amount })
 const clear = (amount, extra = {}) => ({ type: 'clearAnyStatus', amount, ...extra })
 const token = (card, amount = 1) => ({ type: 'gainCard', card, amount })
-const tokenPerAdj = (card, targetTag) => ({ type: 'gainCardPerAdjacent', card, targetTag })
+const tokenPerAdj = (card, targetTag) => ({ type: 'gainCardPerAdjacent', card, targetTag, max: TOKEN_MAX })
+// A token made EVERY turn stops once the deck holds TOKEN_MAX of it (self-play
+// found decks of 400 Tourists: a Museum, a Zoo and a Stadium outrun any hand).
+const TOKEN_MAX = 3
+const tokenTurn = (card, amount = 1) => ({ type: 'gainCard', card, amount, max: TOKEN_MAX })
 const perAdj = (targetTag, amount = 1) => ({ type: 'gainTreasuryPerAdjacent', targetTag, amount })
 const perCount = (tag, amount = 1, per = 1) => ({ type: 'gainTreasuryPerCount', tag, amount, per })
 const perStatus = (tag, amount = 1, max = 3) => ({ type: 'gainTreasuryPerStatus', tag, amount, max })
@@ -120,7 +124,7 @@ export const COMMERCIAL_CARDS = [
   B('department-store', 'Department Store', 2, ['commercial'], 9, { stats: { jobs: 4, revenue: 2 }, buysBonus: 1, onBuild: [status('trash')], flavor: 'Everything under one roof. +1 buy every turn.' }),
   B('bank-branch', 'Bank Branch', 2, ['commercial', 'finance'], 11, { stats: { jobs: 2, revenue: 2 }, clears: 'debt', slots: 2, onBuild: [{ type: 'raiseTreasuryRolloverCap', amount: 4 }] }),
   B('restaurant-row', 'Restaurant Row', 2, ['commercial', 'food', 'leisure'], 10, { stats: { jobs: 3, revenue: 2 }, near: [nd('revenue', 1, 'culture'), nd('revenue', 1, 'residential')] }),
-  B('hotel', 'Hotel', 2, ['commercial', 'tourism'], 12, { stats: { jobs: 3, revenue: 2 }, onTurn: [tokenPerAdj('tourist', 'landmark')], flavor: 'A Tourist each turn for every landmark next door.' }),
+  B('hotel', 'Hotel', 2, ['commercial', 'tourism'], 9, { stats: { jobs: 3, revenue: 2 }, onTurn: [tokenPerAdj('tourist', 'landmark')], flavor: 'A Tourist each turn for every landmark next door.' }),
   B('farmers-market', 'Farmers Market', 2, ['commercial', 'food'], 9, { stats: { jobs: 2, revenue: 1 }, near: [nd('revenue', 1, 'rural'), nd('revenue', 1, 'green')], onBuild: [clear(1)] }),
   B('nightclub', 'Nightclub', 2, ['commercial', 'leisure'], 8, { stats: { jobs: 2, revenue: 3 }, near: [nd('revenue', 1, 'leisure')], onBuild: [status('crime')] }),
   B('office-park', 'Office Park', 2, ['commercial', 'office'], 8, { stats: { jobs: 5, revenue: 2 }, near: [nd('revenue', 1, 'transit')] }),
@@ -128,7 +132,7 @@ export const COMMERCIAL_CARDS = [
   B('pharmacy', 'Pharmacy', 2, ['commercial', 'health'], 6, { stats: { jobs: 2, revenue: 1 }, clears: 'pollution', slots: 1 }),
   B('mall', 'Mall', 3, ['commercial'], 15, { stats: { jobs: 6, revenue: 4 }, buysBonus: 1, near: [nd('revenue', 1, 'transit')], onBuild: [status('trash', 2)] }),
   B('stock-exchange', 'Stock Exchange', 3, ['commercial', 'finance', 'landmark'], 12, { stats: { jobs: 4, revenue: 2 }, near: [city('revenue', 1, 'commercial', { max: 6 })], unique: true, flavor: '+1 revenue for every shop in the city.' }),
-  B('convention-center', 'Convention Center', 3, ['commercial', 'tourism'], 11, { stats: { jobs: 4, revenue: 2 }, onTurn: [token('tourist')], onBuild: [status('trash')] }),
+  B('convention-center', 'Convention Center', 3, ['commercial', 'tourism'], 8, { stats: { jobs: 4, revenue: 2 }, onTurn: [tokenTurn('tourist')], onBuild: [status('trash')] }),
   B('corporate-hq', 'Corporate HQ', 3, ['commercial', 'office', 'landmark'], 13, { stats: { jobs: 8, revenue: 3 }, handSize: 1, unique: true, flavor: 'Draw a sixth card every turn.' }),
   B('luxury-boutiques', 'Luxury Boutiques', 3, ['commercial', 'luxury'], 13, { stats: { jobs: 2, revenue: 4 }, near: [nd('revenue', 1, 'luxury'), nd('revenue', 1, 'landmark')] })
 ]
@@ -195,10 +199,10 @@ export const TRANSIT_CARDS = [
   B('bus-stop', 'Bus Stop', 1, ['transit'], 4, { onTurn: [perAdj('commercial', 1)], onBuild: [draw(1)] }),
   B('parking-garage', 'Parking Garage', 1, ['transit'], 4, { stats: { revenue: 1 }, near: [nd('revenue', 1, 'commercial')] }),
   B('bike-share', 'Bike Share', 1, ['transit', 'green'], 4, { onTurn: [perAdj('residential', 1)] }),
-  B('train-station', 'Train Station', 2, ['transit', 'landmark'], 10, { stats: { jobs: 2, revenue: 1 }, onTurn: [token('commuter')], flavor: 'A Commuter card every turn: play it to draw two.' }),
+  B('train-station', 'Train Station', 2, ['transit', 'landmark'], 6, { stats: { jobs: 2, revenue: 1 }, onTurn: [tokenTurn('commuter')], flavor: 'A Commuter card every turn: play it to draw two.' }),
   B('tram-depot', 'Tram Depot', 2, ['transit'], 6, { stats: { jobs: 3 }, near: [nd('revenue', 1, 'commercial')], discount: { tag: 'infrastructure', amount: 1 } }),
   B('ferry-terminal', 'Ferry Terminal', 2, ['transit', 'tourism'], 9, { stats: { jobs: 2, revenue: 2 }, onBuild: [token('tourist', 2)] }),
-  B('airport', 'Airport', 3, ['transit', 'landmark'], 19, { stats: { jobs: 6, revenue: 3 }, onTurn: [token('tourist', 2)], onBuild: [status('pollution', 2)], unique: true }),
+  B('airport', 'Airport', 3, ['transit', 'landmark'], 12, { stats: { jobs: 6, revenue: 3 }, onTurn: [tokenTurn('tourist', 2)], onBuild: [status('pollution', 2)], unique: true }),
   B('metro-hub', 'Metro Hub', 3, ['transit'], 9, { stats: { jobs: 3, revenue: 2 }, near: [city('population', 1, 'transit', { max: 6 })] })
 ]
 
@@ -207,14 +211,14 @@ export const LEISURE_CARDS = [
   B('movie-theater', 'Movie Theater', 1, ['leisure'], 9, { patience: 1, stats: { jobs: 2, revenue: 1 }, near: [nd('revenue', 1, 'commercial')] }),
   B('bowling-alley', 'Bowling Alley', 1, ['leisure'], 9, { patience: 1, stats: { jobs: 1, revenue: 2 }, onNeighbor: [gain(1)] }),
   B('art-gallery', 'Art Gallery', 1, ['culture', 'arts'], 10, { patience: 1, stats: { revenue: 1 }, near: [nd('revenue', 1, 'culture'), nd('revenue', 1, 'arts')] }),
-  B('museum', 'Museum', 2, ['culture', 'landmark', 'tourism'], 13, { patience: 1, stats: { jobs: 2, revenue: 1 }, onTurn: [token('tourist')] }),
+  B('museum', 'Museum', 2, ['culture', 'landmark', 'tourism'], 10, { patience: 1, stats: { jobs: 2, revenue: 1 }, onTurn: [tokenTurn('tourist')] }),
   B('concert-hall', 'Concert Hall', 2, ['culture', 'leisure'], 11, { patience: 1, stats: { jobs: 2, revenue: 2 }, near: [nd('revenue', 1, 'culture')] }),
   B('casino', 'Casino', 2, ['leisure', 'tourism'], 2, { patience: -1, stats: { jobs: 3, revenue: 7 }, onBuild: [status('crime', 2)], onTurn: [status('crime')], flavor: 'The house always wins. So does crime.' }),
-  B('zoo', 'Zoo', 2, ['leisure', 'green', 'tourism'], 13, { patience: 1, stats: { jobs: 2, revenue: 1 }, onTurn: [token('tourist')] }),
-  B('stadium', 'Stadium', 3, ['leisure', 'landmark', 'tourism'], 25, { patience: 2, stats: { jobs: 4, revenue: 3 }, onTurn: [token('tourist', 2)], onBuild: [status('trash', 2)], unique: true }),
+  B('zoo', 'Zoo', 2, ['leisure', 'green', 'tourism'], 10, { patience: 1, stats: { jobs: 2, revenue: 1 }, onTurn: [tokenTurn('tourist')] }),
+  B('stadium', 'Stadium', 3, ['leisure', 'landmark', 'tourism'], 18, { patience: 2, stats: { jobs: 4, revenue: 3 }, onTurn: [tokenTurn('tourist', 2)], onBuild: [status('trash', 2)], unique: true }),
   B('cathedral', 'Cathedral', 3, ['culture', 'landmark'], 20, { patience: 3, stats: { population: 2 }, onTurn: [clear(1)], unique: true, flavor: 'Absolves one bad card a turn.' }),
   B('monument-plaza', 'Monument Plaza', 3, ['culture', 'landmark'], 11, { patience: 2, near: [city('population', 1, 'landmark', { max: 8 })], unique: true, flavor: '+1 population for every landmark in the city.' }),
-  B('theme-park', 'Theme Park', 3, ['leisure', 'landmark', 'tourism'], 24, { patience: 2, stats: { jobs: 5, revenue: 2 }, onTurn: [token('tourist', 2)], onBuild: [status('trash', 2)], unique: true }),
+  B('theme-park', 'Theme Park', 3, ['leisure', 'landmark', 'tourism'], 17, { patience: 2, stats: { jobs: 5, revenue: 2 }, onTurn: [tokenTurn('tourist', 2)], onBuild: [status('trash', 2)], unique: true }),
   B('observation-tower', 'Observation Tower', 3, ['landmark', 'tourism'], 16, { patience: 1, stats: { revenue: 2 }, near: [city('revenue', 1, 'landmark', { max: 6 })], onBuild: [token('tourist')] })
 ]
 

@@ -9,7 +9,7 @@ import { isEdgeInBounds, isEdgeConnected, isEdgeInLimits, isEdgeInsideBuilding }
 import { placementProblem } from './state/shapes'
 import { generateTerrain } from './state/terrain'
 import { canCombine, canCombinePair, combineCost, combineOptions } from './cards/combine'
-import { policyMod, marketPrice, roadSegmentsOf } from './cards/policies'
+import { policyMod, marketPrice, roadSegmentsOf, policyPrice } from './cards/policies'
 import { createRun, choosePolicy as chooseRunPolicy, chooseMandate as chooseRunMandate, callElection as callRunElection, goEndless } from './turn/run'
 import { createDeck, addToDiscardPile, shuffle } from './piles/deck'
 import { createRow, acquireFromRow } from './piles/row'
@@ -183,7 +183,8 @@ export function createGame ({
       }
       state.hand.splice(index, 1)
       spendTreasury(state, effectiveCost(state, card))
-      edges.forEach((edge, i) => placeRoad(state, i === 0 ? card : { ...card, effects: {} }, { ...context, edge, intoDeck: i === 0 }))
+      // A one-use card (a Street Permit) is gone once its segments are down.
+      edges.forEach((edge, i) => placeRoad(state, i === 0 ? card : { ...card, effects: {} }, { ...context, edge, intoDeck: i === 0 && !card.exhaust }))
       return edges
     }
 
@@ -307,14 +308,29 @@ export function createGame ({
     if (!canCombinePair(a, b)) throw new Error('Only buildings the same size combine: two singles, two pairs, two Quarters...')
     const cost = Math.max(0, combineCost(a, b) - policyMod(state, 'combineDiscount')) // Zoning Reform
     if (state.treasury < cost) throw new Error(`Combining costs ${cost} budget`)
-    const made = combineOptions(a, b)[choice]
+    const made = combineOptions(a, b, catalog)[choice]
     if (!made) throw new Error(`No option ${choice}`)
     spendTreasury(state, cost)
     for (const i of [ia, ib].sort((x, y) => y - x)) state.hand.splice(i, 1)
-    catalog[made.id] = made
+    if (!catalog[made.id]) catalog[made.id] = made
     addToDiscardPile(state.deck, [made])
     log.push(`Combined ${a.name} and ${b.name} into ${made.name}.`)
     return made
+  }
+
+  /** Buy the policy for sale beside the city row (acquire phase; budget, not a buy). */
+  function buyPolicy () {
+    assertPlaying(state)
+    assertPhase(turnManager, 'acquire')
+    const policy = state.policyForSale
+    if (!policy) throw new Error('No policy for sale')
+    const price = policyPrice(state)
+    if (state.treasury < price) throw new Error(`${policy.name} costs ${price} budget`)
+    spendTreasury(state, price)
+    state.policies = [...(state.policies ?? []), policy]
+    state.policyForSale = null // the next goes up when the next era opens
+    log.push(`Policy bought: ${policy.name}.`)
+    return policy
   }
 
   function advance () {
@@ -329,6 +345,6 @@ export function createGame ({
     turnManager,
     catalog,
     log,
-    actions: { playCard, playCivicCard, combineCards, choosePolicy: (id) => chooseRunPolicy(context, id), acquireCard, claimGoal, clearStatus, chooseMandate, callElection, keepBuilding, advance }
+    actions: { playCard, playCivicCard, combineCards, buyPolicy, choosePolicy: (id) => chooseRunPolicy(context, id), acquireCard, claimGoal, clearStatus, chooseMandate, callElection, keepBuilding, advance }
   }
 }
