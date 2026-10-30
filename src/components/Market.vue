@@ -24,14 +24,7 @@
     <div class="market__row">
       <div class="market__head">
         <span class="market__title">City row <span class="market__buys" :class="{ 'market__buys--none': buys < 1 }">{{ buys }} {{ buys === 1 ? 'buy' : 'buys' }} left</span></span>
-        <span v-if="!forSale.length" class="market__note">The coin builds it; the tag buys it</span>
-        <span
-          v-for="(item, k) in forSale" :key="`p${k}`" class="market__supply market__supply--policy"
-          :class="{ 'focus-ring': isFocused(0, cityRow.length + supply.length + k), 'market__supply--cant': active && item.price > treasury }"
-          :title="item.policy.text"
-          @mouseenter="$emit('focus', { row: 0, index: cityRow.length + supply.length + k })"
-          @click="$emit('select', { row: 0, index: cityRow.length + supply.length + k })"
-        >Policy: {{ item.name }} <span class="market__chip-price">{{ item.price }}</span></span>
+        <span class="market__note">The coin builds it; the tag buys it</span>
       </div>
       <div class="market__cards">
         <div
@@ -46,15 +39,33 @@
         </div>
         <div v-if="!cityRow.length" class="market__empty">Sold out</div>
       </div>
-      <div v-if="supply.length" class="market__always">
-        <span class="market__always-label">Always for sale</span>
-        <span
-          v-for="(card, j) in supply" :key="`s${j}`" class="market__supply"
-          :style="{ borderColor: familyColor(card) }"
-          :class="{ 'focus-ring': isFocused(0, cityRow.length + j), 'market__supply--cant': active && (buys < 1 || priceOf(card) > treasury) }"
-          @mouseenter="$emit('focus', { row: 0, index: cityRow.length + j })"
-          @click="$emit('select', { row: 0, index: cityRow.length + j })"
-        ><i class="market__dot" :style="{ background: familyColor(card) }" />{{ card.name.replace(/ (Station|Center)$/, '') }} <span class="market__chip-price">{{ priceOf(card) }}</span></span>
+      <!-- Always for sale, as small cards on their own row (row 3): down from the
+           city row reaches it (Matt, 2026-10-30: "not obvious that they are cards"). -->
+      <div v-if="supply.length || forSale.length" class="market__always">
+        <div class="market__always-label">Always for sale</div>
+        <div class="market__minis">
+          <div
+            v-for="(card, j) in supply" :key="`s${j}`" class="mini"
+            :style="{ '--c': familyColor(card) }"
+            :class="{ 'focus-ring': isFocused(3, j), 'mini--cant': active && (buys < 1 || priceOf(card) > treasury) }"
+            @mouseenter="$emit('focus', { row: 3, index: j })"
+            @click="$emit('select', { row: 3, index: j })"
+          >
+            <div class="mini__name">{{ card.name }}</div>
+            <div class="mini__price">Buy {{ priceOf(card) }}</div>
+          </div>
+          <div
+            v-for="(item, k) in forSale" :key="`p${k}`" class="mini mini--policy"
+            :class="{ 'focus-ring': isFocused(3, supply.length + k), 'mini--cant': active && item.price > treasury }"
+            @mouseenter="$emit('focus', { row: 3, index: supply.length + k })"
+            @click="$emit('select', { row: 3, index: supply.length + k })"
+          >
+            <div class="mini__eyebrow">Policy for sale</div>
+            <div class="mini__name">{{ item.name }}</div>
+            <div class="mini__text">{{ item.policy.text }}</div>
+            <div class="mini__price">{{ item.price }} budget</div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -102,7 +113,7 @@ export default {
 .market__note { font-size: 13px; color: var(--ink-3); font-weight: 600; }
 .market__sub { font-size: 12px; letter-spacing: 0; text-transform: none; color: #a8803a; font-weight: 600; }
 .market__cards { display: flex; gap: 12px; min-height: 206px; }
-.market__row--goals .market__cards { gap: 10px; padding-top: 4px; }
+.market__row--goals .market__cards { gap: 10px; padding-top: 4px; min-height: 0; }
 .market__slot { position: relative; transition: transform 160ms ease; }
 .market__slot:has(.focus-ring) { transform: scale(1.12); z-index: 2; }
 /* The city row grows downward, so the focused card never hides the row's title. */
@@ -116,8 +127,17 @@ export default {
 .market__price { position: absolute; left: 50%; bottom: -11px; transform: translateX(-50%); background: var(--gold); color: #2e2000; border: 1.5px solid #c98a12; font-weight: 800; font-size: 12px; padding: 2px 10px; border-radius: 999px; white-space: nowrap; }
 .market__mandate { margin-bottom: 4px; }
 .market__supply { cursor: pointer; background: #fff; border: 1.5px solid #c98a12; color: #2e2000; font-weight: 800; font-size: 13px; padding: 3px 12px; border-radius: 999px; white-space: nowrap; }
-.market__always { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; margin-top: 18px; padding: 8px 10px; border-radius: 14px; background: #fff; border: 1.5px solid var(--line); }
-.market__always-label { white-space: nowrap; font-size: 11px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3); margin-right: 4px; }
+.mini { position: relative; width: 92px; min-height: 64px; display: flex; flex-direction: column; justify-content: space-between; gap: 4px; padding: 7px 8px 6px; border-radius: 10px; background: #fff; border: 1.5px solid var(--line); border-top: 5px solid var(--c); cursor: pointer; }
+.mini__name { font-size: 13px; font-weight: 800; line-height: 1.1; color: var(--ink); }
+.mini__price { align-self: flex-start; font-size: 11px; font-weight: 800; padding: 1px 7px; border-radius: 999px; background: var(--gold); color: #2e2000; }
+.mini__eyebrow { font-size: 9px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #6b55c4; }
+.mini__text { font-size: 11px; font-weight: 600; line-height: 1.25; color: var(--ink-2); }
+.mini--policy { width: 168px; border-color: #cfc4f5; border-top-color: #7a5cf0; }
+.mini--cant { opacity: 0.6; }
+.mini.focus-ring { outline: 3px solid var(--focus); outline-offset: 2px; transform: translateY(-3px); }
+.market__minis { display: flex; gap: 8px; align-items: stretch; }
+.market__always { display: flex; flex-direction: column; gap: 6px; margin-top: 18px; padding: 8px 10px; border-radius: 14px; background: #fff; border: 1.5px solid var(--line); }
+.market__always-label { white-space: nowrap; font-size: 11px; margin-left: 2px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3); margin-right: 4px; }
 .market__always .market__supply { padding: 3px 9px; }
 .market__chip-price { display: inline-grid; place-items: center; min-width: 18px; height: 18px; margin-left: 4px; border-radius: 50%; background: var(--gold); color: #2e2000; font-size: 11px; }
 .market__dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }

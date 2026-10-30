@@ -10,7 +10,8 @@
       <div v-for="m in placedMarks" :key="m.key" class="mark" :class="`mark--${m.tone}`" :style="{ left: `${m.sx}px`, top: `${m.sy}px` }">{{ m.text }}</div>
     </div>
     <div v-if="showLabels" class="scene__labels">
-      <div v-for="label in labels" :key="label.id" class="chip" :class="{ 'chip--monument': label.monument }" :style="{ left: `${label.x}px`, top: `${label.y}px` }">
+      <!-- Only the building under the cursor (Matt, 2026-10-30: every chip at once "is way too busy"). -->
+      <div v-for="label in cursorLabels" :key="label.id" class="chip" :class="{ 'chip--monument': label.monument }" :style="{ left: `${label.x}px`, top: `${label.y}px` }">
         <span class="chip__name">{{ label.name }}</span><span v-if="label.stats" class="chip__stats">{{ label.stats }}</span>
       </div>
     </div>
@@ -57,6 +58,12 @@ export default {
   emits: ['cell'],
   data () { return { ready: false, failed: false, labels: [] } },
   computed: {
+    /** The label of the building under the cursor (whichever of its plots the cursor is on). */
+    cursorLabels () {
+      if (!this.cursor) return []
+      const lot = this.lots.find(l => l.x === this.cursor.x && l.y === this.cursor.y)
+      return lot?.instanceId ? this.labels.filter(l => l.instanceId === lot.instanceId).slice(0, 1) : []
+    },
     layout () { void this.tick; return layoutCity(this.grid, this.structures) },
     lots () { return this.layout.lots },
     validSet () { return new Set(this.validCells.map(c => `${c.x},${c.y}`)) },
@@ -134,7 +141,7 @@ export default {
         const stats = Object.entries(inst.card.stats ?? {}).filter(([, v]) => v).map(([k, v]) => `+${v} ${STAT_SHORT[k] ?? k}`)
         if (inst.slots) stats.push(`${inst.slots.used}/${inst.slots.capacity} slots`)
         const p = this.world.project(lot.wx + LOT / 2, 0, lot.wz + LOT / 2)
-        return { id: lot.id, x: p.x, y: p.y, name: inst.card.name, stats: stats.join(' · '), monument: inst.card.type === 'goal' }
+        return { id: lot.id, instanceId: lot.instanceId, x: p.x, y: p.y, name: inst.card.name, stats: stats.join(' · '), monument: inst.card.type === 'goal' }
       })
     },
     /** Water within a few plots of the city: framed too, so the map's lake or river is part of the view, not just off the edge of it. */

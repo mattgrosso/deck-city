@@ -157,6 +157,8 @@ export const DEFAULT_PHASES = [
       if (upkeep) parts.push(`${upkeep} upkeep taken off`)
       if (rollover > 0) parts.push(`${rollover} kept from last turn`)
       ctx.log?.push(`Budget this turn: ${ctx.state.treasury} (${parts.join(' + ')}).`)
+      // The same, as numbers, for the overnight ledger (App: SummaryPanel).
+      ctx.state.lastBudget = { total: ctx.state.treasury, parts: [['Revenue from your buildings', fromBuildings], ['Base income', base], ['Policies', fromPolicies], ['Upkeep', -upkeep], ['Kept from last turn', rollover]].filter(([, n]) => n) }
 
       const handSize = Math.max(1, (ctx.handSize ?? 5) + sumPassive(ctx.state, 'handSizeBonus') + policyMod(ctx.state, 'handSize'))
       const needed = Math.max(0, handSize - ctx.state.hand.length)

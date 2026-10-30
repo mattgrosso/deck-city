@@ -17,7 +17,11 @@
       </div>
     </div>
 
-    <div class="goal__reward">
+    <!-- Compact (Matt, 2026-10-30: "show what you're trying to achieve but not
+         the list of benefits unless you go look at them"): the rewards drop
+         down over the row below only while the goal is highlighted. -->
+    <div v-if="!focused" class="goal__reward-hint">★ {{ rewards.length }} reward{{ rewards.length === 1 ? '' : 's' }}</div>
+    <div v-else class="goal__reward goal__reward--drop">
       <div v-for="(line, i) in rewards" :key="i" class="reward">{{ line }}</div>
     </div>
 
@@ -72,9 +76,11 @@ export default {
 </script>
 
 <style scoped>
-.goal { position: relative; width: 196px; min-height: 206px; display: flex; flex-direction: column; gap: 8px; padding: 10px 11px 12px; border-radius: 12px; background: #fffdf6; border: 1.5px solid #e8d39a; box-shadow: 0 2px 6px rgba(154,101,8,0.08); transition: transform 160ms ease, box-shadow 160ms ease; }
+.goal { position: relative; width: 196px; min-height: 112px; display: flex; flex-direction: column; gap: 8px; padding: 10px 11px 12px; border-radius: 12px; background: #fffdf6; border: 1.5px solid #e8d39a; box-shadow: 0 2px 6px rgba(154,101,8,0.08); transition: transform 160ms ease, box-shadow 160ms ease; }
 .goal--focused { outline: 3px solid var(--focus); outline-offset: 3px; transform: scale(1.06); z-index: 2; }
 .goal--ready { border-color: var(--green); box-shadow: 0 0 0 3px rgba(47,179,106,0.25), 0 4px 14px rgba(47,179,106,0.2); }
+.goal__reward-hint { margin-top: auto; font-size: 12px; font-weight: 700; color: #a8803a; }
+.goal__reward--drop { position: absolute; left: -1.5px; right: -1.5px; top: calc(100% - 6px); z-index: 5; margin: 0 !important; padding: 8px 11px 10px !important; background: #fffdf6; border: 1.5px solid #e8d39a; border-top: 1px dashed #e8d39a !important; border-radius: 0 0 12px 12px; box-shadow: 0 10px 22px rgba(154,101,8,0.18); }
 .goal__head { display: flex; align-items: flex-start; gap: 6px; }
 .goal__name { flex: 1; font-size: 16px; font-weight: 800; line-height: 1.1; color: #5c3d04; }
 .goal__clock { display: inline-flex; align-items: center; gap: 3px; font-size: 13px; font-weight: 800; color: #7a5407; background: #fff3d2; border: 1px solid #e8d39a; border-radius: 999px; padding: 1px 7px 1px 4px; }

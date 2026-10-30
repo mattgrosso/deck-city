@@ -29,6 +29,7 @@
         <div class="phase-tag" :class="`phase-tag--${phaseName}`">{{ phaseLabel }}</div>
 
         <CardInfo v-if="mode === 'hand' || mode === 'civic' || (mode === 'target' && !aimPreview)" :card="focusedHandCard" :catalog="game.catalog" />
+        <CardInfo v-if="marketSupplyCard" :card="marketSupplyCard" :catalog="game.catalog" />
         <PlacementPreview v-if="mode === 'target' && aimPreview" v-bind="aimPreview.panel" />
         <PolicyList v-if="mode !== 'target' && mode !== 'look' && mode !== 'stats'" :policies="policies" />
         <InfoPanel v-if="mode === 'look' && lookInfo" v-bind="lookInfo" />
@@ -75,7 +76,7 @@
 
         <PileView v-if="mode === 'pile'" :tabs="pileTabs" :tab-index="pileTab" :focus-index="pileIndex" :catalog="game.catalog" @tab="pileTab = $event; pileIndex = 0" @focus="pileIndex = $event" />
 
-        <Overlay v-if="mode === 'summary'" kind="summary" eyebrow="Overnight" :title="summary.title" :lines="summary.lines" hint="Continue" :glyph="glyphs.select" />
+        <SummaryPanel v-if="mode === 'summary'" v-bind="summary" :glyph="glyphs.select" @click="act('select', 'click')" />
         <div v-if="mode === 'combineChoice' && combineOpts && combineOpts.length" class="overlay-mandate">
           <div class="overlay-mandate__eyebrow">Combine · {{ combinePair[0].name }} + {{ combinePair[1].name }}</div>
           <div class="overlay-mandate__lede">Costs {{ combinePrice }} budget. Both cards leave your deck for good; the new one goes to your discard pile.</div>
@@ -157,6 +158,7 @@ import HowTo, { PAGES as HOWTO_PAGES } from '@/components/HowTo.vue'
 import MandateTile from '@/components/MandateTile.vue'
 import PlacementPreview from '@/components/PlacementPreview.vue'
 import PolicyList from '@/components/PolicyList.vue'
+import SummaryPanel from '@/components/SummaryPanel.vue'
 import PolicyTile from '@/components/PolicyTile.vue'
 import { runGameOptions } from '@/game/runSetup'
 import BugReportButton from '@/components/shared/BugReportButton.vue'
@@ -196,7 +198,7 @@ const STATS = [
 
 export default {
   name: 'App',
-  components: { TopBar, CityScene, Market, Hand, PileView, Overlay, ButtonLegend, CardInfo, InfoPanel, HowTo, MandateTile, PlacementPreview, PolicyList, PolicyTile, BugReportButton, BugResolutionNotice },
+  components: { TopBar, CityScene, Market, Hand, PileView, Overlay, ButtonLegend, CardInfo, InfoPanel, HowTo, MandateTile, PlacementPreview, SummaryPanel, PolicyList, PolicyTile, BugReportButton, BugResolutionNotice },
   // The house bug button has no store to read; it asks this for a snapshot.
   provide () {
     return { bugSnapshot: () => this.bugSnapshot() }
@@ -242,7 +244,7 @@ export default {
       menuReturn: 'hand',
       howtoPage: 0,
       howtoReturn: 'hand',
-      summary: { title: '', lines: [] },
+      summary: { turn: 0, budget: { total: 0, parts: [] }, drain: null, events: [] },
       toast: null,
       toastId: 0,
       pops: [],
@@ -308,9 +310,12 @@ export default {
     /** The policy for sale beside the city row (cards/policies.js), as a row item. */
     forSale () { void this.tick; const p = this.game.state.policyForSale; return p ? [{ id: '__policy__', isPolicy: true, policy: p, name: p.name, price: policyPrice(this.game.state) }] : [] },
     /** The policy for sale, while the market cursor is on it. */
-    marketPolicy () { return this.mode === 'market' && this.market.row === 0 ? (this.row0[this.market.index]?.isPolicy ? this.row0[this.market.index] : null) : null },
-    /** The market's first row: the city row, the supply, the policy for sale. */
-    row0 () { return [...this.cityRow, ...this.supply, ...this.forSale] },
+    marketPolicy () { return this.mode === 'market' && this.market.row === 3 ? (this.row3[this.market.index]?.isPolicy ? this.row3[this.market.index] : null) : null },
+    /** The market's first row is the city row; row 3 is what's always for sale (the supply, then the policy). */
+    row0 () { return this.cityRow },
+    row3 () { return [...this.supply, ...this.forSale] },
+    /** The supply card under the market cursor, shown big on the left like a hand card. */
+    marketSupplyCard () { if (this.mode !== 'market' || this.market.row !== 3) return null; const it = this.row3[this.market.index]; return it && !it.isPolicy ? it : null },
     electionShown () { void this.tick; return this.game.state.run?.election ?? { era: 1, passed: false } },
     electionLines () {
       const e = this.electionShown
@@ -453,12 +458,12 @@ export default {
       const L = (action, label) => ({ action, label })
       switch (this.screen === 'title' ? 'title' : this.mode) {
         case 'title': return [L('select', 'Start')]
-        case 'hand': return [L('lr', 'Choose card'), L('select', 'Play'), ...(canCombine(this.focusedHandCard) ? [L('combine', 'Combine')] : []), L('up', 'Look at the city'), L('confirm', this.endLabel), L('deck', 'Deck'), L('menu', 'Menu')]
+        case 'hand': return [L('lr', 'Choose card'), L('select', 'Play'), ...(canCombine(this.focusedHandCard) ? [L('combine', 'Combine')] : []), L('up', 'Look at the city'), L('stats', 'Top bar'), L('confirm', this.endLabel), L('deck', 'Deck'), L('menu', 'Menu')]
         case 'target': return this.pendingEdges.length ? [L('dpad', 'Aim the second segment'), L('select', 'Place'), L('back', 'Keep just one')] : [L('dpad', 'Aim'), ...(isMultiTile(this.selectedCard) ? [L('prevPile', 'Turn'), L('nextPile', 'Turn')] : []), L('select', 'Place'), L('back', 'Back')]
         case 'combine': return [L('lr', 'Choose'), L('select', 'Pick / put back'), ...(this.picks.length ? [L('confirm', 'Combine')] : []), L('back', 'Back')]
         case 'combineChoice': return [L('lr', 'Choose'), L('select', 'Combine into this'), L('back', 'Back')]
         case 'civic': return [L('lr', 'Choose'), L('select', 'Pick / put back'), ...(this.picks.length >= this.civicNeed ? [L('confirm', 'Discard these')] : []), L('back', 'Back')]
-        case 'market': return [L('dpad', 'Browse'), L('select', 'Buy / Claim'), L('up', 'Look at the city'), L('confirm', 'End turn'), L('deck', 'Deck'), L('menu', 'Menu')]
+        case 'market': return [L('dpad', 'Browse'), L('select', 'Buy / Claim'), L('up', 'Look at the city'), L('stats', 'Top bar'), L('confirm', 'End turn'), L('deck', 'Deck'), L('menu', 'Menu')]
         case 'look': return [L('dpad', 'Move'), L('up', 'Top bar'), L('back', 'Back')]
         case 'stats': return [L('lr', 'Next number'), L('back', 'Back')]
         case 'pile': return [L('prevPile', 'Prev'), L('nextPile', 'Next'), L('dpad', 'Browse'), L('back', 'Close')]
@@ -548,6 +553,9 @@ export default {
       this.lastSource = source
       if (action === 'fullscreen') return this.toggleFullscreen(source)
       if (action === 'playtest') return this.togglePlaytest()
+      // One press to the top bar from the hand or the market, not a walk up the map.
+      if (action === 'stats' && (this.mode === 'hand' || this.mode === 'market')) return this.openStats(this.mode)
+      if (action === 'stats' && this.mode === 'stats') { this.mode = this.statsReturn; return }
       if (this.screen === 'title') {
         if (action === 'select' || action === 'confirm') {
           // Matt: "if I hit the button with a controller, it doesn't go to
@@ -612,7 +620,7 @@ export default {
     },
     in_market (action) {
       const hasMandate = this.run?.status === 'playing'
-      const rows = [this.row0, this.goalRow, hasMandate ? [this.run.mandate] : []]
+      const rows = [this.row0, this.goalRow, hasMandate ? [this.run.mandate] : [], this.row3]
       const { row, index } = this.market
       const len = rows[row].length
       const clamp = (r, i) => Math.min(i, Math.max(0, rows[r].length - 1))
@@ -622,6 +630,8 @@ export default {
       else if (action === 'up' && row === 1 && hasMandate) this.market = { row: 2, index: 0 }
       else if (action === 'down' && row === 2) this.market = { row: 1, index: 0 }
       else if (action === 'down' && row === 1) this.market = { row: 0, index: clamp(0, index) }
+      else if (action === 'down' && row === 0 && rows[3].length) this.market = { row: 3, index: clamp(3, index) }
+      else if (action === 'up' && row === 3) this.market = { row: 0, index: clamp(0, index) }
       else if (action === 'up') this.openLook('market')
       else if (action === 'select') this.buyOrClaim()
       else if (action === 'confirm') this.endTurn()
@@ -720,6 +730,26 @@ export default {
     moveAim (dir) {
       const here = this.currentTarget
       if (!here) return
+      // Plots move along the board's own rows and columns (Matt, 2026-10-30:
+      // "still awkward to move around" - on the angled board a screen "up" has
+      // no plot straight above, so the cursor wandered). Each press takes the
+      // grid direction whose on-screen direction best matches the press.
+      if (here.kind === 'cell' && this.targets.every(t => t.kind === 'cell')) {
+        const want = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }[dir]
+        const o = this.screenOf({ kind: 'cell', x: 0, y: 0 }); const ex = this.screenOf({ kind: 'cell', x: 1, y: 0 }); const ey = this.screenOf({ kind: 'cell', x: 0, y: 1 })
+        const axes = [[1, 0, ex.x - o.x, ex.y - o.y], [-1, 0, o.x - ex.x, o.y - ex.y], [0, 1, ey.x - o.x, ey.y - o.y], [0, -1, o.x - ey.x, o.y - ey.y]]
+        const [gx, gy] = axes.reduce((best, ax) => { const s = (ax[2] * want[0] + ax[3] * want[1]) / Math.hypot(ax[2], ax[3]); return s > best[2] ? [ax[0], ax[1], s] : best }, [0, 0, -Infinity])
+        let pick = null; let score = Infinity
+        this.targets.forEach((t, i) => {
+          const along = (t.x - here.x) * gx + (t.y - here.y) * gy
+          if (along <= 0) return
+          const across = Math.abs((t.x - here.x) * gy) + Math.abs((t.y - here.y) * gx)
+          const sc = along + across * 3 // the same row first, then the nearest row beside it
+          if (sc < score) { score = sc; pick = i }
+        })
+        if (pick !== null) this.targetIndex = pick
+        return
+      }
       const points = this.targets.map((t, i) => ({ x: t.sx, y: t.sy, i }))
       const next = stepCursor({ x: here.sx, y: here.sy }, dir, points)
       if (next.i !== undefined) this.targetIndex = next.i
@@ -989,8 +1019,8 @@ export default {
     buyOrClaim () {
       const { row, index } = this.market
       if (row === 2) return this.callElection()
-      if (row === 0) {
-        const card = this.row0[index]
+      if (row === 0 || row === 3) {
+        const card = (row === 3 ? this.row3 : this.row0)[index]
         if (!card) return
         if (card.isPolicy) {
           if (card.price > this.treasury) return this.refuse(`${card.name} costs ${card.price}. You have ${this.treasury}.`, 'orb')
@@ -1013,7 +1043,7 @@ export default {
         try { this.game.actions.claimGoal(goal.id) } catch (err) { return this.refuse(err.message) }
         this.say(`${goal.name} claimed. It's a Monument in your deck now.`, 'good')
       }
-      const rows = [this.row0, this.goalRow]
+      const rows = [this.row0, this.goalRow, [], this.row3]
       this.market = { row, index: Math.min(index, Math.max(0, rows[row].length - 1)) }
       this.refresh()
     },
@@ -1032,7 +1062,12 @@ export default {
       for (let i = 0; i < 4; i++) this.game.actions.advance()
       const lines = this.game.log.slice(before)
       this.refresh()
-      this.summary = { title: `Turn ${this.turn}`, lines: lines.length ? lines : ['Nothing happened overnight.'] }
+      // The ledger: the budget and patience as numbers, everything else as events.
+      const s = this.game.state
+      const events = lines
+        .filter(l => !l.startsWith('Budget this turn') && !l.startsWith('Patience '))
+        .map(text => ({ text, bad: /disaster|flood|fire|blackout|strike|crime|pollution|trash|debt|voted out|leaves|expired|gone/i.test(text) && !/cleared|took a|blocked/i.test(text) }))
+      this.summary = { turn: this.turn, budget: s.lastBudget ?? { total: this.treasury, parts: [] }, drain: s.run?.lastDrain ?? null, patience: s.run?.patience ?? 0, patienceStart: s.run?.patienceStart ?? 0, events }
       this.mode = 'summary'
     },
     afterSummary () {

@@ -11,6 +11,7 @@
 //   prevPile / nextPile        LB / RB, Q / R
 //   menu                       Start, M
 //   combine                    LT / RT, C      (combine two buildings in hand)
+//   stats                      View, T         (straight to the numbers in the top bar)
 //
 // Holding a direction repeats it: a first repeat after REPEAT_DELAY_MS, then
 // one every REPEAT_RATE_MS, so walking a long row is quick but a tap is one
@@ -31,6 +32,7 @@ const BUTTONS = {
   5: 'nextPile', // RB
   6: 'combine', // LT
   7: 'combine', // RT
+  8: 'stats', // View / Back / Share / Minus: straight to the top bar (Matt, 2026-10-30)
   9: 'menu', // Start
   12: 'up',
   13: 'down',
@@ -49,7 +51,8 @@ const KEYS = {
   KeyM: 'menu',
   KeyF: 'fullscreen',
   KeyP: 'playtest',
-  KeyC: 'combine'
+  KeyC: 'combine',
+  KeyT: 'stats'
 }
 
 export const DIRECTIONS = ['up', 'down', 'left', 'right']
@@ -73,11 +76,11 @@ export function padKind (id = '') {
 
 /** The label for each action on each controller family. */
 export const GLYPHS = {
-  xbox: { combine: 'RT', up: '↑', down: '↓', left: '←', right: '→', select: 'A', back: 'B', deck: 'X', confirm: 'Y', prevPile: 'LB', nextPile: 'RB', menu: '☰', dpad: '✥', lr: '↔' },
-  playstation: { combine: 'R2', up: '↑', down: '↓', left: '←', right: '→', select: '✕', back: '○', deck: '□', confirm: '△', prevPile: 'L1', nextPile: 'R1', menu: '☰', dpad: '✥', lr: '↔' },
-  switch: { combine: 'ZR', up: '↑', down: '↓', left: '←', right: '→', select: 'B', back: 'A', deck: 'Y', confirm: 'X', prevPile: 'L', nextPile: 'R', menu: '+', dpad: '✥', lr: '↔' },
-  generic: { combine: 'RT', up: '↑', down: '↓', left: '←', right: '→', select: 'A', back: 'B', deck: 'X', confirm: 'Y', prevPile: 'LB', nextPile: 'RB', menu: '☰', dpad: '✥', lr: '↔' },
-  keyboard: { combine: 'C', up: '↑', down: '↓', left: '←', right: '→', select: '⏎', back: 'Esc', deck: 'Tab', confirm: 'E', prevPile: 'Q', nextPile: 'R', menu: 'M', dpad: '✥', lr: '↔' }
+  xbox: { stats: 'View', combine: 'RT', up: '↑', down: '↓', left: '←', right: '→', select: 'A', back: 'B', deck: 'X', confirm: 'Y', prevPile: 'LB', nextPile: 'RB', menu: '☰', dpad: '✥', lr: '↔' },
+  playstation: { stats: 'Create', combine: 'R2', up: '↑', down: '↓', left: '←', right: '→', select: '✕', back: '○', deck: '□', confirm: '△', prevPile: 'L1', nextPile: 'R1', menu: '☰', dpad: '✥', lr: '↔' },
+  switch: { stats: '−', combine: 'ZR', up: '↑', down: '↓', left: '←', right: '→', select: 'B', back: 'A', deck: 'Y', confirm: 'X', prevPile: 'L', nextPile: 'R', menu: '+', dpad: '✥', lr: '↔' },
+  generic: { stats: 'View', combine: 'RT', up: '↑', down: '↓', left: '←', right: '→', select: 'A', back: 'B', deck: 'X', confirm: 'Y', prevPile: 'LB', nextPile: 'RB', menu: '☰', dpad: '✥', lr: '↔' },
+  keyboard: { stats: 'T', combine: 'C', up: '↑', down: '↓', left: '←', right: '→', select: '⏎', back: 'Esc', deck: 'Tab', confirm: 'E', prevPile: 'Q', nextPile: 'R', menu: 'M', dpad: '✥', lr: '↔' }
 }
 
 /**

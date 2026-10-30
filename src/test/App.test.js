@@ -90,7 +90,8 @@ describe('App', () => {
     expect(vm().phaseName).toBe('acquire')
     await press('confirm')
     expect(vm().mode).toBe('summary')
-    expect(vm().summary.lines.join(' ')).toMatch(/Budget this turn/)
+    expect(vm().summary.budget.total).toBe(vm().treasury) // the ledger: budget parts add up to the new budget
+    expect(vm().summary.budget.parts.length).toBeGreaterThan(0)
     await press('select')
     expect(vm().mode).toBe('hand')
     expect(vm().turn).toBe(2)
