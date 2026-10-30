@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { createGame } from '../index'
+import { createGame, calcUpkeep, calcBudget, calcStatTotal, effectiveCost } from '../index'
 import { runGameOptions, RUN } from '../../runSetup'
 
 // The run: eras, mandates, Public Patience and elections (Matt, 2026-10-29).
@@ -96,5 +96,30 @@ describe('the run', () => {
     const hands = new Set()
     for (let i = 0; i < 20; i++) hands.add(newRun().state.hand.map(c => c.id).sort().join(','))
     expect(hands.size).toBeGreaterThan(1)
+  })
+})
+
+describe('the money', () => {
+  it('upkeep: 1 a turn for every building past the first three, off the budget', () => {
+    const game = createGame({ ...runGameOptions(), upkeep: { per: 1, free: 2 } })
+    // The starting town is three buildings: one over the free two.
+    expect(calcUpkeep(game.state)).toBe(1)
+    expect(calcBudget(game.state)).toBe(calcStatTotal(game.state, 'revenue') - 1)
+    game.actions.advance() // the draw phase sets the budget
+    expect(game.state.treasury).toBe(calcStatTotal(game.state, 'revenue') - 1)
+  })
+
+  it('each era makes buildings dearer to build, but not Roads', () => {
+    const game = newRun()
+    const s = game.state
+    const home = game.catalog.residential
+    expect(effectiveCost(s, home)).toBe(home.cost)
+    game.actions.chooseMandate(s.run.offer[0].id)
+    s.run.mandate = { ...s.run.mandate, condition: { type: 'populationAtLeast', amount: 0 } }
+    game.actions.advance() // to the acquire phase, where an election may be called
+    game.actions.callElection()
+    expect(s.run.era).toBe(2)
+    expect(effectiveCost(s, home)).toBe(home.cost + RUN.eras[1].costRise)
+    expect(effectiveCost(s, game.catalog.road)).toBe(game.catalog.road.cost)
   })
 })

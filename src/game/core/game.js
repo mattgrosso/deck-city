@@ -54,6 +54,7 @@ function assertPlaying (state) {
  * @param {string[]} [options.supplyCardIds] - always for sale beside the city row, never sold out (Roads)
  * @param {Object} [options.run] - a run of eras, mandates and patience (turn/run.js); without it the old population-target game
  * @param {{dry?: Object, firstEra?: Object}|null} [options.terrain] - lay water on the map (state/terrain.js); off by default
+ * @param {{per: number, free?: number}|null} [options.upkeep] - budget a turn per building past the first `free` (state/playerState.js calcUpkeep)
  * @param {boolean} [options.shuffleStartingDeck] - default true; tests turn it off to deal in list order
  * @param {() => number} [options.rng]
  */
@@ -75,6 +76,7 @@ export function createGame ({
   shuffleMarkets = true,
   shuffleStartingDeck = true,
   terrain = null,
+  upkeep = null,
   gridSize,
   startingRoadEdges,
   run = null,
@@ -100,6 +102,7 @@ export function createGame ({
   // Matt: "I start with exactly the same five cards every time." The starting
   // deck was dealt in list order; it is shuffled like every reshuffle after.
   if (shuffleStartingDeck) shuffle(state.deck)
+  state.upkeep = upkeep
 
   // The market and the goals are shuffled at the start (they were not, so the
   // city row dealt in list order and the same three goals opened every game).

@@ -10,7 +10,7 @@
 // active. TurnManager.assertPhase() is what enforces that gating.
 
 import {
-  resetAllSlotUsage, calcStatTotal, tickDisasterTimer, resetDisasterTimer, countDisasterBlockers, sumPassive
+  resetAllSlotUsage, calcStatTotal, tickDisasterTimer, resetDisasterTimer, countDisasterBlockers, sumPassive, calcUpkeep
 } from '../state/playerState'
 import { resolveTrigger } from '../effects/effectRegistry'
 import { draw, discardCards, addToDrawPile, addToDiscardPile, shuffle } from '../piles/deck'
@@ -142,13 +142,15 @@ export const DEFAULT_PHASES = [
       // a pure production-based reset can never recover from on its own.
       const fromBuildings = calcStatTotal(ctx.state, 'revenue')
       const base = ctx.baseRevenue ?? 0
-      const revenue = fromBuildings + base
+      const upkeep = calcUpkeep(ctx.state)
+      const revenue = Math.max(0, fromBuildings + base - upkeep)
       const rollover = Math.min(ctx.state.treasury, ctx.state.treasuryRolloverCap ?? 0)
       ctx.state.treasury = revenue + rollover
       ctx.state.goalsClaimedThisTurn = 0
       ctx.state.buys = (ctx.buysPerTurn ?? 1) + sumPassive(ctx.state, 'buysBonus')
       const parts = [`${fromBuildings} from buildings`]
       if (base) parts.push(`${base} base income`)
+      if (upkeep) parts.push(`${upkeep} upkeep taken off`)
       if (rollover > 0) parts.push(`${rollover} kept from last turn`)
       ctx.log?.push(`Budget this turn: ${ctx.state.treasury} (${parts.join(' + ')}).`)
 

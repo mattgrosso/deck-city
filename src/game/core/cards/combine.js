@@ -12,7 +12,13 @@
 // to. Its name comes from the pair of families (NAMES below), so every
 // pairing - even a factory and a park - is a real place.
 //
-// A combined card does not combine again (yet).
+// Combined cards combine again (Matt: "we need to be able to combine
+// combination buildings... a repeatable pattern"). A pair of plain
+// buildings takes its name from NAMES; anything bigger is named by size
+// and by the family it leans to: three or four buildings make a Quarter,
+// five to eight a District, nine or more a Borough ("Market Quarter",
+// "Garden District"). Each combine adds its +1 lean, so a card grows with
+// every step; `size` counts the plain buildings inside it.
 
 import { CARD_TYPES } from './cardSchema'
 
@@ -84,9 +90,22 @@ export const NAMES = {
   'transit+transit': ['Interchange', 'Grand Terminal']
 }
 
-/** May this card be combined? Buildings only; not Roads, goals, one-of-a-kinds, or a card already combined. */
+/** May this card be combined? Buildings only; not Roads, goals or one-of-a-kinds. */
 export function canCombine (card) {
-  return !!card && card.type === CARD_TYPES.BUILDING && !card.placesRoad && !card.unique && !card.combo
+  return !!card && card.type === CARD_TYPES.BUILDING && !card.placesRoad && !card.unique
+}
+
+// The repeatable names, for anything bigger than a pair.
+const PLACE = { residential: 'Residential', commercial: 'Market', industrial: 'Mill', transit: 'Station', green: 'Garden', leisure: 'Theatre', facility: 'Civic', landmark: 'Heritage' }
+export function scaleOf (size) { return size >= 9 ? 'Borough' : size >= 5 ? 'District' : 'Quarter' }
+
+const sizeOf = (card) => card.size ?? 1
+
+// A short, stable id for a combined card: the same pair always makes the same two.
+function hashOf (text) {
+  let h = 5381
+  for (let i = 0; i < text.length; i++) h = ((h * 33) ^ text.charCodeAt(i)) >>> 0
+  return h.toString(36)
 }
 
 /** What combining two cards costs: half what building both would. */
@@ -108,9 +127,10 @@ function merge (a, b) {
     cost: (a.cost ?? 0) + (b.cost ?? 0),
     stats,
     combo: true,
+    size: sizeOf(a) + sizeOf(b),
     madeFrom: [a.name, b.name],
-    // How it looks on the board and on the card: like the dearer half.
-    lookAs: (b.cost ?? 0) > (a.cost ?? 0) ? b : a
+    // How it looks on the board and on the card: like the dearer half's own building.
+    lookAs: (() => { const d = (b.cost ?? 0) > (a.cost ?? 0) ? b : a; return d.lookAs ?? d })()
   }
   const rules = [...(a.adjacency?.statBonus ?? []), ...(b.adjacency?.statBonus ?? [])]
   if (rules.length) card.adjacency = { statBonus: rules }
@@ -140,8 +160,12 @@ export function combineOptions (a, b) {
   const [first, second] = [a, b].sort((x, y) => (buildingFamily(x) < buildingFamily(y) ? -1 : buildingFamily(x) > buildingFamily(y) ? 1 : 0))
   const fa = buildingFamily(first)
   const fb = buildingFamily(second)
-  const names = NAMES[`${fa}+${fb}`] ?? [`${first.name} & ${second.name}`, `${second.name} & ${first.name}`]
+  const size = sizeOf(a) + sizeOf(b)
+  let names
+  if (size === 2) names = NAMES[`${fa}+${fb}`] ?? [`${first.name} & ${second.name}`, `${second.name} & ${first.name}`]
+  else if (fa === fb) names = [`${PLACE[fa]} ${scaleOf(size)}`, `Old ${PLACE[fa]} ${scaleOf(size)}`]
+  else names = [`${PLACE[fa]} ${scaleOf(size)}`, `${PLACE[fb]} ${scaleOf(size)}`]
   const leans = fa === fb ? [[fa, LEAN[fa][0]], [fa, LEAN[fa][1]]] : [[fa, LEAN[fa][0]], [fb, LEAN[fb][0]]]
-  const ids = [a.id, b.id].sort().join('+')
-  return leans.map(([family, stat], k) => lean({ ...merge(first, second), id: `combo:${ids}:${k}`, name: names[k], family }, stat))
+  const key = hashOf([a.id, b.id].sort().join('+'))
+  return leans.map(([family, stat], k) => lean({ ...merge(first, second), id: `combo:${key}:${k}`, name: names[k], family }, stat))
 }

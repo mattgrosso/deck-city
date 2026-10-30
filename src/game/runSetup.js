@@ -19,6 +19,14 @@ export const STARTING_BUILDINGS = [
 ]
 
 /**
+ * The money (Matt, 2026-10-29: "I never ran out of money... the budget gets
+ * out of control immediately"): upkeep on every building past the first
+ * few, and every building costs more to build in each new era.
+ */
+export const UPKEEP = { per: 1, free: 3 }
+export const COST_RISE = [0, 3, 6]
+
+/**
  * Three eras (Matt: "an act in Slay the Spire is somewhere between 6 and 10
  * combats, and each combat 3-10 turns"): Patience is each era's clock,
  * `limits` the part of the map the city may use, `cardIds` the tier that
@@ -28,9 +36,9 @@ export const STARTING_BUILDINGS = [
 export const RUN = {
   offerSize: 2,
   eras: [
-    { patience: 180, limits: { x0: 6, y0: 4, x1: 18, y1: 12 }, cardIds: [] },
-    { patience: 140, limits: { x0: 3, y0: 2, x1: 21, y1: 14 }, cardIds: cityCards.cityCardsOfTier(2) },
-    { patience: 160, limits: { x0: 0, y0: 0, x1: 24, y1: 16 }, cardIds: cityCards.cityCardsOfTier(3) }
+    { patience: 180, limits: { x0: 6, y0: 4, x1: 18, y1: 12 }, cardIds: [], costRise: 0 },
+    { patience: 140, limits: { x0: 3, y0: 2, x1: 21, y1: 14 }, cardIds: cityCards.cityCardsOfTier(2), costRise: COST_RISE[1] },
+    { patience: 160, limits: { x0: 0, y0: 0, x1: 24, y1: 16 }, cardIds: cityCards.cityCardsOfTier(3), costRise: COST_RISE[2] }
   ],
   drain: { base: 1, floor: 3, perBadCards: 6, maxBad: 5, unemployment: 1, disaster: 4, chance: 3 }
 }
@@ -51,6 +59,7 @@ export function runGameOptions ({ rng } = {}) {
     startingRoadEdges: STARTING_ROAD_EDGES,
     startingBuildings: STARTING_BUILDINGS,
     run: RUN,
+    upkeep: UPKEEP,
     // Always for sale beside the city row: Roads (yarn selfplay: cities
     // stalled with budget to spare and no street to build on) and the four
     // services (Matt: "I didn't see a police station for a long time").

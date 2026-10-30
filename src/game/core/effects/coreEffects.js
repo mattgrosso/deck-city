@@ -24,9 +24,11 @@ registerEffect('gainTreasury', (effect, { state, log }) => {
   log?.push(`+${effect.amount} budget.`)
 })
 
+// A loss takes what there is: with upkeep a disaster can strike an empty purse.
 registerEffect('spendTreasury', (effect, { state, log }) => {
-  spendTreasury(state, effect.amount)
-  log?.push(`Lost ${effect.amount} budget.`)
+  const lost = Math.min(effect.amount, state.treasury)
+  if (lost) spendTreasury(state, lost)
+  log?.push(`Lost ${lost} budget.`)
 })
 
 /**

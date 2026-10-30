@@ -34,7 +34,7 @@
           @mouseenter="$emit('focus', { row: 0, index: i })"
           @click="$emit('select', { row: 0, index: i })"
         >
-          <GameCard :card="card" :catalog="catalog" size="market" :cant="active && (buys < 1 || (card.price ?? card.cost) > treasury)" :class="{ 'focus-ring': isFocused(0, i) }" />
+          <GameCard :card="card" :catalog="catalog" size="market" :cost="costOf(card)" :cant="active && (buys < 1 || (card.price ?? card.cost) > treasury)" :class="{ 'focus-ring': isFocused(0, i) }" />
           <div class="market__price">Buy {{ card.price ?? card.cost }}</div>
         </div>
         <div v-if="!cityRow.length" class="market__empty">Sold out</div>
@@ -58,6 +58,7 @@ import GameCard from './GameCard.vue'
 import GoalTile from './GoalTile.vue'
 import MandateTile from './MandateTile.vue'
 import { FAMILIES, familyOf } from '@/ui/cardText'
+import { effectiveCost } from '@/game/core'
 
 // The goals sit ABOVE the city row now, in gold, each with its own clock.
 // Matt: "I sort of accidentally fulfilled one of the goals... they just look
@@ -73,6 +74,8 @@ export default {
   },
   emits: ['focus', 'select'],
   methods: {
+    // tick: the engine mutates state outside Vue, so a bump re-reads the cost.
+    costOf (card) { void this.tick; return effectiveCost(this.state, card) },
     familyColor (card) { return FAMILIES[familyOf(card)]?.color ?? '#c98a12' },
     isFocused (row, index) { return this.active && this.focus && this.focus.row === row && this.focus.index === index }
   }

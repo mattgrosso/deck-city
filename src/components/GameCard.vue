@@ -7,7 +7,7 @@
     <!-- The frame: card stock, a coloured band for the name, a window for
          the picture, the rules below. Cost sits as a coin on the band. -->
     <div class="card__band">
-      <div v-if="showCost" class="card__cost" :class="{ 'card__cost--free': !shownCost, 'card__cost--off': shownCost < (card.cost ?? 0) }">{{ shownCost }}</div>
+      <div v-if="showCost" class="card__cost" :class="{ 'card__cost--free': !shownCost, 'card__cost--off': shownCost < (card.cost ?? 0), 'card__cost--up': shownCost > (card.cost ?? 0) }">{{ shownCost }}</div>
       <div class="card__name">{{ card.name }}</div>
       <div v-if="card.tier" class="card__tier">{{ ['', 'I', 'II', 'III'][card.tier] ?? card.tier }}</div>
     </div>
@@ -96,6 +96,7 @@ export default {
   font-size: 19px; font-weight: 800;
   box-shadow: 0 1px 0 #fff inset, 0 2px 4px rgba(0,0,0,0.25);
 }
+.card__cost--up { background: radial-gradient(circle at 35% 30%, #ffd2c2, #e8603c 60%, #a8361a); color: #fff; }
 .card__cost--free { background: #f1f1f1; color: #555; }
 .card__cost--off { background: radial-gradient(circle at 35% 30%, #c6f7d8, #2fb36a 60%, #1d7a47); color: #fff; }
 .card__name { flex: 1; font-size: 18px; font-weight: 800; line-height: 1.02; letter-spacing: -0.01em; }

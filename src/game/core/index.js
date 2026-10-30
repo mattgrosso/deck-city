@@ -56,7 +56,9 @@ export {
   clearStatusCard,
   effectiveCost,
   clearsOf,
-  sumPassive
+  sumPassive,
+  calcUpkeep,
+  calcBudget
 } from './state/playerState'
 export {
   DEFAULT_CITY_GRID_SIZE,

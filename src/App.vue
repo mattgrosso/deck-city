@@ -145,7 +145,7 @@ import BugResolutionNotice from '@/components/shared/BugResolutionNotice.vue'
 import {
   createGame, effectiveCost, clearsOf, isInLimits, isWater,
   calcStatTotal, countCardsByTag, evaluateCondition, isCellEmpty, isBuildable, listConnectedEdges,
-  previewPlacement, instanceStats, canCombine, combineCost, combineOptions
+  previewPlacement, instanceStats, canCombine, combineCost, combineOptions, calcBudget, calcUpkeep
 } from '@/game/core'
 import { attachInput, GLYPHS } from '@/ui/input'
 import { stepCursor, nearestCell } from '@/ui/layout'
@@ -166,7 +166,7 @@ const HOWTO_SEEN = 'deck-city:howto-seen'
 const STATS = [
   { key: 'population', title: 'Population', explain: (a) => [`${a.population} people live here.`, 'Houses add 2 each, more beside other houses. A claimed goal (a Monument) adds 1.'] },
   { key: 'jobs', title: 'Jobs', explain: (a) => [`${a.jobs} jobs for ${a.population} people. Shops give 2, factories 3.`, a.population > a.jobs ? `${a.population - a.jobs} people have no work: a Crime card joins your deck at the end of every turn this stays true.` : 'Everyone has work. Keep it that way as the city grows, or crime follows.'] },
-  { key: 'budget', title: 'Next budget', explain: (a) => [`${a.nextBudget} next turn, the revenue of every building you have.`, `Unspent budget is lost at the end of the turn${a.rolloverCap ? ` except up to ${a.rolloverCap} (City Bank)` : ''}.`] },
+  { key: 'budget', title: 'Next budget', explain: (a) => [`${a.nextBudget} next turn: ${a.revenue} revenue from your buildings, less ${a.upkeep} upkeep.`, `Upkeep is 1 a turn for every building after your first ${a.upkeepFree}. A combined building counts as one.`, ...(a.costRise ? [`This era every building costs ${a.costRise} more to build.`] : []), `Unspent budget is lost at the end of the turn${a.rolloverCap ? ` except up to ${a.rolloverCap} (City Bank)` : ''}.`] },
   { key: 'crime', title: 'Crime', explain: (a) => [`${a.crime} Crime card${a.crime === 1 ? '' : 's'} in your deck. A house adds one when built; unemployment adds one a turn.`, 'Play a Crime card from your hand into a Police Station with a free slot and it leaves the game.'] },
   { key: 'trash', title: 'Trash', explain: (a) => [`${a.trash} Trash card${a.trash === 1 ? '' : 's'} in your deck. A shop adds one when built.`, 'Play a Trash card from your hand into a Sanitation Center with a free slot and it leaves the game.'] },
   { key: 'pollution', title: 'Pollution', explain: (a) => [`${a.pollution} Pollution card${a.pollution === 1 ? '' : 's'} in your deck. A factory adds one when built.`, 'Play a Pollution card from your hand into a Clinic with a free slot and it leaves the game.'] },
@@ -263,7 +263,7 @@ export default {
     treasury () { void this.tick; return this.game.state.treasury },
     population () { void this.tick; return calcStatTotal(this.game.state, 'population') },
     jobs () { void this.tick; return calcStatTotal(this.game.state, 'jobs') },
-    nextBudget () { void this.tick; return calcStatTotal(this.game.state, 'revenue') },
+    nextBudget () { void this.tick; return calcBudget(this.game.state) },
     run () { void this.tick; return this.game.state.run ?? null },
     supply () { void this.tick; return this.game.supply ?? [] },
     electionShown () { void this.tick; return this.game.state.run?.election ?? { era: 1, passed: false } },
@@ -367,7 +367,7 @@ export default {
       void this.tick
       const stat = STATS[this.statIndex]
       const about = {
-        population: this.population, jobs: this.jobs, nextBudget: this.nextBudget, rolloverCap: this.game.state.treasuryRolloverCap,
+        population: this.population, jobs: this.jobs, nextBudget: this.nextBudget, revenue: calcStatTotal(this.game.state, 'revenue'), upkeep: calcUpkeep(this.game.state), upkeepFree: this.game.state.upkeep?.free ?? 0, costRise: this.game.state.costRise ?? 0, rolloverCap: this.game.state.treasuryRolloverCap,
         crime: this.statuses[0].count, trash: this.statuses[1].count, pollution: this.statuses[2].count,
         disasterIn: this.disasterIn, headedOff: this.headedOff, run: this.game.state.run,
         strikes: this.game.state.disasterTimer.strikes ?? 0,

@@ -9,7 +9,7 @@
 //   patience, patienceStart, offer: [mandate], mandate, lastDrain: {...},
 //   elections: [{ era, mandate, passed, early, turn }], election (the last one, for the screen)
 // }
-// The run config (createGame's `run`): { eras: [{ patience, limits, cardIds }], drain: {...} }.
+// The run config (createGame's `run`): { eras: [{ patience, limits, cardIds, costRise }], drain: {...} }.
 
 import { evaluateCondition } from '../conditions/conditionRegistry'
 import { calcStatTotal, countCardsByTag, sumPassive } from '../state/playerState'
@@ -45,10 +45,11 @@ function enterEra (ctx, era, carry = 0) {
   run.status = 'choosing'
   ctx.state.disasterTimer.strikes = 0 // disasters escalate within an era, not across the run
   if (cfg.limits) ctx.state.cityGrid.limits = { ...cfg.limits }
+  ctx.state.costRise = cfg.costRise ?? 0 // every building costs this much more to build this era
   if (cfg.cardIds?.length && ctx.cityRow && era > 1) {
     addToDrawPile(ctx.cityRow.sourceDeck, cfg.cardIds.map(id => ctx.catalog[id]).filter(Boolean))
     shuffle(ctx.cityRow.sourceDeck)
-    ctx.log?.push(`Era ${era}: the city limits widen and new buildings come to market.`)
+    ctx.log?.push(`Era ${era}: the city limits widen, new buildings come to market, and every building costs ${cfg.costRise ?? 0} more to build.`)
   }
 }
 

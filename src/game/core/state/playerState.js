@@ -322,13 +322,33 @@ export function sumPassive (state, key) {
  * amount }` or a list of them), never below zero.
  */
 export function effectiveCost (state, card) {
-  const base = card.cost ?? 0
+  // Each era raises what buildings cost to build (turn/run.js sets costRise); Roads stay cheap.
+  const rise = card.type === 'building' && !card.placesRoad ? (state.costRise ?? 0) : 0
+  const base = (card.cost ?? 0) + rise
   let off = 0
   for (const inst of state.builtStructures) {
     const list = Array.isArray(inst.card.discount) ? inst.card.discount : (inst.card.discount ? [inst.card.discount] : [])
     for (const d of list) if (card.tags?.includes(d.tag)) off += d.amount
   }
   return Math.max(0, base - off)
+}
+
+/**
+ * Upkeep (Matt, 2026-10-29: "I never ran out of money"): every building
+ * past the first `free` costs `per` budget a turn to run. A combined
+ * building is one building, so combining also saves upkeep. Monuments
+ * (claimed goals) are free. `state.upkeep` = { per, free }; none by default.
+ */
+export function calcUpkeep (state) {
+  const u = state.upkeep
+  if (!u?.per) return 0
+  const count = state.builtStructures.filter(i => i.card.type === 'building').length
+  return Math.max(0, count - (u.free ?? 0)) * u.per
+}
+
+/** Next turn's budget before anything carried over: revenue less upkeep, never below zero. */
+export function calcBudget (state, baseRevenue = 0) {
+  return Math.max(0, calcStatTotal(state, 'revenue') + baseRevenue - calcUpkeep(state))
 }
 
 /** Status kinds a facility clears: `clears` is one tag or a list. */
