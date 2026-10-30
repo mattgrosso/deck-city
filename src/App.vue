@@ -111,7 +111,7 @@
         </div>
         <Overlay v-if="mode === 'election'" :kind="electionShown.passed ? 'won' : 'lost'" :eyebrow="`Era ${['I', 'II', 'III'][electionShown.era - 1]} · election${electionShown.early ? ' called early' : ''}`" :title="electionShown.passed ? 'Re-elected' : 'Voted out'" :lines="electionLines" hint="Continue" :glyph="glyphs.select" />
         <Overlay v-if="mode === 'over'" :kind="game.state.run.status === 'won' ? 'won' : 'lost'" :eyebrow="`Turn ${turn}`" :title="game.state.run.status === 'won' ? 'Three eras. A great city.' : 'The run is over'" :lines="overLines" :items="overItems" :index="overIndex" hint="Choose" :glyph="glyphs.select" @pick="overIndex = $event; act('select', 'click')" />
-        <Overlay v-if="mode === 'menu'" kind="plain" title="Paused" :items="MENU_ITEMS" :index="menuIndex" hint="Choose" :glyph="glyphs.select" @pick="menuIndex = $event; act('select', 'click')" />
+        <Overlay v-if="mode === 'menu'" kind="plain" title="Paused" :items="menuLabels" :index="menuIndex" hint="Choose" :glyph="glyphs.select" @pick="menuIndex = $event; act('select', 'click')" />
         <HowTo v-if="mode === 'howto'" :page="howtoPage" :glyphs="glyphs" />
       </template>
 
@@ -121,6 +121,11 @@
         <span class="pt__dot" />
         <span class="pt__state">{{ { phone: 'Playtest · listening on your phone', on: 'Playtest · listening', paused: 'Playtest · mic paused (press P twice)', denied: 'Playtest · the browser blocked the mic', unsupported: 'Playtest · this browser cannot transcribe', off: 'Playtest' }[playtest.mic] }} · {{ playtest.lines }} lines</span>
         <span v-if="playtest.heard" class="pt__heard">“{{ playtest.heard }}”</span>
+      </div>
+      <!-- The phone mic (mic.html): scan to listen from the phone; gone once a phone is connected. -->
+      <div v-if="playtest.on && !playtest.phone && screen === 'game' && !['target', 'look', 'stats'].includes(mode)" class="pt-qr">
+        <img src="/mic-qr.svg" alt="">
+        <div><b>Phone mic</b><br>Scan to talk from your phone</div>
       </div>
       <transition name="toast">
         <div v-if="playtest.note" :key="playtest.note.at" class="pt-note"><span class="pt-note__who">Claude</span>{{ playtest.note.text }}</div>
@@ -282,6 +287,8 @@ export default {
     population () { void this.tick; return calcStatTotal(this.game.state, 'population') },
     jobs () { void this.tick; return calcStatTotal(this.game.state, 'jobs') },
     policies () { void this.tick; return this.game.state.policies ?? [] },
+    /** The pause menu as shown: Playtest mode says whether it is on. */
+    menuLabels () { return MENU_ITEMS.map(i => (i === 'Playtest mode' ? `Playtest mode: ${this.playtest.on ? 'on' : 'off'}` : i)) },
     /** Every street's load and capacity (state/traffic.js), for the cars and the look-mode tint. */
     traffic () {
       void this.tick
@@ -1167,6 +1174,9 @@ export default {
 .pt--paused .pt__dot, .pt--denied .pt__dot, .pt--unsupported .pt__dot { animation: none; background: #b8c0cc; }
 .pt__heard { font-weight: 600; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 @keyframes pt-pulse { 50% { opacity: 0.35; } }
+.pt-qr { position: absolute; left: 36px; top: 130px; z-index: 22; display: flex; align-items: center; gap: 12px; padding: 10px 14px 10px 10px; border-radius: 14px; background: #fff; border: 2px solid #7a5cf0; box-shadow: 0 6px 20px rgba(27,33,48,0.15); font-size: 14px; font-weight: 600; color: var(--ink-2); line-height: 1.3; }
+.pt-qr img { width: 112px; height: 112px; display: block; }
+.pt-qr b { color: #3b2a8f; font-size: 15px; }
 .pt-note { position: absolute; left: 590px; top: 150px; transform: translateX(-50%); z-index: 22; max-width: 820px; padding: 14px 22px; border-radius: 14px; background: #fff; border: 2px solid #7a5cf0; font-size: 20px; font-weight: 600; line-height: 1.35; box-shadow: 0 8px 26px rgba(27,33,48,0.18); }
 .pt-note__who { display: block; font-size: 12px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #7a5cf0; margin-bottom: 4px; }
 .toast { position: absolute; left: 590px; top: 92px; transform: translateX(-50%); padding: 9px 20px; border-radius: 999px; background: #fff; border: 1.5px solid var(--line); font-size: 19px; font-weight: 700; z-index: 15; white-space: nowrap; box-shadow: 0 6px 20px rgba(27,33,48,0.15); }
