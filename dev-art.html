@@ -8,6 +8,7 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { CARD_ART } from '/src/world/cardArt.js'
 import { makeStreetEdge, makeStreetNode } from '/src/world/streets.js'
+import { fittedBuilding, modelsOfSpec, texturesReady } from '/src/world/buildgen.js'
 const q = new URLSearchParams(location.search)
 const id = q.get('card') || 'residential'
 const art = CARD_ART[id]
@@ -28,7 +29,18 @@ if (art.ground !== 'none') {
 }
 const loader = new GLTFLoader()
 const group = new THREE.Group(); scene.add(group)
-await Promise.all(art.parts.map(p => new Promise((res) => { if (p.street) { const m = p.street === 'edge' ? makeStreetEdge({ axis: p.axis, length: p.length }) : makeStreetNode({ arms: p.arms }); m.position.set(p.dx || 0, 0, p.dz || 0); group.add(m); res(); return } loader.load(`/models/${p.model}.glb`, (gltf) => {
+// Generated buildings (buildgen.js): load what the spec needs, assemble, fit to a lot.
+const genProtos = new Map()
+const loadProto = (name) => genProtos.has(name) ? Promise.resolve() : new Promise(res => loader.load(`/models/${name}.glb`, g => { genProtos.set(name, g.scene); res() }, undefined, () => res()))
+await Promise.all(art.parts.filter(p => p.gen).flatMap(p => modelsOfSpec(p.gen).map(loadProto)))
+for (const p of art.parts.filter(p => p.gen)) {
+  const made = fittedBuilding(p.gen, (n) => genProtos.get(n), { fit: 1.6 })
+  if (!made) continue
+  made.group.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true } })
+  made.group.position.set(p.dx || 0, 0, p.dz || 0); made.group.scale.multiplyScalar(p.scale || 1); group.add(made.group)
+}
+await texturesReady()
+await Promise.all(art.parts.filter(p => !p.gen).map(p => new Promise((res) => { if (p.street) { const m = p.street === 'edge' ? makeStreetEdge({ axis: p.axis, length: p.length }) : makeStreetNode({ arms: p.arms }); m.position.set(p.dx || 0, 0, p.dz || 0); group.add(m); res(); return } loader.load(`/models/${p.model}.glb`, (gltf) => {
   const m = gltf.scene; m.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; if (p.tint != null) { o.material = o.material.clone(); o.material.color.set(p.tint); if (p.model === 'roads/tile-low') { o.material.transparent = true; o.material.opacity = 0.75 } } } })
   m.position.set(p.dx || 0, p.dy || 0, p.dz || 0); m.rotation.y = p.yaw || 0; m.scale.setScalar(p.scale || 1); group.add(m); res()
 }, undefined, () => res()) })))

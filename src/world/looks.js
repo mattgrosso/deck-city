@@ -7,6 +7,7 @@
 // building fits its plot and taller tiers stand taller.
 
 import FOOTPRINTS from './footprints.json'
+import { SOURCES, TOWERS, WHOLE, COLOURWAYS, generatorModels } from './buildgen'
 
 const HEIGHT_CAP = { 1: 1.0, 2: 1.6, 3: 2.8 }
 const FIT = 0.8 // of a plot's width
@@ -108,11 +109,56 @@ function lookFamily (card) {
   return 'facility'
 }
 
+// GENERATED LOOKS (Matt, 2026-10-29: "feel free to generate buildings for
+// everything"): every card without a hand-made OVERRIDE gets its own
+// building from the generator (buildgen.js), fixed by its id: houses
+// recoloured, shops and flats restacked, top-tier towers stretched,
+// factories with chimneys and tanks, services colour-coded by what they do.
+const SERVICE_COLOUR = { safety: 'slate', police: 'slate', fire: 'rose', health: 'cream', education: 'sand', utility: 'teal', sanitation: 'teal', government: 'charcoal', justice: 'charcoal' }
+const pickH = (list, key) => list[hash(key) % list.length]
+const way = (key, extra = []) => pickH([...Object.keys(COLOURWAYS), 'a', 'a', 'b', ...extra], key)
+const floorsUpTo = (key, n) => hash(`${key}:floors`) % (n + 1)
+const roofProps = (key, kit, count) => [...Array(count)].map((_, i) => ({ model: pickH(kit === 'industrial' ? ['industrial/chimney-medium', 'industrial/chimney-large', 'industrial/detail-tank'] : ['industrial/detail-tank', 'industrial/solar-panel-flat', 'industrial/water-tower', 'industrial/chimney-small'], `${key}:p${i}`), dx: ((hash(`${key}:x${i}`) % 5) - 2) * 0.1, dz: ((hash(`${key}:z${i}`) % 5) - 2) * 0.1, yaw: (hash(`${key}:y${i}`) % 4) * Math.PI / 2 }))
+const BLOCKS = Object.keys(SOURCES).filter(k => SOURCES[k].kit === 'commercial')
+const TOWER_LIST = Object.keys(TOWERS)
+
+/** The generator's spec for a card, by family and tier. */
+export function specForCard (card) {
+  const key = card.id
+  const tier = card.tier ?? 1
+  const fam = lookFamily(card)
+  const id = `look:${key}`
+  const tower = (palette) => ({ id, type: 'tower', src: pickH(TOWER_LIST, key), crown: null, stretch: +(0.8 + (hash(`${key}:s`) % 7) / 10).toFixed(2), palette, props: [] })
+  const block = (src, floors, palette, props = []) => ({ id, type: 'block', src, floors, palette, props })
+  const whole = (src, palette, props = []) => ({ id, type: 'whole', src, palette, props })
+  if (fam === 'residential') {
+    if (tier >= 3) return tower(way(key))
+    if (tier === 2) return hash(key) % 3 ? block(pickH(BLOCKS, key), floorsUpTo(key, 2), way(key)) : block('suburban/building-type-p', 1 + floorsUpTo(key, 1), way(key))
+    return whole(pickH(WHOLE.filter(m => m.startsWith('suburban/')), key), way(key, ['c']))
+  }
+  if (fam === 'commercial') {
+    if (tier >= 3) return tower(way(key))
+    return block(pickH(BLOCKS, key), tier === 2 ? 1 + floorsUpTo(key, 2) : 0, way(key), roofProps(key, 'commercial', hash(`${key}:n`) % 2))
+  }
+  if (fam === 'industrial') {
+    if (tier === 2) return block('industrial/building-e', floorsUpTo(key, 2), pickH(['a', 'b', 'c', 'charcoal', 'slate'], key), roofProps(key, 'industrial', 2))
+    return whole(pickH(WHOLE.filter(m => m.startsWith('industrial/')), key), pickH(['a', 'b', 'c', 'charcoal', 'sand'], key), roofProps(key, 'industrial', tier >= 3 ? 2 : 1))
+  }
+  const service = (card.tags ?? []).find(t => t in SERVICE_COLOUR)
+  const palette = fam === 'facility' && service ? SERVICE_COLOUR[service] : way(key)
+  if (tier >= 3 && fam !== 'facility') return tower(palette)
+  return block(pickH(BLOCKS, key), floorsUpTo(key, tier), palette, roofProps(key, 'commercial', 1))
+}
+
 /** A look for any building card: { parts, ground }. */
 export function lookFor (card) {
   if (OVERRIDES[card.id]) return OVERRIDES[card.id]()
   const tier = card.tier ?? 1
   const fam = lookFamily(card)
+  if (fam !== 'green' && fam !== 'transit') {
+    const spec = specForCard(card)
+    return { parts: [{ gen: spec, model: spec.src, scale: 1, dx: 0, dz: 0, yaw: 0 }], ground: fam === 'landmark' ? 'plaza' : 'built' }
+  }
   if (fam === 'green') {
     const n = 2 + (hash(card.id) % 3)
     const spots = [[-0.28, -0.25], [0.28, -0.2], [-0.2, 0.3], [0.3, 0.28], [0, 0]]
@@ -132,7 +178,7 @@ export function lookFor (card) {
 
 /** Every model any look can use, for preloading. */
 export function lookModels () {
-  const out = new Set()
+  const out = new Set(generatorModels())
   Object.values(POOLS).forEach(byTier => Object.values(byTier).forEach(list => list.forEach(m => out.add(m))))
   Object.values(OVERRIDES).forEach(fn => fn().parts.forEach(p => out.add(p.model)))
   ;['commercial/detail-parasol-a', 'commercial/detail-parasol-b', 'industrial/chimney-small', 'suburban/tree-large', 'suburban/tree-small'].forEach(m => out.add(m))

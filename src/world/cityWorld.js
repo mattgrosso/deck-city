@@ -14,6 +14,7 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { PITCH, LOT, GAP, allModels, recipeFor, cornerPoint, edgeCentre, buildingPlacements } from './cityLayout'
 import { makeStreetEdge, makeStreetNode } from './streets'
+import { fittedBuilding } from './buildgen'
 
 const MODEL_PATH = `${process.env.BASE_URL || '/'}models/`
 
@@ -92,8 +93,19 @@ export function createCityWorld (canvas, { reducedMotion = false } = {}) {
   })
   const ready = Promise.all(allModels().map(loadModel)).then(() => true)
 
-  const instance = (model, tint = null, ghost = false) => {
-    const proto = prototypes.get(model)
+  // A generated building (buildgen.js) is assembled once per spec and cloned.
+  const generated = new Map()
+  const genBuilding = (spec) => {
+    if (!generated.has(spec.id)) {
+      const made = fittedBuilding(spec, (name) => prototypes.get(name), { base: process.env.BASE_URL || '/' })
+      if (!made) return null
+      made.group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true } })
+      generated.set(spec.id, made.group)
+    }
+    return generated.get(spec.id)
+  }
+  const instance = (model, tint = null, ghost = false, gen = null) => {
+    const proto = gen ? genBuilding(gen) : prototypes.get(model)
     if (!proto) { const g = new THREE.Group(); g.userData.missing = true; return g }
     const clone = proto.clone()
     if (tint !== null || ghost) {
@@ -262,7 +274,7 @@ export function createCityWorld (canvas, { reducedMotion = false } = {}) {
       const entry = live.get(id)
       if (entry) {
         const stale = entry.group.userData.missing && prototypes.has(p.model)
-        if (stale || entry.placement.model !== p.model || entry.placement.tint !== p.tint) {
+        if (stale || entry.placement.model !== p.model || entry.placement.tint !== p.tint || entry.placement.gen?.id !== p.gen?.id) {
           world.remove(entry.group)
           live.delete(id)
         } else {
@@ -271,7 +283,7 @@ export function createCityWorld (canvas, { reducedMotion = false } = {}) {
           continue
         }
       }
-      const group = instance(p.model, p.tint)
+      const group = instance(p.model, p.tint, false, p.gen)
       group.userData.placement = p
       place(group, p)
       world.add(group)
@@ -285,9 +297,9 @@ export function createCityWorld (canvas, { reducedMotion = false } = {}) {
     }
     for (const [id, p] of wantGhost) {
       let entry = ghosts.get(id)
-      if (!entry || entry.placement.model !== p.model || (entry.group.userData.missing && prototypes.has(p.model))) {
+      if (!entry || entry.placement.model !== p.model || entry.placement.gen?.id !== p.gen?.id || (entry.group.userData.missing && prototypes.has(p.model))) {
         if (entry) world.remove(entry.group)
-        const group = instance(p.model, p.tint, true)
+        const group = instance(p.model, p.tint, true, p.gen)
         world.add(group)
         entry = { group, placement: p }
         ghosts.set(id, entry)
@@ -450,7 +462,7 @@ export function createCityWorld (canvas, { reducedMotion = false } = {}) {
       if (!card || !lot) return []
       if (cells.length > 1 && grid) return buildingPlacements(grid, card, 0, cells, 'ghost').placements
       const recipe = recipeFor(card, 0)
-      return recipe.parts.map((part, i) => ({ id: `ghost:${i}`, model: part.model, x: lot.wx + (part.dx ?? 0) * LOT, z: lot.wz + (part.dz ?? 0) * LOT, yaw: part.yaw ?? 0, scale: part.scale ?? 1, tint: part.tint ?? null }))
+      return recipe.parts.map((part, i) => ({ id: `ghost:${i}`, model: part.model, gen: part.gen ?? null, x: lot.wx + (part.dx ?? 0) * LOT, z: lot.wz + (part.dz ?? 0) * LOT, yaw: part.yaw ?? 0, scale: part.scale ?? 1, tint: part.tint ?? null }))
     },
     start () { if (!running) { running = true; tick() } },
     dispose () { running = false; renderer.dispose(); renderer.forceContextLoss?.() },

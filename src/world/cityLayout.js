@@ -235,6 +235,7 @@ export function layoutCity (grid, structures) {
         placements.push({
           id: `${instance.instanceId}:${i}`,
           model: part.model,
+          gen: part.gen ?? null,
           x: wx + (part.dx ?? 0) * LOT,
           z: wz + (part.dz ?? 0) * LOT,
           yaw: part.yaw ?? 0,

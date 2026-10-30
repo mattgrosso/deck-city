@@ -39,6 +39,12 @@ export const TOWERS = {
   'commercial/building-skyscraper-d': { kit: 'commercial', base: 0.8, body: 5.2, footprint: 'slim' },
   'commercial/building-skyscraper-e': { kit: 'commercial', base: 0.8, body: 4.0, footprint: 'e' }
 }
+// Whole buildings that are only recoloured (they have no clean floor cuts).
+export const WHOLE = [
+  ...'abcdefghijklmnopqrstu'.split('').map(l => `suburban/building-type-${l}`),
+  ...'abcdefghijklmnopqrst'.split('').map(l => `industrial/building-${l}`),
+  ...'acghjk'.split('').map(l => `commercial/building-${l}`)
+]
 export const PALETTES = { commercial: ['a', 'b'], suburban: ['a', 'b', 'c'], industrial: ['a', 'b', 'c'] }
 
 // Our own colourways: the kit's palette with only the WALL colours (the warm
@@ -62,9 +68,14 @@ const ROOF_PROPS = {
   industrial: ['industrial/chimney-medium', 'industrial/chimney-large', 'industrial/detail-tank-large', 'industrial/detail-tank']
 }
 
+/** The models one spec needs. */
+export function modelsOfSpec (spec) {
+  return [spec.src, spec.crown, ...(spec.props ?? []).map(p => p.model)].filter(Boolean)
+}
+
 /** Every model the generator may need, so the world can preload them. */
 export function generatorModels () {
-  const out = new Set([...Object.keys(SOURCES), ...Object.keys(TOWERS)])
+  const out = new Set([...Object.keys(SOURCES), ...Object.keys(TOWERS), ...WHOLE])
   Object.values(ROOF_PROPS).forEach(l => l.forEach(m => out.add(m)))
   return [...out]
 }
@@ -147,7 +158,9 @@ const isWall = (h, sat) => sat > 0.22 && (h < 48 || h > 345)
 /** The kit's palette recoloured to a colourway, as a canvas texture. */
 function colourwayTexture (was, kit, name, base) {
   const way = COLOURWAYS[name]
+  // Sized up front: a GPU texture first uploaded at 0×0 keeps that size, and draws black.
   const canvas = document.createElement('canvas')
+  canvas.width = 512; canvas.height = 512
   const tex = new THREE.CanvasTexture(canvas)
   for (const k of ['flipY', 'colorSpace', 'wrapS', 'wrapT', 'magFilter', 'minFilter', 'channel', 'generateMipmaps']) tex[k] = was[k]
   const done = new THREE.ImageLoader().loadAsync(`${base}models/${kit}/Textures/colormap.png`).then((img) => {
@@ -198,7 +211,12 @@ export function assembleBuilding (spec, get, { base = '/' } = {}) {
     group.add(mesh)
   }
   let height = 0
-  if (spec.type === 'tower') {
+  if (spec.type === 'whole') {
+    const kit = spec.src.split('/')[0]
+    for (const { geo, material } of meshesOf(get(spec.src))) add(sliceGeometry(geo, -1, 99, { from: 0 }), material, kit)
+    height = new THREE.Box3().setFromObject(group).max.y
+    addProps(group, spec, get, height)
+  } else if (spec.type === 'tower') {
     const t = TOWERS[spec.src]
     const c = TOWERS[spec.crown ?? spec.src]
     const body = (t.body - t.base) * spec.stretch
@@ -219,23 +237,43 @@ export function assembleBuilding (spec, get, { base = '/' } = {}) {
       add(sliceGeometry(geo, s.cap, 99, { dy: s.cap + spec.floors * fh }), material, s.kit)
     }
     height = s.cap + spec.floors * fh
-    // Props stand on the roof where they are: a ray straight down finds it.
-    group.updateMatrixWorld(true)
-    const top = new THREE.Box3().setFromObject(group).max.y + 1
-    const ray = new THREE.Raycaster()
-    for (const p of spec.props ?? []) {
-      const proto = get(p.model)
-      if (!proto) continue
-      ray.set(new THREE.Vector3(p.dx, top, p.dz), new THREE.Vector3(0, -1, 0))
-      const hit = ray.intersectObjects(group.children, false)[0]
-      if (!hit || hit.point.y < height * 0.8) continue // off the roof, or down a light well
-      const prop = proto.clone()
-      prop.scale.setScalar(0.5)
-      prop.position.set(p.dx, hit.point.y, p.dz)
-      prop.rotation.y = p.yaw ?? 0
-      prop.traverse(o => { if (o.isMesh) { o.castShadow = true } })
-      group.add(prop)
-    }
+    addProps(group, spec, get, height)
   }
   return { group, height }
+}
+
+/** Props stand on the roof where they are: a ray straight down finds it. */
+function addProps (group, spec, get, height) {
+  group.updateMatrixWorld(true)
+  const top = new THREE.Box3().setFromObject(group).max.y + 1
+  const ray = new THREE.Raycaster()
+  for (const p of spec.props ?? []) {
+    const proto = get(p.model)
+    if (!proto) continue
+    ray.set(new THREE.Vector3(p.dx, top, p.dz), new THREE.Vector3(0, -1, 0))
+    const hit = ray.intersectObjects(group.children, false)[0]
+    if (!hit || hit.point.y < height * 0.8) continue // off the roof, or down a light well
+    const prop = proto.clone()
+    prop.scale.setScalar(0.5)
+    prop.position.set(p.dx, hit.point.y, p.dz)
+    prop.rotation.y = p.yaw ?? 0
+    prop.traverse(o => { if (o.isMesh) { o.castShadow = true } })
+    group.add(prop)
+  }
+}
+
+/**
+ * A spec ready for the board: assembled, then scaled inside a wrapper so its
+ * widest side is `fit` (a lot is 1.0), so any source sits on a plot.
+ */
+export function fittedBuilding (spec, get, { fit = 0.86, base = '/' } = {}) {
+  if (!modelsOfSpec(spec).every(m => get(m) || (spec.props ?? []).some(p => p.model === m))) return null
+  const { group, height } = assembleBuilding(spec, get, { base })
+  const box = new THREE.Box3().setFromObject(group)
+  const size = box.getSize(new THREE.Vector3())
+  const k = fit / Math.max(size.x, size.z, 0.01)
+  group.scale.setScalar(k)
+  group.position.set(-(box.min.x + box.max.x) / 2 * k, 0, -(box.min.z + box.max.z) / 2 * k)
+  const wrap = new THREE.Group(); wrap.add(group)
+  return { group: wrap, height: height * k }
 }
