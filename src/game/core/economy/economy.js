@@ -146,6 +146,7 @@ export function valueOfCardInDeck (card, catalog = {}) {
 /** Cards played a turn (for "every Nth card"), tokens played a turn, builds of a watched kind. */
 export const PLAYS_PER_TURN = 2
 export const TOKENS_PER_TURN = 0.6
+export const DECK_COUNT = 2
 export const CITY_BUILDS = 2
 /** How many times a trigger fires over the horizon. */
 export const TIMES = {
@@ -165,13 +166,23 @@ export const TIMES = {
 /** Budget for every effect on a card, counted by how often each trigger fires. */
 export function valueOfEffects (effects = {}, catalog = {}, card = {}) {
   const times = (trigger) => (trigger === 'onNthPlay' ? HORIZON * Math.min(1, PLAYS_PER_TURN / (card.every ?? 3)) : (TIMES[trigger] ?? 1))
-  return round2(Object.entries(effects).reduce((n, [trigger, list]) => n + times(trigger) * list.reduce((m, e) => m + valueOfEffect(e, catalog), 0), 0))
+  // A filtered watcher (ifTag / ifCard) fires about half as often; growth stops at its cap.
+  const each = (trigger, e) => {
+    const t = times(trigger) * (e.ifTag || e.ifCard ? 0.5 : 1)
+    if (e.type === 'growSelf' && e.max) return Math.min(t * (e.amount ?? 1), e.max) * (VALUE[e.stat] ?? 0) * 0.5
+    if (e.type === 'growNeighbors' && e.max) return Math.min(t * (e.amount ?? 1), e.max) * NEIGHBOURS.good * (VALUE[e.stat] ?? 0) * 0.5
+    return t * valueOfEffect(e, catalog)
+  }
+  return round2(Object.entries(effects).reduce((n, [trigger, list]) => n + list.reduce((m, e) => m + each(trigger, e), 0), 0))
 }
 
 /** Budget for a card's "next door" rules, at the expected number of neighbours. */
 export function valueOfAdjacency (card) {
   return round2((card.adjacency?.statBonus ?? []).reduce((n, b) => {
-    const count = b.scope === 'city' || b.scope === 'deck'
+    // A deck holds a few bad cards of a kind at a time, not a city's worth.
+    const count = b.scope === 'deck'
+      ? Math.min(b.max ?? 99, DECK_COUNT) / (b.per ?? 1)
+      : b.scope === 'city'
       ? Math.min(b.max ?? 99, CITY_COUNT) / (b.per ?? 1)
       : (b.amount > 0 ? NEIGHBOURS.good : NEIGHBOURS.bad)
     return n + b.amount * count * (VALUE[b.stat] ?? 0)
