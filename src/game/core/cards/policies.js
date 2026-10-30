@@ -16,7 +16,8 @@ export const POLICIES = [
   { id: 'rent-control', name: 'Rent Control', text: 'Homes pay no upkeep.', mods: { upkeepFreeTags: ['residential'] } },
   { id: 'infrastructure-bond', name: 'Infrastructure Bond', text: '4 more buildings run free of upkeep.', mods: { upkeepFree: 4 } },
   { id: 'main-street', name: 'Main Street Program', text: 'Every shop: +1 revenue.', rules: [{ tags: ['commercial'], stat: 'revenue', amount: 1 }] },
-  { id: 'housing-first', name: 'Housing First', text: 'Every home: +1 people.', rules: [{ tags: ['residential'], stat: 'population', amount: 1 }] },
+  // Was Housing First (+1 people a home): self-play lost more to unemployment than it gained.
+  { id: 'property-tax', name: 'Property Tax', text: 'Every home: +1 revenue.', rules: [{ tags: ['residential'], stat: 'revenue', amount: 1 }] },
   { id: 'industrial-subsidy', name: 'Industrial Subsidy', text: 'Factories cost 2 less to build.', mods: { discount: [{ tag: 'industrial', amount: 2 }] } },
   { id: 'green-belt-law', name: 'Green Belt Law', text: 'Every green space: +1 patience a turn.', mods: { patienceTags: [{ tag: 'green', amount: 1 }] } },
   { id: 'heritage-act', name: 'Heritage Act', text: 'Every Monument: +2 patience a turn.', mods: { patienceTags: [{ tag: 'monument', amount: 2 }] } },
@@ -26,8 +27,8 @@ export const POLICIES = [
   { id: 'bulk-buying', name: 'Bulk Buying', text: 'City row prices 1 less (never below 1).', mods: { priceDiscount: 1 } },
   { id: 'waterfront-plan', name: 'Waterfront Plan', text: 'Waterfront bonuses count double.', mods: { waterfrontMult: 2 } },
   { id: 'landmark-status', name: 'Landmark Status', text: 'Buildings on 2 or more plots: +1 revenue.', rules: [{ multiTile: true, stat: 'revenue', amount: 1 }] },
-  { id: 'austerity', name: 'Austerity', text: '+4 budget every turn, but draw 1 fewer card.', mods: { budget: 4, handSize: -1 }, tradeoff: true },
-  { id: 'night-economy', name: 'Night Economy', text: 'Leisure and culture: +2 revenue each. Patience drains 1 more every turn.', rules: [{ tags: ['leisure', 'culture', 'tourism'], stat: 'revenue', amount: 2 }], mods: { drainMore: 1 }, tradeoff: true },
+  { id: 'austerity', name: 'Austerity', text: '+5 budget every turn, but city row prices are 1 more.', mods: { budget: 5, priceDiscount: -1 }, tradeoff: true },
+  { id: 'night-economy', name: 'Night Economy', text: 'Leisure and culture: +2 revenue and +1 patience a turn each.', rules: [{ tags: ['leisure', 'culture', 'tourism'], stat: 'revenue', amount: 2 }], mods: { patienceTags: [{ tag: 'leisure', amount: 1 }, { tag: 'culture', amount: 1 }] } },
   // More, so a run that earns ten of them still sees new ones (2026-10-29).
   { id: 'tourism-board', name: 'Tourism Board', text: 'Every landmark: +2 revenue.', rules: [{ tags: ['landmark'], stat: 'revenue', amount: 2 }] },
   { id: 'school-funding', name: 'School Funding', text: 'Every school: +2 people (families move in).', rules: [{ tags: ['education'], stat: 'population', amount: 2 }] },
@@ -44,7 +45,7 @@ export const POLICIES = [
   { id: 'merchant-guild', name: 'Merchant Guild', text: '+1 budget every turn for every 3 shops.', mods: { budgetPer: [{ tag: 'commercial', per: 3 }] } },
   { id: 'arts-patronage', name: 'Arts Patronage', text: 'Every culture building: +1 patience a turn.', mods: { patienceTags: [{ tag: 'culture', amount: 1 }] } },
   { id: 'fast-track', name: 'Fast-Track Permits', text: 'Every building costs 1 less to build, but city row prices are 1 more.', mods: { costAll: 1, priceDiscount: -1 }, tradeoff: true },
-  { id: 'big-government', name: 'Big Government', text: 'Draw 1 more card and +1 buy every turn, but upkeep is doubled.', mods: { handSize: 1, buys: 1, upkeepMult: 2 }, tradeoff: true, rare: true }
+  { id: 'big-government', name: 'Big Government', text: 'Draw 1 more card and +1 buy every turn, but patience drains 1 more every turn.', mods: { handSize: 1, buys: 1, drainMore: 1 }, tradeoff: true, rare: true }
 ]
 
 export const policyById = (id) => POLICIES.find(p => p.id === id)

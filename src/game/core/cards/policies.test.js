@@ -33,12 +33,12 @@ describe('policies', () => {
     }
   })
 
-  it('Housing First and Main Street add to buildings; Tax Reform to the budget', () => {
+  it('Property Tax adds to buildings; Tax Reform to the budget', () => {
     const game = newRun()
-    const pop = calcStatTotal(game.state, 'population')
+    const rev = calcStatTotal(game.state, 'revenue')
+    adopt(game, 'property-tax')
+    expect(calcStatTotal(game.state, 'revenue')).toBe(rev + 1) // one starting house
     const before = calcBudget(game.state)
-    adopt(game, 'housing-first')
-    expect(calcStatTotal(game.state, 'population')).toBe(pop + 1) // one starting house
     adopt(game, 'tax-reform')
     expect(calcBudget(game.state)).toBe(before + 2)
   })
@@ -63,7 +63,7 @@ describe('policies', () => {
     expect(roadSegmentsOf(s, game.catalog.road)).toBe(3)
   })
 
-  it('Civic Pride slows the drain, Night Economy speeds it', () => {
+  it('Civic Pride slows the drain, Big Government speeds it', () => {
     const drains = (id) => {
       const game = newRun()
       game.actions.chooseMandate(game.state.run.offer[0].id)
@@ -73,7 +73,7 @@ describe('policies', () => {
       return total
     }
     expect(drains('civic-pride')).toBeLessThan(drains(null))
-    expect(drains('night-economy')).toBeGreaterThan(drains(null))
+    expect(drains('big-government')).toBeGreaterThan(drains(null))
   })
 })
 

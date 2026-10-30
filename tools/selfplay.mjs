@@ -94,7 +94,7 @@ function play () {
       for (let y = 0; y < g.height; y++) for (let x = 0; x < g.width; x++) if (isCellEmpty(g, x, y) && isBuildable(g, x, y)) open++
       const roads = s.deck.drawPile.concat(s.deck.discardPile, s.hand).filter(c => c.placesRoad).length
       const deckSize = s.deck.drawPile.length + s.deck.discardPile.length + s.hand.length
-      if (s.buys > 0 && open < 6 && roads < deckSize / 6 && s.treasury >= 1) game.actions.acquireCard('street-permit')
+      if (s.buys > 0 && open < 6 && roads < deckSize / 6 && s.treasury >= marketPrice(s, game.catalog["street-permit"])) game.actions.acquireCard('street-permit')
     }
     while (s.buys > 0) {
       const affordable = game.cityRow.cards.filter(c => marketPrice(s, c) <= s.treasury)
