@@ -163,6 +163,7 @@ function colourwayTexture (was, kit, name, base) {
     }
     ctx.putImageData(data, 0, 0)
     tex.needsUpdate = true
+    return tex
   }).catch(() => {})
   pending.add(done)
   return tex
