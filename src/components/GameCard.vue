@@ -12,7 +12,7 @@
       <div v-if="card.tier" class="card__tier">{{ ['', 'I', 'II', 'III'][card.tier] ?? card.tier }}</div>
     </div>
     <div class="card__window">
-      <img v-if="hasArt" class="card__pic" :src="`/art/${artId}.png`" alt="" draggable="false">
+      <img v-if="hasArt" class="card__pic" :src="`/art/${artId}.png?v=${ART_VERSION}`" alt="" draggable="false">
       <svg v-else viewBox="0 0 24 24"><path :d="iconPath" /></svg>
     </div>
     <div class="card__type">{{ typeLabel }}</div>
@@ -28,6 +28,11 @@ import { familyOf, FAMILIES, rulesFor } from '@/ui/cardText'
 import { ICONS, iconFor } from '@/ui/icons'
 import { ART_IDS } from '@/world/cardArt'
 
+// The build, on every picture URL: card art is re-rendered under the same
+// file names (the generator, 2026-10-29), and a browser would otherwise keep
+// the old picture from its cache.
+const ART_VERSION = process.env.VUE_APP_GIT_SHA || 'dev'
+
 export default {
   name: 'GameCard',
   props: {
@@ -42,6 +47,7 @@ export default {
     cost: { type: Number, default: null }
   },
   computed: {
+    ART_VERSION: () => ART_VERSION,
     family () { return familyOf(this.card) },
     colors () { return FAMILIES[this.family] },
     isDark () { return this.family === 'status' || this.family === 'disaster' },
