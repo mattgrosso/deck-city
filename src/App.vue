@@ -119,7 +119,7 @@
 
       <div v-if="playtest.on" class="pt" :class="`pt--${playtest.mic}`">
         <span class="pt__dot" />
-        <span class="pt__state">{{ { on: 'Playtest · listening', paused: 'Playtest · mic paused (press P twice)', denied: 'Playtest · the browser blocked the mic', unsupported: 'Playtest · this browser cannot transcribe', off: 'Playtest' }[playtest.mic] }} · {{ playtest.lines }} lines</span>
+        <span class="pt__state">{{ { phone: 'Playtest · listening on your phone', on: 'Playtest · listening', paused: 'Playtest · mic paused (press P twice)', denied: 'Playtest · the browser blocked the mic', unsupported: 'Playtest · this browser cannot transcribe', off: 'Playtest' }[playtest.mic] }} · {{ playtest.lines }} lines</span>
         <span v-if="playtest.heard" class="pt__heard">“{{ playtest.heard }}”</span>
       </div>
       <transition name="toast">
@@ -1163,6 +1163,7 @@ export default {
 .build-stamp { position: absolute; right: 36px; bottom: 48px; margin: 0; font-size: 12px; color: var(--ink-3); z-index: 21; cursor: pointer; }
 .pt { position: absolute; right: 36px; bottom: 182px; z-index: 22; display: flex; align-items: center; gap: 10px; max-width: 520px; padding: 6px 14px; border-radius: 999px; background: #fff; border: 1.5px solid var(--line); font-size: 14px; font-weight: 700; color: var(--ink-2); box-shadow: 0 4px 14px rgba(27,33,48,0.12); }
 .pt__dot { width: 10px; height: 10px; border-radius: 50%; background: var(--red); flex: none; animation: pt-pulse 1.4s ease-in-out infinite; }
+.pt--phone .pt__dot { background: #7a5cf0; }
 .pt--paused .pt__dot, .pt--denied .pt__dot, .pt--unsupported .pt__dot { animation: none; background: #b8c0cc; }
 .pt__heard { font-weight: 600; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 @keyframes pt-pulse { 50% { opacity: 0.35; } }

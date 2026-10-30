@@ -12,7 +12,7 @@
 //
 // The session id is kept in localStorage, so a reload carries on the same
 // transcript rather than starting a new one.
-import { ref as dbRef, set, push, onValue, serverTimestamp, query, orderByChild, limitToLast } from 'firebase/database'
+import { ref as dbRef, set, push, remove, onValue, onChildAdded, serverTimestamp, query, orderByChild, limitToLast } from 'firebase/database'
 import { signInAnonymously } from 'firebase/auth'
 import { reactive } from 'vue'
 import { db, auth } from '@/firebase'
@@ -21,7 +21,7 @@ const ROOT = 'deckCityPlaytest'
 const KEY = 'deckCity:playtestSession'
 const Recognition = () => globalThis.SpeechRecognition || globalThis.webkitSpeechRecognition
 
-export const playtest = reactive({ on: false, sessionId: null, mic: 'off', lines: 0, heard: '', note: null })
+export const playtest = reactive({ on: false, sessionId: null, mic: 'off', lines: 0, heard: '', note: null, phone: false })
 
 const store = {
   get () { try { return window.localStorage.getItem(KEY) } catch { return null } },
@@ -30,6 +30,10 @@ const store = {
 
 let stopMic = null
 let offNotes = null
+let offPhone = null
+let offInbox = null
+let phoneTimer = null
+let phoneAt = 0
 let heardTimer = null
 let context = () => ({})
 
@@ -89,12 +93,39 @@ function watchNotes (sessionId) {
   }, () => {})
 }
 
-async function sendLine (text) {
+async function sendLine (text, extra = {}) {
   if (!playtest.sessionId || !auth?.currentUser) return
   playtest.lines++
   let where = {}
   try { where = context() } catch { /* a tag is never worth losing the line */ }
-  await push(dbRef(db, `${ROOT}/${playtest.sessionId}/lines`), { text: text.slice(0, 2000), uid: auth.currentUser.uid, at: serverTimestamp(), ...where }).catch(() => {})
+  await push(dbRef(db, `${ROOT}/${playtest.sessionId}/lines`), { text: text.slice(0, 2000), uid: auth.currentUser.uid, at: serverTimestamp(), ...where, ...extra }).catch(() => {})
+}
+
+// THE PHONE MICROPHONE (mic.html, 2026-10-29: the Mac mini's mic is across
+// the room). The phone drops what it hears in `inbox`; the TV, which knows
+// where the game is, tags each line and moves it to `lines`. While the
+// phone's heartbeat is fresh the TV's own mic is off, so nothing is heard twice.
+const PHONE_FRESH_MS = 45000
+function watchPhone (sessionId) {
+  offPhone?.(); offInbox?.(); clearInterval(phoneTimer)
+  offPhone = onValue(dbRef(db, `${ROOT}/${sessionId}/phone`), (snap) => { phoneAt = snap.val()?.at ?? 0; checkPhone() }, () => {})
+  offInbox = onChildAdded(dbRef(db, `${ROOT}/${sessionId}/inbox`), (snap) => {
+    const text = snap.val()?.text
+    if (text) {
+      playtest.heard = text
+      clearTimeout(heardTimer)
+      heardTimer = setTimeout(() => { playtest.heard = '' }, 6000)
+      sendLine(text, { source: 'phone' })
+    }
+    remove(snap.ref).catch(() => {})
+  }, () => {})
+  phoneTimer = setInterval(checkPhone, 10000)
+}
+function checkPhone () {
+  const fresh = Date.now() - phoneAt < PHONE_FRESH_MS
+  if (fresh === playtest.phone) return
+  playtest.phone = fresh
+  if (fresh) { stopMic?.(); stopMic = null; playtest.mic = 'phone' } else if (playtest.on && !stopMic) stopMic = startMic(sendLine)
 }
 
 /** Is there anywhere to send a transcript? */
@@ -113,16 +144,19 @@ export async function startPlaytest (where) {
   playtest.sessionId = sessionId
   playtest.on = true
   set(dbRef(db, `${ROOT}/${sessionId}/on`), true).catch(() => {})
+  set(dbRef(db, `${ROOT}/live`), sessionId).catch(() => {}) // for the phone mic
   watchNotes(sessionId)
+  watchPhone(sessionId)
   stopMic = startMic(sendLine)
 }
 
 export function stopPlaytest () {
   stopMic?.(); stopMic = null
   offNotes?.(); offNotes = null
+  offPhone?.(); offPhone = null; offInbox?.(); offInbox = null; clearInterval(phoneTimer)
   if (playtest.sessionId && db) set(dbRef(db, `${ROOT}/${playtest.sessionId}/on`), false).catch(() => {})
   store.set(null)
-  Object.assign(playtest, { on: false, sessionId: null, mic: 'off', heard: '', note: null })
+  Object.assign(playtest, { on: false, sessionId: null, mic: 'off', heard: '', note: null, phone: false })
   queue.length = 0
 }
 

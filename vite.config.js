@@ -54,7 +54,7 @@ export default defineConfig(({ mode }) => {
       sourcemap: true,
       chunkSizeWarningLimit: 900,
       rollupOptions: {
-        input: { app: fileURLToPath(new URL('./index.html', import.meta.url)) },
+        input: { app: fileURLToPath(new URL('./index.html', import.meta.url)), mic: fileURLToPath(new URL('./mic.html', import.meta.url)) },
         output: {
           hashCharacters: 'hex',
           entryFileNames: 'js/[name].[hash].js',

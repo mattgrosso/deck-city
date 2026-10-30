@@ -1,0 +1,37 @@
+<!doctype html>
+<!-- The phone microphone for a playtest (src/mic/main.js). Open on a phone:
+     https://deckcity.aroundtableround.com/mic.html -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#14121f">
+  <title>Deck City Mic</title>
+  <style>
+    :root { --bg: #14121f; --ink: #f4f1ff; --dim: #a59fc4; --violet: #7a5cf0; --red: #e5484d; --green: #2fb36a; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 17px/1.4 -apple-system, system-ui, sans-serif; }
+    main { min-height: 100%; display: flex; flex-direction: column; gap: 22px; padding: 28px 20px calc(28px + env(safe-area-inset-bottom)); max-width: 520px; margin: 0 auto; }
+    h1 { margin: 0; font-size: 15px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--dim); }
+    #state { font-size: 28px; font-weight: 800; line-height: 1.2; }
+    #heard { min-height: 4.2em; font-size: 20px; color: var(--dim); }
+    #heard b { color: var(--ink); font-weight: 600; }
+    button { appearance: none; border: 0; border-radius: 22px; padding: 26px; font: inherit; font-size: 24px; font-weight: 800; color: #fff; background: var(--violet); }
+    button.stop { background: #2a2740; color: var(--dim); font-size: 18px; padding: 16px; }
+    .dot { display: inline-block; width: 14px; height: 14px; border-radius: 50%; background: var(--red); margin-right: 10px; vertical-align: 2px; animation: pulse 1.4s ease-in-out infinite; }
+    @keyframes pulse { 50% { opacity: 0.3; } }
+    #meta { font-size: 14px; color: var(--dim); margin-top: auto; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Deck City · playtest mic</h1>
+    <div id="state">Connecting…</div>
+    <div id="heard"></div>
+    <button id="go" hidden>Start listening</button>
+    <button id="stop" class="stop" hidden>Stop</button>
+    <div id="meta">Keep this page open with the screen on. What you say goes to the TV, tagged with where the game is, for Claude to read.</div>
+  </main>
+  <script type="module" src="/src/mic/main.js"></script>
+</body>
+</html>
