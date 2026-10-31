@@ -20,7 +20,7 @@
         </div>
 
         <Market
-          :city-row="cityRow" :goal-row="goalRow" :goal-timers="goalTimers" :catalog="game.catalog" :treasury="treasury" :state="game.state" :tick="tick" :buys="buys"
+          :city-row="row0" :goal-row="goalRow" :goal-timers="goalTimers" :catalog="game.catalog" :treasury="treasury" :state="game.state" :tick="tick" :buys="buys"
           :active="mode === 'market'" :focus="market" :goal-met="goalMet" :goals-left="goalsLeft"
           :mandate="run && run.status === 'playing' ? run.mandate : null" :supply="supply" :for-sale="forSale"
           @focus="onMarketFocus" @select="onMarketSelect"
@@ -182,7 +182,7 @@ import {
   createGame, effectiveCost, clearsOf, isInLimits, isWater,
   calcStatTotal, countCardsByTag, evaluateCondition, isBuildable, listConnectedEdges,
   previewPlacement, instanceStats, canCombine, canCombinePair, sizeOf, combineCost, combineOptions, calcBudget, calcUpkeep,
-  isMultiTile, footprint, placementProblem, marketPrice, roadSegmentsOf, policyMod, policyPrice, slotCapacity, discardsNeeded
+  isMultiTile, footprint, placementProblem, marketPrice, roadSegmentsOf, policyMod, policyPrice, slotCapacity, discardsNeeded, MONTH
 } from '@/game/core'
 import { attachInput, GLYPHS } from '@/ui/input'
 import { stepCursor, nearestCell } from '@/ui/layout'
@@ -352,11 +352,11 @@ export default {
     run () { void this.tick; return this.game.state.run ?? null },
     supply () { void this.tick; return this.game.supply ?? [] },
     /** The policy for sale beside the city row (cards/policies.js), as a row item. */
-    forSale () { void this.tick; const p = this.game.state.policyForSale; return p ? [{ id: '__policy__', isPolicy: true, policy: p, name: p.name, price: policyPrice(this.game.state) }] : [] },
+    forSale () { void this.tick; const p = this.game.state.policyForSale; return p && (this.game.state.week ?? 1) === MONTH ? [{ id: '__policy__', isPolicy: true, policy: p, name: p.name, price: policyPrice(this.game.state) }] : [] },
     /** The policy for sale, while the market cursor is on it. */
     marketPolicy () { return this.mode === 'market' && this.market.row === 3 ? (this.row3[this.market.index]?.isPolicy ? this.row3[this.market.index] : null) : null },
     /** The market's first row is the city row; row 3 is what's always for sale (the supply, then the policy). */
-    row0 () { return this.cityRow },
+    row0 () { void this.tick; return (this.game.state.week ?? 1) === MONTH ? this.cityRow : [] }, // the city row opens in week 4
     row3 () { return [...this.supply, ...this.forSale] },
     /** The supply card under the market cursor, shown big on the left like a hand card. */
     marketSupplyCard () { if (this.mode !== 'market' || this.market.row !== 3) return null; const it = this.row3[this.market.index]; return it && !it.isPolicy ? it : null },
@@ -695,6 +695,8 @@ export default {
       else if (action === 'up' && row === 0) this.market = { row: 1, index: clamp(1, index) }
       else if (action === 'up' && row === 1 && hasMandate) this.market = { row: 2, index: 0 }
       else if (action === 'down' && row === 2) this.market = { row: 1, index: 0 }
+      else if (action === 'down' && row === 1 && !rows[0].length) this.market = { row: 3, index: clamp(3, index) } // the city row is shut
+      else if (action === 'up' && row === 3 && !rows[0].length) this.market = { row: 1, index: clamp(1, index) }
       else if (action === 'down' && row === 1) this.market = { row: 0, index: clamp(0, index) }
       else if (action === 'down' && row === 0 && rows[3].length) this.market = { row: 3, index: clamp(3, index) }
       else if (action === 'up' && row === 3) this.market = { row: 0, index: clamp(0, index) }
@@ -1082,9 +1084,10 @@ export default {
       this.mode = 'market'
       // Month's end: three cards offered, one kept free (core game.js chooseOffer).
       if (this.game.state.monthOffer?.length) { this.offerIndex = 0; this.mode = 'offer' }
-      const firstAffordable = this.cityRow.findIndex(c => marketPrice(this.game.state, c) <= this.treasury)
+      const firstAffordable = this.row0.findIndex(c => marketPrice(this.game.state, c) <= this.treasury)
       const firstReady = this.goalRow.findIndex(g => this.goalMet(g))
-      this.market = firstReady !== -1 ? { row: 1, index: firstReady } : { row: 0, index: Math.max(0, firstAffordable) }
+      // Weeks 1-3 the city row is shut: start on the services.
+      this.market = firstReady !== -1 ? { row: 1, index: firstReady } : this.row0.length ? { row: 0, index: Math.max(0, firstAffordable) } : { row: 3, index: 0 }
       this.refresh()
     },
     goalMet (goal) {

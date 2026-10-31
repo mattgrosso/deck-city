@@ -5,7 +5,7 @@ import { runGameOptions } from '@/game/runSetup'
 import { valueOfBuild } from '@/game/core/economy/priceList'
 import {
   createGame,
-  POLICIES, calcStatTotal, calcUpkeep, slotCapacity, policyPrice, marketPrice, effectiveCost, canCombine, canCombinePair, combineCost, choosePlacement, evaluateCondition, clearsOf, MONTH
+  POLICIES, calcStatTotal, calcUpkeep, calcBudget, slotCapacity, policyPrice, marketPrice, effectiveCost, canCombine, canCombinePair, combineCost, choosePlacement, evaluateCondition, clearsOf, MONTH
 } from '@/game/core'
 
 const GAMES = Number(process.argv[2] ?? 20)
@@ -28,6 +28,8 @@ function play () {
     if (process.env.FORCE || process.env.NOPICK) { s.run.policyOffer = []; s.run.policyQueue = []; s.policyForSale = null }
     while (s.run?.policyOffer?.length) game.actions.choosePolicy(s.run.policyOffer[Math.floor(rng() * s.run.policyOffer.length)].id)
     if (s.run?.status === 'choosing') game.actions.chooseMandate(s.run.offer[0].id)
+    // What the hand would cost to play in full, and what a turn brings in (Matt: "I could just play every card every turn").
+    if (process.env.MONEY) { HANDCOST[turn] = HANDCOST[turn] ?? []; HANDCOST[turn].push([s.hand.filter(c => c.type === 'building' || c.type === 'civic').reduce((n, c) => n + effectiveCost(s, c), 0), calcBudget(s)]) }
     // Build: clear status cards, play tokens and civics, then the best-value buildings, roads when stuck.
     if (process.env.TRACE && turn % 4 === 0) console.log(`t${turn} budget ${s.treasury} hand ${s.hand.map(c => `${c.id}(${effectiveCost(s, c)})`).join(' ')}`)
     for (let guard = 0; guard < 20; guard++) {
@@ -103,6 +105,7 @@ const DRAIN = {}
 const STATS = []
 const PLAYS = { n: 0 }
 const MONEY = {}
+const HANDCOST = {}
 const COMBOS = { n: 0 }
 for (let g = 0; g < GAMES; g++) { seed = g * 7919 + 1; results.push(play()) }
 const avg = (xs) => xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length * 10) / 10 : '-'
@@ -120,4 +123,5 @@ console.log(`final population ${avg(results.map(r => r.pop))}, buildings ${avg(r
 console.log('patience drain per turn, on average: ' + Object.entries(DRAIN).filter(([k]) => k !== '__turns').map(([k, [sum]]) => `${k} ${Math.round(sum / DRAIN.__turns * 10) / 10}`).join(', '))
 
 console.log('at the end, on average: ' + Object.keys(STATS[0]).map(k => `${k} ${avg(STATS.map(x => x[k]))}`).join(', '))
+if (process.env.MONEY) for (const t of [1, 3, 5, 8, 10, 15, 20, 30, 45]) if (HANDCOST[t]) console.log(`turn ${t}: a full hand costs ${avg(HANDCOST[t].map(x => x[0]))}, a turn brings in ${avg(HANDCOST[t].map(x => x[1]))}`)
 if (process.env.MONEY) for (const t of [1, 5, 10, 20, 30, 45, 60]) if (MONEY[t]) console.log(`turn ${t}: unspent ${avg(MONEY[t].map(x => x[0]))}, revenue ${avg(MONEY[t].map(x => x[1]))}, upkeep ${avg(MONEY[t].map(x => x[3]))}, buildings ${avg(MONEY[t].map(x => x[2]))}`)

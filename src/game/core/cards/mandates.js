@@ -17,7 +17,7 @@ export const MANDATES = [
   // ---- Era I: the town
   m('market-town', 'Market Town', 1, all(pop(30), tagged('commercial', 6)), 'A town that trades: shops on every corner.'),
   m('mill-town', 'Mill Town', 1, all(jobs(45), tagged('industrial', 6)), 'Smokestacks and a paycheck for everyone.'),
-  m('garden-suburb', 'Garden Suburb', 1, all(pop(32), tagged('green', 4), { type: 'statusCountAtMost', tag: 'crime', amount: 3 }), 'Lawns, trees, and nobody locks their door.'),
+  m('garden-suburb', 'Garden Suburb', 1, all(pop(32), tagged('green', 4), { type: 'statusCountAtMost', tag: 'crime', amount: 5 }), 'Lawns, trees, and nobody locks their door.'),
   m('boomtown', 'Boomtown', 1, pop(42), 'Just grow. Fast.'),
   m('clean-start', 'Clean Start', 1, all(pop(30), badAtMost(5)), 'A town with nothing to hide.'),
   // ---- Era II: the city

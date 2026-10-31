@@ -22,8 +22,11 @@ import { buildingFamily } from '../cards/combine'
 
 const SAME_KIND = 0.8 // per neighbour of the same family: districts
 const ANY_NEIGHBOUR = 0.15 // per neighbour at all: a compact town
-const NEW_STREET = 0.4 // per street segment the city has to lay to get there
-const FROM_CENTRE = 0.05 // per plot from the middle of the city limits
+const NEW_STREET = 0.15 // per street segment the city has to lay to get there
+// Squared distance from the middle of the town as built so far: it grows
+// round, in blocks, not in a line down the first street (Matt, 2026-10-31:
+// "it mostly just builds in a straight line for a while").
+const FROM_CENTRE = 0.12
 
 /** What one more of each stat is worth to this city right now. */
 export function needs (state) {
@@ -117,7 +120,9 @@ function streetsFor (state, cells, reach) {
 export function choosePlacement (state, card) {
   const grid = state.cityGrid
   const l = grid.limits ?? { x0: 0, y0: 0, x1: grid.width, y1: grid.height }
-  const cx = (l.x0 + l.x1 - 1) / 2; const cy = (l.y0 + l.y1 - 1) / 2
+  const built = state.builtStructures.filter(i => i.position)
+  const cx = built.length ? built.reduce((n, i) => n + i.position.x, 0) / built.length : (l.x0 + l.x1 - 1) / 2
+  const cy = built.length ? built.reduce((n, i) => n + i.position.y, 0) / built.length : (l.y0 + l.y1 - 1) / 2
   const weight = needs(state)
   const family = buildingFamily(card)
   const free = { ...card, skipsRoadRequirement: true } // streets are checked here, and laid if need be
@@ -139,7 +144,7 @@ export function choosePlacement (state, card) {
         score += near.length * ANY_NEIGHBOUR
         score -= streets.length * NEW_STREET
         const mx = cells.reduce((n, c) => n + c.x, 0) / cells.length; const my = cells.reduce((n, c) => n + c.y, 0) / cells.length
-        const dist = Math.abs(mx - cx) + Math.abs(my - cy)
+        const dist = (mx - cx) ** 2 + (my - cy) ** 2
         score -= dist * FROM_CENTRE
         if (!best || score > best.score + 1e-9 || (Math.abs(score - best.score) < 1e-9 && dist < best.dist)) best = { x, y, rotation, streets, score, dist }
       }

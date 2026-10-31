@@ -27,9 +27,12 @@
           <span v-if="open" class="market__buys">Open: buy all you can afford</span>
           <span v-else class="market__buys market__buys--none">Opens in week 4 · {{ weeksToGo }} more {{ weeksToGo === 1 ? 'turn' : 'turns' }}</span>
         </span>
-        <span class="market__note">The coin plays it; the tag buys it</span>
+        <span v-if="open" class="market__note">The coin plays it; the tag buys it</span>
       </div>
-      <div class="market__cards">
+      <!-- Shut until week 4 (Matt, 2026-10-31: "the UI still shows me the
+           market every turn, even though I can't buy anything"): only its
+           heading shows, so it takes no room and nothing looks for sale. -->
+      <div v-if="open" class="market__cards">
         <div
           v-for="(card, i) in cityRow"
           :key="`c${i}`"

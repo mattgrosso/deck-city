@@ -274,8 +274,11 @@ export function createGame ({
   function acquireCard (cardId) {
     assertPlaying(state)
     assertPhase(turnManager, 'acquire')
-    assertMarketOpen()
     const inRow = cityRow.cards.find(c => c.id === cardId)
+    // The services (the supply) are for sale every week (Matt, 2026-10-31:
+    // "there's never any chance for me to buy any of the always available
+    // cards"); the city row only in week 4.
+    if (inRow) assertMarketOpen()
     const card = inRow ?? supply.find(c => c.id === cardId)
     if (!card) throw new Error(`Card "${cardId}" is not in the city row`)
     if ((state.buys ?? 0) < 1) throw new Error('No buys left this turn')

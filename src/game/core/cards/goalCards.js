@@ -54,7 +54,8 @@ export const GOAL_CLEAN_STREETS = {
   cost: 0,
   tags: ['monument'],
   stats: MONUMENT_STATS,
-  condition: { type: 'statusCountAtMost', tag: 'trash', amount: 0 },
+  // With a town to keep clean: on its own it was met on turn 1, a free +6 and a policy (2026-10-31).
+  condition: { type: 'all', conditions: [{ type: 'statusCountAtMost', tag: 'trash', amount: 0 }, { type: 'populationAtLeast', amount: 25 }] },
   effects: { onComplete: [{ type: 'gainTreasury', amount: 6 }] }
 }
 
