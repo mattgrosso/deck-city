@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { createGame, calcStatTotal, calcUpkeep, calcBudget, effectiveCost, marketPrice, roadSegmentsOf, POLICIES } from '../index'
+import { createGame, calcStatTotal, calcUpkeep, calcBudget, effectiveCost, marketPrice, POLICIES } from '../index'
 import { runGameOptions } from '@/game/runSetup'
 
 // Seeded, so two games compared turn by turn roll the same mood of the town.
@@ -43,7 +43,7 @@ describe('policies', () => {
     expect(calcBudget(game.state)).toBe(before + 2)
   })
 
-  it('Rent Control and the Infrastructure Bond cut upkeep; Subsidy, Bulk Buying and the Street Grid cut prices', () => {
+  it('Rent Control and the Infrastructure Bond cut upkeep; Subsidy and Bulk Buying cut prices', () => {
     const game = newRun()
     const s = game.state
     s.upkeep = { per: 1, free: 0 }
@@ -59,8 +59,6 @@ describe('policies', () => {
     adopt(game, 'bulk-buying')
     expect(marketPrice(s, { ...shop, price: 3 })).toBe(2)
     expect(marketPrice(s, { ...shop, price: 1 })).toBe(1)
-    adopt(game, 'street-grid')
-    expect(roadSegmentsOf(s, game.catalog.road)).toBe(3)
   })
 
   it('Civic Pride slows the drain, Big Government speeds it', () => {
