@@ -21,7 +21,7 @@ export const MANDATES = [
   m('boomtown', 'Boomtown', 1, pop(42), 'Just grow. Fast.'),
   m('clean-start', 'Clean Start', 1, all(pop(30), badAtMost(5)), 'A town with nothing to hide.'),
   // ---- Era II: the city
-  m('rail-city', 'Rail City', 2, all(pop(85), tagged('transit', 4)), 'Everyone gets there by train.'),
+  m('high-rise-city', 'High-Rise City', 2, all(pop(85), tagged('dense', 4)), 'Towers on every block.'),
   m('industrial-powerhouse', 'Industrial Powerhouse', 2, all(jobs(120), tagged('industrial', 12)), 'The factory floor of the nation.'),
   m('culture-capital', 'Culture Capital', 2, all(pop(75), tagged('culture', 4), tagged('landmark', 2)), 'Galleries, concerts, a skyline to paint.'),
   m('full-employment', 'Full Employment', 2, all(pop(90), employed()), 'A job for every single person.'),

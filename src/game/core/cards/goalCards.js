@@ -121,7 +121,8 @@ const tagged = (tag, amount) => ({ type: 'tagCountAtLeast', tag, amount })
 // Goals for the wider city (2026-10-29): each one pulls toward a theme the
 // tiered buildings make possible. Rewards rise with tier (economy.test.js).
 export const GOAL_GREEN_CITY = goal('goal-green-city', 'Green City', 1, tagged('green', 3), [{ type: 'gainTreasury', amount: 5 }])
-export const GOAL_COMMUTER_TOWN = goal('goal-commuter-town', 'Commuter Town', 2, tagged('transit', 3), [{ type: 'gainTreasury', amount: 4 }, { type: 'drawCards', amount: 2 }])
+export const GOAL_COMMUTER_TOWN = goal('goal-commuter-town', 'Downtown', 2, tagged('dense', 2), // id kept from Commuter Town (transit is gone, 2026-10-31)
+  [{ type: 'gainTreasury', amount: 4 }, { type: 'drawCards', amount: 2 }])
 export const GOAL_INDUSTRIAL_HEARTLAND = goal('goal-industrial-heartland', 'Industrial Heartland', 2, tagged('industrial', 5), [{ type: 'gainTreasury', amount: 6 }])
 export const GOAL_SCHOOL_DISTRICT = goal('goal-school-district', 'School District', 2, tagged('education', 2), [{ type: 'gainTreasury', amount: 6 }])
 export const GOAL_TOURIST_TRAP = goal('goal-tourist-trap', 'Tourist Trap', 3, tagged('landmark', 2), [{ type: 'gainTreasury', amount: 5 }, { type: 'gainCard', card: 'tourist', amount: 2 }])

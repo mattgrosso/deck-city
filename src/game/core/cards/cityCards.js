@@ -117,7 +117,7 @@ export const RESIDENTIAL_CARDS = [
   B('boarding-house', 'Boarding House', 1, ['residential'], 7, { stats: { population: 2 }, onTurn: [perAdj('commercial', 1)], onNeighbor: only('commercial', grow('population', 1, 3)), flavor: 'Rent is due Fridays.' }),
   B('company-housing', 'Company Housing', 1, ['residential'], 9, { stats: { population: 2 }, near: [nd('population', 2, 'industrial'), deck('revenue', 1, 'pollution', 3)], flavor: 'The whistle pays, whatever the air smells like.' }),
   B('student-dorm', 'Student Dorm', 1, ['residential', 'education'], 4, { stats: { population: 2 }, near: [nd('revenue', 1, 'education')], onCity: only('education', grow('population', 1, 3)), onBuild: [status('trash')] }),
-  B('apartment-block', 'Apartment Block', 2, ['residential', 'dense'], 9, { stats: { population: 4, revenue: 1 }, near: [nd('population', 1, 'transit')], onNth: [grow('population', 1, 4)], onBuild: [status('crime')] }),
+  B('apartment-block', 'Apartment Block', 2, ['residential', 'dense'], 9, { stats: { population: 4, revenue: 1 }, near: [nd('population', 1, 'commercial')], onNth: [grow('population', 1, 4)], onBuild: [status('crime')] }),
   B('townhouses', 'Townhouses', 2, ['residential'], 13, { stats: { population: 3, revenue: 2 }, near: [nd('population', 1, 'residential')], freeFirst: 'residential', flavor: 'Builders on the block all year.' }),
   B('senior-living', 'Senior Living', 2, ['residential'], 8, { stats: { population: 3, jobs: 1 }, near: [nd('population', 1, 'health'), nd('population', 1, 'green')], onCity: only('green', pat(1)), flavor: 'Bingo on Tuesdays.' }),
   B('co-op-housing', 'Co-op Housing', 2, ['residential'], 7, { stats: { population: 3 }, onBuild: [clear(1)], onAnyClear: [grow('population', 1, 4)], flavor: 'Everyone brings a dish.' }),
@@ -127,7 +127,7 @@ export const RESIDENTIAL_CARDS = [
   B('housing-project', 'Housing Project', 2, ['residential', 'dense'], 1, { patience: -1, stats: { population: 6 }, onBuild: [status('crime', 2)] }),
   B('brownstones', 'Brownstones', 2, ['residential'], 11, { stats: { population: 3, revenue: 2 }, near: [nd('revenue', 1, 'culture')], onCity: only('culture', grow('population', 1, 3)) }),
   B('cul-de-sac', 'Cul-de-sac', 2, ['residential'], 7, { stats: { population: 4 }, near: [nd('population', 1, 'green'), nd('population', -1, 'commercial')], onCity: only('green', grow('population', 1, 4)), flavor: 'Kids play in the street.' }),
-  B('high-rise', 'High-Rise', 3, ['residential', 'dense'], 15, { stats: { population: 7, revenue: 2 }, near: [nd('population', 1, 'transit')], freeFirst: 'transit', onBuild: [status('crime'), status('trash')] }),
+  B('high-rise', 'High-Rise', 3, ['residential', 'dense'], 15, { stats: { population: 7, revenue: 2 }, near: [nd('population', 1, 'commercial')], freeFirst: 'dense', onBuild: [status('crime'), status('trash')] }),
   B('penthouse-tower', 'Penthouse Tower', 3, ['residential', 'luxury'], 18, { stats: { population: 4, revenue: 4 }, near: [nd('revenue', 1, 'green')], onCity: only('landmark', grow('revenue', 2, 6)) }),
   B('arcology', 'Arcology', 3, ['residential', 'commercial', 'dense'], 15, { stats: { population: 8, jobs: 4, revenue: 2 }, unique: true, onNth: [draw(1)], onBuild: [status('trash', 2)], flavor: 'A city in a building.' }),
   B('garden-city-estate', 'Garden City Estate', 3, ['residential'], 10, { stats: { population: 5 }, near: [nd('population', 2, 'green')], onCity: only('green', growNb('residential', 'population', 1, 3)), flavor: 'Every new park lifts the whole street.' }),
@@ -144,7 +144,7 @@ export const COMMERCIAL_CARDS = [
   B('hardware-store', 'Hardware Store', 1, ['commercial'], 7, { stats: { jobs: 1, revenue: 1 }, discount: { tag: 'infrastructure', amount: 1 }, onCombine: [gain(2)], flavor: 'Sells the nails for every renovation.' }),
   B('bakery', 'Bakery', 1, ['commercial', 'food'], 6, { stats: { jobs: 2, revenue: 1 }, near: [nd('revenue', 1, 'rural')], onCity: only('residential', gain(1)), flavor: 'A loaf for every new family.' }),
   B('laundromat', 'Laundromat', 1, ['commercial'], 6, { stats: { jobs: 1, revenue: 1 }, onBuild: [clear(1)], onAnyClear: [gain(1)] }),
-  B('gas-station', 'Gas Station', 1, ['commercial'], 6, { stats: { jobs: 1, revenue: 2 }, near: [nd('revenue', 1, 'transit')], onCity: only('transit', grow('revenue', 1, 3)), onBuild: [status('pollution')] }),
+  B('gas-station', 'Gas Station', 1, ['commercial'], 6, { stats: { jobs: 1, revenue: 2 }, near: [nd('revenue', 1, 'industrial')], onCity: only('industrial', grow('revenue', 1, 3)), onBuild: [status('pollution')] }),
   B('bookshop', 'Bookshop', 1, ['commercial', 'culture'], 7, { stats: { jobs: 1, revenue: 1 }, near: [nd('revenue', 1, 'education')], onNth: [draw(1)] }),
   B('shopping-arcade', 'Shopping Arcade', 2, ['commercial'], 9, { stats: { jobs: 3, revenue: 2 }, near: [nd('revenue', 1, 'commercial')], freeFirst: 'commercial', onBuild: [status('trash')], flavor: 'Shops that like company.' }),
   B('department-store', 'Department Store', 2, ['commercial'], 10, { stats: { jobs: 4, revenue: 2 }, buysBonus: 1, onCity: only('commercial', gain(1)), onBuild: [status('trash')], flavor: 'Everything under one roof.' }),
@@ -153,10 +153,10 @@ export const COMMERCIAL_CARDS = [
   B('hotel', 'Hotel', 2, ['commercial', 'tourism'], 12, { stats: { jobs: 3, revenue: 2 }, onTurn: [tokenPerAdj('tourist', 'landmark')], onToken: only('tourist', gain(1)), flavor: 'Every Tourist spends a little more.' }),
   B('farmers-market', 'Farmers Market', 2, ['commercial', 'food'], 10, { stats: { jobs: 2, revenue: 1 }, near: [nd('revenue', 1, 'rural'), nd('revenue', 1, 'green')], onCity: only('rural', grow('revenue', 1, 3)), onBuild: [clear(1)] }),
   B('nightclub', 'Nightclub', 2, ['commercial', 'leisure'], 10, { stats: { jobs: 2, revenue: 2 }, near: [nd('revenue', 1, 'leisure')], onNth: [gain(2)], onBuild: [status('crime')], flavor: 'Busiest on your busiest nights.' }),
-  B('office-park', 'Office Park', 2, ['commercial', 'office'], 11, { stats: { jobs: 5, revenue: 2 }, near: [nd('revenue', 1, 'transit')], onNth: [draw(1)] }),
-  B('car-dealership', 'Car Dealership', 2, ['commercial'], 11, { stats: { jobs: 2, revenue: 3 }, near: [nd('revenue', 1, 'transit')], onCombine: [gain(3)], onBuild: [status('pollution')], flavor: 'Trade-ins welcome.' }),
+  B('office-park', 'Office Park', 2, ['commercial', 'office'], 11, { stats: { jobs: 5, revenue: 2 }, near: [nd('revenue', 1, 'commercial')], onNth: [draw(1)] }),
+  B('car-dealership', 'Car Dealership', 2, ['commercial'], 11, { stats: { jobs: 2, revenue: 3 }, near: [nd('revenue', 1, 'commercial')], onCombine: [gain(3)], onBuild: [status('pollution')], flavor: 'Trade-ins welcome.' }),
   B('pharmacy', 'Pharmacy', 2, ['commercial', 'health'], 10, { stats: { jobs: 2, revenue: 1 }, clears: 'pollution', slots: 1, onClear: [gain(2)] }),
-  B('mall', 'Mall', 3, ['commercial'], 17, { stats: { jobs: 6, revenue: 4 }, buysBonus: 1, near: [nd('revenue', 1, 'transit')], onToken: [gain(1)], onBuild: [status('trash', 2)] }),
+  B('mall', 'Mall', 3, ['commercial'], 17, { stats: { jobs: 6, revenue: 4 }, buysBonus: 1, near: [nd('revenue', 1, 'residential')], onToken: [gain(1)], onBuild: [status('trash', 2)] }),
   B('stock-exchange', 'Stock Exchange', 3, ['commercial', 'finance', 'landmark'], 15, { stats: { jobs: 4, revenue: 2 }, near: [city('revenue', 1, 'commercial', { max: 6 })], onCombine: [grow('revenue', 2, 8)], unique: true, flavor: 'Loves a merger.' }),
   B('convention-center', 'Convention Center', 3, ['commercial', 'tourism'], 11, { stats: { jobs: 4, revenue: 2 }, onTurn: [tokenTurn('tourist')], onToken: only('tourist', grow('revenue', 1, 5)), onBuild: [status('trash')] }),
   B('corporate-hq', 'Corporate HQ', 3, ['commercial', 'office', 'landmark'], 20, { stats: { jobs: 8, revenue: 3 }, handSize: 1, onNth: [gain(3)], unique: true }),
@@ -168,7 +168,7 @@ export const INDUSTRIAL_CARDS = [
   B('workshop', 'Workshop', 1, ['industrial'], 6, { stats: { jobs: 2, revenue: 1 }, near: [nd('revenue', 1, 'industrial')], onCity: only('industrial', grow('revenue', 1, 3)) }),
   B('lumber-mill', 'Lumber Mill', 1, ['industrial'], 1, { stats: { jobs: 2 }, discount: { tag: 'residential', amount: 1 }, onBuild: [status('pollution')], flavor: 'Houses cost 1 less.' }),
   B('brickworks', 'Brickworks', 1, ['industrial'], 2, { stats: { jobs: 3 }, discount: { tag: 'commercial', amount: 1 }, onBuild: [status('pollution')], flavor: 'Shops cost 1 less.' }),
-  B('warehouse', 'Warehouse', 1, ['industrial'], 9, { stats: { jobs: 2, revenue: 1 }, near: [nd('revenue', 1, 'transit'), deck('revenue', 1, 'trash', 3)], flavor: 'Stores your junk, for a fee.' }),
+  B('warehouse', 'Warehouse', 1, ['industrial'], 9, { stats: { jobs: 2, revenue: 1 }, near: [nd('revenue', 1, 'industrial'), deck('revenue', 1, 'trash', 3)], flavor: 'Stores your junk, for a fee.' }),
   B('junkyard', 'Junkyard', 1, ['industrial', 'utility'], 5, { stats: { jobs: 1 }, clears: 'trash', slots: 2, onClear: [gain(1)], onBuild: [status('pollution')] }),
   B('quarry', 'Quarry', 1, ['industrial'], 2, { stats: { jobs: 3, revenue: 2 }, onBuild: [status('pollution', 2)] }),
   B('cannery', 'Cannery', 1, ['industrial', 'food'], 6, { stats: { jobs: 3, revenue: 1 }, near: [nd('revenue', 1, 'rural')], onCity: only('rural', gain(1)) }),
@@ -178,13 +178,13 @@ export const INDUSTRIAL_CARDS = [
   B('recycling-plant', 'Recycling Plant', 2, ['industrial', 'utility'], 9, { stats: { jobs: 3 }, clears: 'trash', slots: 2, onClear: [gain(2)], flavor: '+2 budget for every Trash card it takes.' }),
   B('coal-plant', 'Coal Power Plant', 2, ['industrial', 'utility'], 4, { stats: { jobs: 3 }, near: [city('revenue', 1, 'industrial', { max: 6 })], onBuild: [status('pollution', 2)], flavor: 'Powers every factory. Smokes like one too.' }),
   B('chemical-plant', 'Chemical Plant', 2, ['industrial'], 3, { stats: { jobs: 4, revenue: 1 }, near: [deck('revenue', 1, 'pollution', 5)], onBuild: [status('pollution', 3)], flavor: 'Paid by the barrel of sludge.' }),
-  B('distribution-center', 'Distribution Center', 2, ['industrial', 'transit'], 13, { stats: { jobs: 4, revenue: 1 }, buysBonus: 1, near: [nd('revenue', 1, 'transit')], onCombine: [draw(2)] }),
+  B('distribution-center', 'Distribution Center', 2, ['industrial'], 13, { stats: { jobs: 4, revenue: 1 }, buysBonus: 1, near: [nd('revenue', 1, 'industrial')], onCombine: [draw(2)] }),
   B('brewery', 'Brewery', 2, ['industrial', 'food', 'leisure'], 9, { stats: { jobs: 3, revenue: 2 }, near: [nd('revenue', 1, 'leisure')], onToken: only('tourist', gain(1)), flavor: 'Tours on the hour.' }),
   B('auto-plant', 'Auto Plant', 2, ['industrial'], 10, { stats: { jobs: 6, revenue: 2 }, onNth: [gain(2)], onBuild: [status('pollution')] }),
   B('tech-campus', 'Tech Campus', 3, ['commercial', 'office', 'education'], 15, { stats: { jobs: 6, revenue: 3 }, handSize: 1, near: [nd('revenue', 1, 'education')], onCity: only('education', grow('revenue', 1, 4)), flavor: 'Free snacks, draw a sixth card.' }),
   B('solar-farm', 'Solar Farm', 3, ['industrial', 'utility', 'green'], 11, { patience: 1, stats: { jobs: 2 }, near: [city('revenue', 1, 'industrial', { max: 6 })], flavor: 'Powers every factory, and the sky stays blue.' }),
   B('robotics-factory', 'Robotics Factory', 3, ['industrial'], 13, { stats: { jobs: 4, revenue: 4 }, onNth: [draw(1), gain(1)], onBuild: [status('pollution')] }),
-  B('freight-hub', 'Freight Hub', 3, ['industrial', 'transit'], 17, { stats: { jobs: 5, revenue: 2 }, buysBonus: 1, near: [nd('revenue', 1, 'industrial')], onCombine: [gain(3)] })
+  B('freight-hub', 'Freight Hub', 3, ['industrial'], 17, { stats: { jobs: 5, revenue: 2 }, buysBonus: 1, near: [nd('revenue', 1, 'industrial')], onCombine: [gain(3)] })
 ]
 
 // ================================================================== GREEN
@@ -205,7 +205,7 @@ export const SERVICE_CARDS = [
   B('library', 'Library', 1, ['education', 'culture', 'service'], 7, { patience: 1, stats: { jobs: 1 }, handSize: 1, flavor: 'Draw a sixth card every turn.' }),
   B('landfill', 'Landfill', 1, ['utility', 'service'], 3, { clears: 'trash', slots: 3, onBuild: [status('pollution')] }),
   B('water-tower', 'Water Tower', 1, ['utility', 'service'], 4, { onTurn: [perAdj('residential', 1)], flavor: 'Bills paid by the neighbours.' }),
-  B('post-office', 'Post Office', 1, ['service'], 5, { stats: { jobs: 1 }, onTurn: [perCount('residential', 1, 3)], onToken: only('commuter', gain(1)), flavor: '+1 budget a turn for every three homes.' }),
+  B('post-office', 'Post Office', 1, ['service'], 4, { stats: { jobs: 1 }, onTurn: [perCount('residential', 1, 3)], flavor: '+1 budget a turn for every three homes.' }),
   B('community-center', 'Community Center', 1, ['service', 'civic'], 10, { patience: 1, stats: { population: 1 }, clears: 'crime', slots: 1, onAnyClear: [grow('population', 1, 4)] }),
   B('precinct', 'Police Precinct', 2, ['safety', 'service'], 8, { stats: { jobs: 2 }, clears: 'crime', slots: 3, onClear: [gain(1)] }),
   B('hospital', 'Hospital', 2, ['health', 'service'], 8, { stats: { jobs: 4 }, clears: 'pollution', slots: 3, onClear: [grow('population', 1, 4)] }),
@@ -218,18 +218,13 @@ export const SERVICE_CARDS = [
   B('emergency-services', 'Emergency Services', 3, ['safety', 'health', 'service'], 17, { stats: { jobs: 3 }, blocks: 2, clears: ['crime', 'pollution'], slots: 2, onAnyClear: [gain(1)] })
 ]
 
-// ================================================================ TRANSIT
+// ================================================================== ROADS
+// Traffic and transit are gone (Matt, 2026-10-31: "I never once thought about
+// traffic... I never really understood what transit was doing anyway"):
+// only the wider streets that two Roads combine into are left.
 export const TRANSIT_CARDS = [
-  B('boulevard', 'Boulevard', 2, ['infrastructure', 'transit-road'], 3, { placesRoad: true, roadSegments: 3, lanes: 2, flavor: 'Three street segments, tree-lined, two lanes each way.' }),
-  B('highway', 'Highway', 3, ['infrastructure', 'transit-road'], 4, { placesRoad: true, roadSegments: 4, lanes: 3, flavor: 'Four street segments at once, three lanes wide.' }),
-  B('bus-stop', 'Bus Stop', 1, ['transit'], 6, { onTurn: [perAdj('commercial', 1)], onNth: [draw(1)] }),
-  B('parking-garage', 'Parking Garage', 1, ['transit'], 5, { stats: { revenue: 1 }, near: [nd('revenue', 1, 'commercial')], onToken: only('commuter', gain(1)) }),
-  B('bike-share', 'Bike Share', 1, ['transit', 'green'], 4, { onTurn: [perAdj('residential', 1)], onCity: only('green', gain(1)) }),
-  B('train-station', 'Train Station', 2, ['transit', 'landmark'], 8, { stats: { jobs: 2, revenue: 1 }, onTurn: [tokenTurn('commuter')], onToken: only('commuter', gain(1)), flavor: 'A Commuter card every turn: play it to draw two.' }),
-  B('tram-depot', 'Tram Depot', 2, ['transit'], 7, { stats: { jobs: 3 }, near: [nd('revenue', 1, 'commercial')], freeFirst: 'transit' }),
-  B('ferry-terminal', 'Ferry Terminal', 2, ['transit', 'tourism'], 12, { stats: { jobs: 2, revenue: 2 }, onBuild: [token('tourist', 2)], onToken: only('tourist', grow('revenue', 1, 3)) }),
-  B('airport', 'Airport', 3, ['transit', 'landmark'], 17, { stats: { jobs: 6, revenue: 3 }, onTurn: [tokenTurn('tourist', 2)], onToken: only('tourist', gain(1)), onBuild: [status('pollution', 2)], unique: true }),
-  B('metro-hub', 'Metro Hub', 3, ['transit'], 13, { stats: { jobs: 3, revenue: 2 }, near: [city('population', 1, 'transit', { max: 6 })], freeFirst: 'dense' })
+  B('boulevard', 'Boulevard', 2, ['infrastructure', 'transit-road'], 3, { placesRoad: true, roadSegments: 3, flavor: 'Three street segments, tree-lined.' }),
+  B('highway', 'Highway', 3, ['infrastructure', 'transit-road'], 4, { placesRoad: true, roadSegments: 4, flavor: 'Four street segments at once.' }),
 ]
 
 // ========================================================= LEISURE & CULTURE
@@ -270,10 +265,10 @@ export const CITY_CARDS = [...RESIDENTIAL_CARDS, ...COMMERCIAL_CARDS, ...INDUSTR
 // more than one plot (state/shapes.js). I2 = two in a row, I3 = three,
 // L3 = an L of three, O4 = a 2×2 square. Turned when placing.
 export const SHAPED = {
-  I2: ['school', 'high-school', 'hospital', 'courthouse', 'mall', 'department-store', 'convention-center', 'office-park', 'factory-complex', 'steel-mill', 'auto-plant', 'distribution-center', 'train-station', 'museum', 'concert-hall', 'city-park', 'botanical-garden', 'townhouses', 'tech-campus', 'solar-farm', 'cathedral'],
+  I2: ['school', 'high-school', 'hospital', 'courthouse', 'mall', 'department-store', 'convention-center', 'office-park', 'factory-complex', 'steel-mill', 'auto-plant', 'distribution-center', 'museum', 'concert-hall', 'city-park', 'botanical-garden', 'townhouses', 'tech-campus', 'solar-farm', 'cathedral'],
   I3: ['greenbelt', 'restaurant-row', 'freight-hub'],
   L3: ['university', 'prison', 'zoo', 'cul-de-sac', 'garden-city-estate'],
-  O4: ['stadium', 'airport', 'theme-park', 'nature-reserve']
+  O4: ['stadium', 'theme-park', 'nature-reserve']
 }
 for (const [shape, ids] of Object.entries(SHAPED)) for (const id of ids) { const card = CITY_CARDS.find(c => c.id === id); if (card) card.shape = shape }
 

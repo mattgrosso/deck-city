@@ -13,7 +13,7 @@
             ref="scene"
             :grid="game.state.cityGrid" :structures="game.state.builtStructures" :tick="tick"
             :targeting="mode === 'target' || mode === 'look'" :valid-cells="validCells" :cursor="cursorCell"
-            :valid-edges="validEdges" :cursor-edge="cursorEdge" :planned-edges="pendingEdges" :preview-card="mode === 'target' ? selectedCard : null" :ghost-cells="ghostCells" :traffic="traffic" :show-load="mode === 'look'"
+            :valid-edges="validEdges" :cursor-edge="cursorEdge" :planned-edges="pendingEdges" :preview-card="mode === 'target' ? selectedCard : null" :ghost-cells="ghostCells"
             :width="1920" :height="1080" :rect="VIEW_RECT" :stage-scale="scale" :show-labels="mode === 'look'" :marks="aimPreview ? aimPreview.marks : []"
             @cell="onCellClick"
           />
@@ -167,7 +167,7 @@ import {
   createGame, effectiveCost, clearsOf, isInLimits, isWater,
   calcStatTotal, countCardsByTag, evaluateCondition, isBuildable, listConnectedEdges,
   previewPlacement, instanceStats, canCombine, canCombinePair, sizeOf, combineCost, combineOptions, calcBudget, calcUpkeep,
-  isMultiTile, shapeOf, footprint, placementProblem, marketPrice, roadSegmentsOf, policyMod, policyPrice, slotCapacity, computeTraffic, discardsNeeded, jamsIfBuilt, JAMS_PER_PATIENCE
+  isMultiTile, shapeOf, footprint, placementProblem, marketPrice, roadSegmentsOf, policyMod, policyPrice, slotCapacity, discardsNeeded
 } from '@/game/core'
 import { attachInput, GLYPHS } from '@/ui/input'
 import { stepCursor, nearestCell } from '@/ui/layout'
@@ -297,13 +297,6 @@ export default {
     policies () { void this.tick; return this.game.state.policies ?? [] },
     /** The pause menu as shown: Playtest mode says whether it is on. */
     menuLabels () { return MENU_ITEMS.map(i => (i === 'Playtest mode' ? `Playtest mode: ${this.playtest.on ? 'on' : 'off'}` : i)) },
-    /** Every street's load and capacity (state/traffic.js), for the cars and the look-mode tint. */
-    traffic () {
-      void this.tick
-      const t = computeTraffic(toRaw(this.game).state)
-      const jam = new Set(t.jammed)
-      return [...t.capacity.keys()].map(key => ({ key, load: t.load.get(key) ?? 0, capacity: t.capacity.get(key), jammed: jam.has(key) }))
-    },
     nextBudget () { void this.tick; return calcBudget(this.game.state) },
     run () { void this.tick; return this.game.state.run ?? null },
     supply () { void this.tick; return this.game.supply ?? [] },
@@ -417,11 +410,7 @@ export default {
       const marks = p.neighbours.map(n => ({ x: n.position.x, y: n.position.y, text: stat(n.delta), tone: Object.values(n.delta).some(v => v < 0) ? 'bad' : 'good' }))
       // The panel sits top-left; it drops lower when the cursor is under it.
       const low = t.sx < 470 && t.sy < 640
-      // Traffic (state/traffic.js): does this spot jam a street?
-      const jams = jamsIfBuilt(toRaw(this.game).state, toRaw(card), { x: t.x, y: t.y }, this.aimRotation)
-      const jamCost = (n) => Math.min(4, Math.ceil(n / JAMS_PER_PATIENCE))
-      const traffic = jams.after > jams.before ? [jamCost(jams.after) > jamCost(jams.before) ? 'jams a street: −1 patience a turn' : 'adds to a traffic jam'] : []
-      return { panel: { name: card.name, base: card.stats ?? {}, reasons, neighbours: p.neighbours.map(n => ({ name: n.name, delta: n.delta })), own: p.own, delta: p.delta, also: [...(card.effects?.onBuild ?? []).map(e => effectText(e, this.game.catalog)), ...traffic], low }, marks }
+      return { panel: { name: card.name, base: card.stats ?? {}, reasons, neighbours: p.neighbours.map(n => ({ name: n.name, delta: n.delta })), own: p.own, delta: p.delta, also: [...(card.effects?.onBuild ?? []).map(e => effectText(e, this.game.catalog))], low }, marks }
     },
     statInfo () {
       void this.tick

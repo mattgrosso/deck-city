@@ -18,7 +18,6 @@ import { expireOldest, expireLowestValue, tickTimers } from '../piles/row'
 import { drainPatience } from './run'
 import { beginTurn } from '../effects/synergy'
 import { policyMod, policyBudget } from '../cards/policies'
-import { jamToll } from '../state/traffic'
 
 /**
  * Shuffles a random disaster card (from ctx.disasterCards, resolved by
@@ -147,7 +146,7 @@ export const DEFAULT_PHASES = [
       const fromBuildings = calcStatTotal(ctx.state, 'revenue')
       const base = ctx.baseRevenue ?? 0
       const upkeep = calcUpkeep(ctx.state)
-      const fromPolicies = policyBudget(ctx.state) + jamToll(ctx.state) // Tax Reform, Merchant Guild, Congestion Charge
+      const fromPolicies = policyBudget(ctx.state) // Tax Reform, Merchant Guild
       const revenue = Math.max(0, fromBuildings + base + fromPolicies - upkeep)
       const rollover = Math.min(ctx.state.treasury, (ctx.state.treasuryRolloverCap ?? 0) + policyMod(ctx.state, 'rollover'))
       ctx.state.treasury = revenue + rollover

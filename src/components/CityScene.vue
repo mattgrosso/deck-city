@@ -40,9 +40,6 @@ export default {
     plannedEdges: { type: Array, default: () => [] }, // segments already aimed by the Road card in hand
     previewCard: { type: Object, default: null },
     ghostCells: { type: Array, default: () => [] },
-    // [{ key, load, capacity, jammed }] from state/traffic.js
-    traffic: { type: Array, default: () => [] },
-    showLoad: { type: Boolean, default: false },
     // Building chips show only while inspecting the map (Matt: "those should
     // only appear when I am inspecting").
     showLabels: { type: Boolean, default: false },
@@ -77,8 +74,6 @@ export default {
     layout () { this.sync() },
     validCells () { this.sync() },
     ghostCells () { this.sync() },
-    traffic () { this.sync() },
-    showLoad () { this.sync() },
     cursor () { this.sync() },
     validEdges () { this.sync() },
     cursorEdge () { this.sync() },
@@ -120,8 +115,6 @@ export default {
         roadEdges: this.layout.roadEdges,
         roadNodes: this.layout.roadNodes,
         bridges: this.layout.bridges,
-        traffic: this.traffic.map(t => ({ ...t, ...edgeCentre(this.grid, t.key) })),
-        showLoad: this.showLoad,
         valid: this.targeting ? this.validSet : new Set(),
         cursor: this.targeting ? this.cursor : null,
         cursorCells: this.targeting ? this.ghostCells : [],

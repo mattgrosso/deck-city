@@ -15,7 +15,6 @@ import { evaluateCondition } from '../conditions/conditionRegistry'
 import { calcStatTotal, countCardsByTag, sumPassive } from '../state/playerState'
 import { addToDrawPile, shuffle } from '../piles/deck'
 import { mandatesOfEra } from '../cards/mandates'
-import { jamDrain } from '../state/traffic'
 import { policyById, policyMod, policyPatience, queuePolicyPick, nextPolicyPick, restockPolicy, MILESTONES } from '../cards/policies'
 
 export const DEFAULT_DRAIN = {
@@ -164,7 +163,6 @@ export function drainPatience (ctx, { struck = false } = {}) {
   if (struck) add('disaster', d.disaster)
   add('the mood of the town', Math.floor(ctx.state.deck.rng() * (d.chance + 1)))
   add('policies', policyMod(ctx.state, 'drainMore')) // Night Economy
-  add('traffic jams', jamDrain(ctx.state)) // state/traffic.js
   // Civic pride slows the clock but never stops it: the drain can't fall below the floor.
   const floor = Math.max(1, d.floor - policyMod(ctx.state, 'drainLess')) // Civic Pride Campaign
   const gross = parts.reduce((n, [, v]) => n + v, 0) - policyMod(ctx.state, 'drainLess')

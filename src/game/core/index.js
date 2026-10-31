@@ -93,7 +93,6 @@ export {
 } from './state/cityGrid'
 
 export { generateTerrain, isWater, touchesWater, WATERFRONT } from './state/terrain'
-export { computeTraffic, tripsOf, jamDrain, jamsIfBuilt, JAMS_PER_PATIENCE, LANE_CAPACITY } from './state/traffic'
 export { SHAPES, shapeOf, isMultiTile, turnOffsets, footprint, innerEdges, placementProblem } from './state/shapes'
 
 export { DEFAULT_PHASES } from './turn/phases'

@@ -183,8 +183,8 @@ export function valueOfAdjacency (card) {
     const count = b.scope === 'deck'
       ? Math.min(b.max ?? 99, DECK_COUNT) / (b.per ?? 1)
       : b.scope === 'city'
-      ? Math.min(b.max ?? 99, CITY_COUNT) / (b.per ?? 1)
-      : (b.amount > 0 ? NEIGHBOURS.good : NEIGHBOURS.bad)
+        ? Math.min(b.max ?? 99, CITY_COUNT) / (b.per ?? 1)
+        : (b.amount > 0 ? NEIGHBOURS.good : NEIGHBOURS.bad)
     return n + b.amount * count * (VALUE[b.stat] ?? 0)
   }, 0))
 }

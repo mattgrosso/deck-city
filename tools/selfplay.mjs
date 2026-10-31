@@ -5,7 +5,7 @@ import { runGameOptions } from '@/game/runSetup'
 import { valueOfBuild } from '@/game/core/economy/priceList'
 import {
   createGame,
-  POLICIES, calcStatTotal, computeTraffic, slotCapacity, policyPrice, marketPrice, effectiveCost, isMultiTile, placementProblem, canCombine, canCombinePair, combineCost, isCellEmpty, isBuildable, listConnectedEdges, evaluateCondition, previewPlacement, clearsOf
+  POLICIES, calcStatTotal, slotCapacity, policyPrice, marketPrice, effectiveCost, isMultiTile, placementProblem, canCombine, canCombinePair, combineCost, isCellEmpty, isBuildable, listConnectedEdges, evaluateCondition, previewPlacement, clearsOf
 } from '@/game/core'
 
 const GAMES = Number(process.argv[2] ?? 20)
@@ -113,8 +113,7 @@ function play () {
   }
   const deckAll = s.deck.drawPile.concat(s.deck.discardPile, s.hand)
   if (process.env.DECK) { const c = {}; for (const x of deckAll) c[x.id] = (c[x.id] ?? 0) + 1; console.log(Object.entries(c).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, v]) => k + ' ' + v).join(', '), '| policies:', s.policies.map(p => p.id).join(' ')) }
-  const tr = computeTraffic(s)
-  STATS.push({ policies: s.policies.length, jams: tr.jammed.length, streets: s.cityGrid.roads.size, trips: tr.trips, bad: deckAll.filter(c => c.type === 'status' || c.type === 'disaster').length, buildingsCards: deckAll.filter(c => c.type === 'building').length, civic: deckAll.filter(c => c.type === 'civic').length, clearers: s.builtStructures.filter(i => clearsOf(i.card).length).length, budget: calcStatTotal(s, 'revenue'), jobs: calcStatTotal(s, 'jobs'), plays: PLAYS.n / Math.max(1, turn) })
+  STATS.push({ policies: s.policies.length, streets: s.cityGrid.roads.size, bad: deckAll.filter(c => c.type === 'status' || c.type === 'disaster').length, buildingsCards: deckAll.filter(c => c.type === 'building').length, civic: deckAll.filter(c => c.type === 'civic').length, clearers: s.builtStructures.filter(i => clearsOf(i.card).length).length, budget: calcStatTotal(s, 'revenue'), jobs: calcStatTotal(s, 'jobs'), plays: PLAYS.n / Math.max(1, turn) })
   PLAYS.n = 0
   return { status: s.gameStatus, turn, pop: pop(), buildings: s.builtStructures.length, deck: s.deck.drawPile.length + s.deck.discardPile.length + s.hand.length, elections: s.run.elections.map(e => ({ era: e.era, mandate: e.mandate.id, passed: e.passed, early: e.early, turn: e.turn })) }
 }
