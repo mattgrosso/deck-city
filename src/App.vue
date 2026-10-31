@@ -142,9 +142,12 @@
       <transition name="toast">
         <div v-if="playtest.note" :key="playtest.note.at" class="pt-note"><span class="pt-note__who">Claude</span>{{ playtest.note.text }}</div>
       </transition>
-      <button v-if="!isFullscreen && !touch" class="fs-btn" :class="{ 'fs-btn--title': screen === 'title' }" type="button" @click.stop="toggleFullscreen('click')">
-        <svg viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" /></svg>
-        Full screen <span class="fs-btn__key">F</span>
+      <!-- Always on show, over everything (Matt, 2026-10-31: "the full screen
+           button needs to be visible all the time"), and it turns back too. -->
+      <button class="fs-btn" :class="{ 'fs-btn--title': screen === 'title' }" type="button" @click.stop="toggleFullscreen('click')">
+        <svg v-if="!isFullscreen" viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" /></svg>
+        <svg v-else viewBox="0 0 24 24"><path d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5" /></svg>
+        {{ isFullscreen ? 'Exit full screen' : 'Full screen' }} <span v-if="!touch" class="fs-btn__key">F</span>
       </button>
       <ButtonLegend :items="legend" :pad="pad" :touch="touch" @act="act($event, 'touch')" />
       <p class="build-stamp" role="button" tabindex="0" title="Tap to reload" @click="stampTap">{{ refreshing ? 'reloading…' : stamp }}</p>
@@ -278,8 +281,9 @@ export default {
   mounted () {
     this.fit()
     window.addEventListener('resize', this.fit)
-    this.onFsChange = () => { this.isFullscreen = !!document.fullscreenElement }
+    this.onFsChange = () => { this.isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement) }
     document.addEventListener('fullscreenchange', this.onFsChange)
+    document.addEventListener('webkitfullscreenchange', this.onFsChange)
     this.onFsChange()
     this.detach = attachInput({ onAction: this.act, onPadChange: (kind) => { this.pad = kind } })
     // Touch or not follows the last thing used: a finger turns tap-twice on, a mouse or a key turns it off.
@@ -295,6 +299,7 @@ export default {
   beforeUnmount () {
     window.removeEventListener('resize', this.fit)
     document.removeEventListener('fullscreenchange', this.onFsChange)
+    document.removeEventListener('webkitfullscreenchange', this.onFsChange)
     window.removeEventListener('pointerdown', this.onPointer, true)
     this.detach?.()
   },
@@ -580,14 +585,16 @@ export default {
     },
     enterFullscreen (source) {
       const el = document.documentElement
-      if (!el.requestFullscreen) return
-      el.requestFullscreen().catch(() => {
+      // Safari on iPad still names it with the webkit prefix.
+      const go = el.requestFullscreen ?? el.webkitRequestFullscreen
+      if (!go) return this.say('This browser has no full screen. On an iPhone or iPad, Share → Add to Home Screen opens it full screen.', 'bad')
+      Promise.resolve(go.call(el)).catch(() => {
         const msg = source === 'pad' ? 'The browser won\'t go full screen from a controller. Press F or click Full screen.' : 'The browser refused full screen.'
         this.say(msg, 'bad') // the game has started by the time the browser answers
       })
     },
     toggleFullscreen (source) {
-      if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {})
+      if (document.fullscreenElement || document.webkitFullscreenElement) Promise.resolve((document.exitFullscreen ?? document.webkitExitFullscreen)?.call(document)).catch(() => {})
       else this.enterFullscreen(source)
     },
     startGame () {
@@ -1298,7 +1305,7 @@ export default {
 .btn { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; font-weight: 900; font-size: 17px; color: #000; }
 .btn--y { background: #ffd93d; }
 
-.fs-btn { position: absolute; right: 36px; bottom: 70px; z-index: 21; display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px; border: 1.5px solid var(--line); background: #fff; color: var(--ink-2); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+.fs-btn { position: absolute; right: 330px; bottom: 7px; z-index: 90; display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px; border: 1.5px solid var(--line); background: #fff; color: var(--ink-2); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
 .fs-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; }
 .fs-btn__key { display: inline-grid; place-items: center; min-width: 22px; height: 22px; border-radius: 6px; background: #eef2f7; font-size: 12px; }
 .fs-btn--title { z-index: 41; right: 50%; transform: translateX(50%); bottom: 300px; font-size: 20px; padding: 10px 22px; }
