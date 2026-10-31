@@ -197,6 +197,14 @@ describe('createGame', () => {
     })
   })
 
+  it('goes back from the market to building', () => {
+    const game = createGame({ cardCatalog: EXAMPLE_CARDS, startingDeckCardIds: ['road'] })
+    game.actions.advance() // draw -> build
+    game.actions.advance() // build -> acquire
+    game.actions.backToBuild()
+    expect(game.turnManager.phases[game.turnManager.currentPhaseIndex].name).toBe('build')
+  })
+
   describe('claimGoal', () => {
     const EASY_GOAL = {
       id: 'goal-easy', type: CARD_TYPES.GOAL, name: 'Easy Goal', tier: 1, cost: 0,

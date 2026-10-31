@@ -161,6 +161,13 @@ export const DEFAULT_PHASES = [
         ctx.log?.push(`Upkeep ran ${-total} past your savings: +1 Debt card.`)
       }
       ctx.state.goalsClaimedThisTurn = 0
+      // A line a turn for the overnight graphs (App SummaryPanel): bad cards
+      // in the deck, the budget, the people.
+      {
+        const all = [...ctx.state.deck.drawPile, ...ctx.state.deck.discardPile, ...ctx.state.hand]
+        const n = (id) => all.filter(c => c.id === id).length
+        ctx.state.history = [...(ctx.state.history ?? []), { crime: n('crime'), trash: n('trash'), pollution: n('pollution'), budget: ctx.state.treasury, population: calcStatTotal(ctx.state, 'population') }].slice(-120)
+      }
       ctx.state.buys = (ctx.buysPerTurn ?? 1) + sumPassive(ctx.state, 'buysBonus') + policyMod(ctx.state, 'buys')
       // Month's end: buy as much as you can afford (the market only opens then).
       if (ctx.state.week === MONTH) ctx.state.buys = 99

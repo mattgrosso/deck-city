@@ -17,7 +17,7 @@ export default {
 </script>
 
 <style scoped>
-.info { position: absolute; right: 36px; top: 648px; width: 430px; background: rgba(255,255,255,0.94); border: 1.5px solid var(--line); border-radius: 12px; padding: 12px 16px 10px; box-shadow: 0 10px 30px rgba(27,33,48,0.15); z-index: 6; }
+.info { position: absolute; left: 36px; top: 330px; width: 400px; background: rgba(255,255,255,0.94); border: 1.5px solid var(--line); border-radius: 12px; padding: 12px 16px 10px; box-shadow: 0 10px 30px rgba(27,33,48,0.15); z-index: 6; }
 .info--gold { border-color: var(--gold); }
 .info__eyebrow { font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-3); font-weight: 800; }
 .info__title { font-size: 22px; font-weight: 800; margin: 2px 0 6px; }

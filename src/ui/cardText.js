@@ -45,7 +45,7 @@ const TAG_WORDS = {
   luxury: ['luxury building', 'luxury buildings'], utility: ['utility', 'utilities'], safety: ['safety building', 'safety buildings'],
   food: ['food business', 'food businesses'], tourism: ['attraction', 'attractions'], office: ['office', 'offices'],
   dense: ['dense block', 'dense blocks'], finance: ['bank', 'banks'], service: ['service', 'services'],
-  infrastructure: ['road', 'roads'],
+  infrastructure: ['road', 'roads'], consumer: ['facility', 'facilities'],
   crime: ['Crime', 'Crime'], trash: ['Trash', 'Trash'], pollution: ['Pollution', 'Pollution'], debt: ['Debt', 'Debt']
 }
 const tagWord = (tag, n = 1, catalog = {}) => TAG_WORDS[tag]?.[n === 1 ? 0 : 1] ?? catalog[tag]?.name ?? tag

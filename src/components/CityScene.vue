@@ -134,7 +134,7 @@ export default {
       this.labels = this.lots.filter(l => l.instanceId).map((lot) => {
         const inst = byId.get(lot.instanceId)
         const stats = Object.entries(inst.card.stats ?? {}).filter(([, v]) => v).map(([k, v]) => `+${v} ${STAT_SHORT[k] ?? k}`)
-        if (inst.slots) stats.push(`${inst.slots.used}/${inst.slots.capacity} slots`)
+        if (inst.slots) stats.push(inst.slots.used >= inst.slots.capacity ? 'full' : `room for ${inst.slots.capacity - inst.slots.used}`)
         const p = this.world.project(lot.wx + LOT / 2, 0, lot.wz + LOT / 2)
         return { id: lot.id, instanceId: lot.instanceId, x: p.x, y: p.y, name: inst.card.name, stats: stats.join(' · '), monument: inst.card.type === 'goal' }
       })
@@ -182,9 +182,9 @@ export default {
 .flat-lot--valid { border-color: #3dd68c; }
 .flat-lot--cursor { border-color: #fff; }
 .scene__labels { position: absolute; inset: 0; pointer-events: none; }
-.chip { position: absolute; transform: translate(-50%, 0); display: flex; gap: 6px; align-items: baseline; padding: 1px 7px; border-radius: 7px; background: rgba(255,255,255,0.92); border: 1px solid var(--line); white-space: nowrap; box-shadow: 0 2px 6px rgba(27,33,48,0.15); }
-.chip__name { font-size: 11px; font-weight: 800; letter-spacing: 0.02em; }
-.chip__stats { font-size: 10px; font-weight: 700; color: var(--ink-2); }
+.chip { position: absolute; transform: translate(-50%, 0); display: flex; gap: 8px; align-items: baseline; padding: 3px 10px; border-radius: 9px; background: rgba(255,255,255,0.92); border: 1px solid var(--line); white-space: nowrap; box-shadow: 0 2px 6px rgba(27,33,48,0.15); }
+.chip__name { font-size: 17px; font-weight: 800; letter-spacing: 0.02em; }
+.chip__stats { font-size: 15px; font-weight: 700; color: var(--ink-2); }
 .mark { position: absolute; transform: translate(-50%, -100%); padding: 3px 9px; border-radius: 999px; font-size: 14px; font-weight: 800; white-space: nowrap; box-shadow: 0 4px 12px rgba(27,33,48,0.2); animation: mark-in 180ms ease-out; }
 .mark--good { background: #2fb36a; color: #fff; }
 .mark--bad { background: #e0434b; color: #fff; }

@@ -81,9 +81,9 @@ describe('earning policies', () => {
     const s = game.state
     game.actions.chooseMandate(s.run.offer[0].id) // the start-of-run pick is still open
     expect(s.run.policyOffer).toHaveLength(3)
-    s.builtStructures.push({ instanceId: 'big#9', card: { id: 'big', type: 'building', tags: ['residential'], stats: { population: 75 } }, position: null })
+    s.builtStructures.push({ instanceId: 'big#9', card: { id: 'big', type: 'building', tags: ['residential'], stats: { population: 205 } }, position: null })
     for (let i = 0; i < 5; i++) game.actions.advance() // to the end of the turn and round
-    expect(s.run.milestones).toEqual(expect.arrayContaining([30, 70]))
+    expect(s.run.milestones).toEqual(expect.arrayContaining([70, 200]))
     expect(s.run.policyQueue.length).toBe(2) // both behind the open start-of-run pick
     game.actions.choosePolicy(s.run.policyOffer[0].id)
     expect(s.run.policyOffer).toHaveLength(3)

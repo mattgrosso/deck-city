@@ -390,6 +390,18 @@ export function createGame ({
     return policy
   }
 
+  /**
+   * Back from the market to building (Matt, 2026-10-31: "once I've selected
+   * done building there's no way for me to get back... I should be able to
+   * change my mind"). Nothing in between has run: the acquire phase does
+   * nothing on its own.
+   */
+  function backToBuild () {
+    assertPlaying(state)
+    assertPhase(turnManager, 'acquire')
+    turnManager.currentPhaseIndex = turnManager.phases.findIndex(p => p.name === 'build')
+  }
+
   function advance () {
     const out = advancePhase(turnManager, context)
     // Month's end (Matt, 2026-10-31: "you complete a combat, and then you're
@@ -427,6 +439,6 @@ export function createGame ({
     turnManager,
     catalog,
     log,
-    actions: { chooseOffer, playCard, playCivicCard, combineCards, buyPolicy, choosePolicy: (id) => chooseRunPolicy(context, id), acquireCard, claimGoal, clearStatus, chooseMandate, callElection, keepBuilding, advance }
+    actions: { chooseOffer, backToBuild, playCard, playCivicCard, combineCards, buyPolicy, choosePolicy: (id) => chooseRunPolicy(context, id), acquireCard, claimGoal, clearStatus, chooseMandate, callElection, keepBuilding, advance }
   }
 }

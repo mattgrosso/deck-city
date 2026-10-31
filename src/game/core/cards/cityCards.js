@@ -142,7 +142,7 @@ export const COMMERCIAL_CARDS = [
   B('barber', 'Barber Shop', 1, ['commercial'], 6, { stats: { jobs: 1, revenue: 1 }, onBuild: [draw(1)], onNth: [gain(1)], flavor: 'All the gossip, free with a trim.' }),
   B('market-stall', 'Market Stall', 1, ['commercial', 'food'], 7, { stats: { revenue: 1 }, onBuild: [buys(1)], freeFirst: 'food' }),
   B('pawn-shop', 'Pawn Shop', 1, ['commercial'], 8, { stats: { jobs: 1, revenue: 1 }, onTurn: [perStatus('crime', 1, 3)], onBuild: [status('crime')], flavor: 'No questions asked.' }),
-  B('hardware-store', 'Hardware Store', 1, ['commercial'], 7, { stats: { jobs: 1, revenue: 1 }, discount: { tag: 'infrastructure', amount: 1 }, onCombine: [gain(2)], flavor: 'Sells the nails for every renovation.' }),
+  B('hardware-store', 'Hardware Store', 1, ['commercial'], 7, { stats: { jobs: 1, revenue: 1 }, discount: { tag: 'consumer', amount: 1 }, onCombine: [gain(2)], flavor: 'Sells the nails for every renovation.' }),
   B('bakery', 'Bakery', 1, ['commercial', 'food'], 6, { stats: { jobs: 2, revenue: 1 }, near: [nd('revenue', 1, 'rural')], onCity: only('residential', gain(1)), flavor: 'A loaf for every new family.' }),
   B('laundromat', 'Laundromat', 1, ['commercial'], 6, { stats: { jobs: 1, revenue: 1 }, onBuild: [clear(1)], onAnyClear: [gain(1)] }),
   B('gas-station', 'Gas Station', 1, ['commercial'], 6, { stats: { jobs: 1, revenue: 2 }, near: [nd('revenue', 1, 'industrial')], onCity: only('industrial', grow('revenue', 1, 3)), onBuild: [status('pollution')] }),

@@ -84,7 +84,8 @@ export function policyPatience (state) {
 // each era: it restocks when an era opens, not when it is bought).
 
 /** Population marks that earn a policy, each once a run. */
-export const MILESTONES = [30, 70, 130, 200, 300]
+// Two, not five (Matt, 2026-10-31: "I feel like I'm getting a lot of policies").
+export const MILESTONES = [70, 200]
 
 /** Queue a pick of three. `reason` heads the offer screen. */
 export function queuePolicyPick (state, rng, reason, { first = false } = {}) {

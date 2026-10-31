@@ -29,9 +29,9 @@
         <div class="phase-tag" :class="`phase-tag--${phaseName}`">{{ phaseLabel }}</div>
 
         <CardInfo v-if="mode === 'hand' || mode === 'civic' || (mode === 'target' && !aimPreview)" :card="focusedHandCard" :catalog="game.catalog" />
-        <CardInfo v-if="marketSupplyCard" :card="marketSupplyCard" :catalog="game.catalog" />
+        <div v-if="marketSupplyCard || marketCityCard" class="card-zoom"><GameCard :card="marketSupplyCard || marketCityCard" :catalog="game.catalog" /></div>
         <PlacementPreview v-if="mode === 'target' && aimPreview" v-bind="aimPreview.panel" />
-        <PolicyList v-if="mode !== 'target' && mode !== 'look' && mode !== 'stats'" :policies="policies" />
+        <PolicyList v-if="mode !== 'target' && mode !== 'look' && mode !== 'stats' && !marketSupplyCard && !marketCityCard" :policies="policies" :facilities="facilityRoom" />
         <InfoPanel v-if="mode === 'look' && lookInfo" v-bind="lookInfo" />
         <InfoPanel v-if="mode === 'stats'" v-bind="statInfo" />
         <InfoPanel v-if="marketPolicy" eyebrow="Policy for sale" :title="marketPolicy.name" :lines="[marketPolicy.policy.text, `Costs ${marketPolicy.price} budget, not a buy. It stands for the rest of the run.`, 'One is for sale each era.']" />
@@ -76,7 +76,7 @@
 
         <PileView v-if="mode === 'pile'" :tabs="pileTabs" :tab-index="pileTab" :focus-index="pileIndex" :catalog="game.catalog" @tab="pileTab = $event; pileIndex = 0" @focus="pileIndex = $event" />
 
-        <SummaryPanel v-if="mode === 'summary'" v-bind="summary" :glyph="glyphs.select" @click="act('select', 'click')" />
+        <SummaryPanel v-if="mode === 'summary'" v-bind="summary" :glyph="glyphs.select" :detail="summaryDetail" :detail-glyph="glyphs.deck" :by-building="byBuilding" :history="game.state.history || []" @toggle="summaryDetail = !summaryDetail" @click="act('select', 'click')" />
         <div v-if="mode === 'combineChoice' && combineOpts && combineOpts.length" class="overlay-mandate">
           <div class="overlay-mandate__eyebrow">Combine · {{ combinePair[0].name }} + {{ combinePair[1].name }}</div>
           <div class="overlay-mandate__lede">Costs {{ combinePrice }} budget. Both cards leave your deck for good; the new one goes to your discard pile.</div>
@@ -242,6 +242,7 @@ export default {
       comboIndex: 0,
       policyIndex: 0,
       offerIndex: 0,
+      summaryDetail: false,
       policyReturn: null,
       // A touchscreen (an iPad): tap to pick, tap again to play; the legend becomes buttons.
       touch: typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches,
@@ -311,7 +312,38 @@ export default {
     /** The pause menu as shown: Playtest mode says whether it is on. */
     menuLabels () { return MENU_ITEMS.map(i => (i === 'Playtest mode' ? `Playtest mode: ${this.playtest.on ? 'on' : 'off'}` : i)) },
     nextBudget () { void this.tick; return calcBudget(this.game.state) },
+    /** The city-row card in focus, shown whole at the left (Matt, 2026-10-31: "there's no way for me to inspect the city row"). */
+    marketCityCard () { return this.mode === 'market' && this.market.row === 0 ? this.row0[this.market.index] ?? null : null },
     monthOffer () { void this.tick; return this.game.state.monthOffer ?? [] },
+    /** Each kind of building: how many, what they earn, their share of the upkeep (the summary's detail). */
+    byBuilding () {
+      void this.tick
+      const s = toRaw(this.game).state
+      const n = s.builtStructures.filter(i => i.card.type === 'building').length
+      const each = n ? calcUpkeep(s) / n : 0
+      const out = new Map()
+      for (const i of s.builtStructures) {
+        const b = out.get(i.card.name) ?? { name: i.card.name, count: 0, revenue: 0, upkeep: 0 }
+        b.count += 1
+        b.revenue += instanceStats(s, i).total.revenue ?? 0
+        if (i.card.type === 'building') b.upkeep += each
+        out.set(i.card.name, b)
+      }
+      return [...out.values()].map(b => ({ ...b, upkeep: Math.round(b.upkeep) })).sort((a, b) => b.revenue - a.revenue)
+    },
+    /** Every facility kind built, its room summed: for the left panel. */
+    facilityRoom () {
+      void this.tick
+      const s = this.game.state
+      const out = new Map()
+      for (const i of s.builtStructures) {
+        if (!i.slots) continue
+        const f = out.get(i.card.name) ?? { name: i.card.name, used: 0, cap: 0 }
+        f.used += i.slots.used; f.cap += slotCapacity(s, i)
+        out.set(i.card.name, f)
+      }
+      return [...out.values()]
+    },
     run () { void this.tick; return this.game.state.run ?? null },
     supply () { void this.tick; return this.game.supply ?? [] },
     /** The policy for sale beside the city row (cards/policies.js), as a row item. */
@@ -465,8 +497,8 @@ export default {
         case 'target': return this.pendingEdges.length ? [L('dpad', 'Aim the second segment'), L('select', 'Place'), L('back', 'Keep just one')] : [L('dpad', 'Aim'), ...(isMultiTile(this.selectedCard) ? [L('prevPile', 'Turn'), L('nextPile', 'Turn')] : []), L('select', 'Place'), L('back', 'Back')]
         case 'combine': return [L('lr', 'Choose'), L('select', 'Pick / put back'), ...(this.picks.length ? [L('confirm', 'Combine')] : []), L('back', 'Back')]
         case 'combineChoice': return [L('lr', 'Choose'), L('select', 'Combine into this'), L('back', 'Back')]
-        case 'civic': return [L('lr', 'Choose'), L('select', 'Pick / put back'), ...(this.picks.length >= this.civicNeed ? [L('confirm', 'Discard these')] : []), L('back', 'Back')]
-        case 'market': return [L('dpad', 'Browse'), L('select', 'Buy / Claim'), L('up', 'Look at the city'), L('stats', 'Top bar'), L('confirm', 'End turn'), L('deck', 'Deck'), L('menu', 'Menu')]
+        case 'civic': return [L('lr', 'Choose'), ...(this.picks.length >= this.civicNeed ? [L('select', 'Discard these')] : [L('select', 'Pick')]), L('back', 'Back')]
+        case 'market': return [L('dpad', 'Browse'), L('select', 'Buy / Claim'), L('back', 'Back to building'), L('up', 'Look at the city'), L('stats', 'Top bar'), L('confirm', 'End turn'), L('deck', 'Deck'), L('menu', 'Menu')]
         case 'look': return [L('dpad', 'Move'), L('up', 'Top bar'), L('back', 'Back')]
         case 'stats': return [L('lr', 'Next number'), L('back', 'Back')]
         case 'pile': return [L('prevPile', 'Prev'), L('nextPile', 'Next'), L('dpad', 'Browse'), L('back', 'Close')]
@@ -631,8 +663,18 @@ export default {
       const pos = Math.max(0, others.indexOf(this.handIndex))
       if (action === 'left') this.handIndex = others[(pos - 1 + others.length) % others.length]
       else if (action === 'right') this.handIndex = others[(pos + 1) % others.length]
-      else if (action === 'select') this.togglePick(this.handIndex)
-      else if (action === 'confirm') this.confirmPicks()
+      else if (action === 'select') {
+        // Picking a card moves on to the next one not yet picked (Matt,
+        // 2026-10-31: pressing twice should pick two, not un-pick the first);
+        // a picked card is put back by pressing on it from the row above.
+        const wasPicked = this.picks.includes(this.handIndex)
+        if (!wasPicked && this.picks.length >= this.civicNeed) return this.confirmPicks() // all picked: one more press plays it
+        this.togglePick(this.handIndex)
+        if (!wasPicked) {
+          const next = others.slice(pos + 1).concat(others.slice(0, pos)).find(i => !this.picks.includes(i))
+          if (next != null) this.handIndex = next
+        }
+      } else if (action === 'confirm') this.confirmPicks()
       else if (action === 'back') { this.mode = 'hand'; this.picks = []; this.handIndex = this.selectedIndex; this.selectedIndex = null }
     },
     in_market (action) {
@@ -652,7 +694,7 @@ export default {
       else if (action === 'up') this.openLook('market')
       else if (action === 'select') this.buyOrClaim()
       else if (action === 'confirm') this.endTurn()
-      else if (action === 'deck') this.openPile(1)
+      else if (action === 'back') { this.game.actions.backToBuild(); this.mode = 'hand'; this.handIndex = 0; this.refresh() } else if (action === 'deck') this.openPile(1)
       else if (action === 'menu') this.openMenu()
     },
     in_look (action) {
@@ -678,6 +720,7 @@ export default {
     },
     in_summary (action) {
       if (action === 'select' || action === 'confirm') this.afterSummary()
+      else if (action === 'deck' || action === 'stats') this.summaryDetail = !this.summaryDetail
     },
     in_over (action) {
       const n = this.overItems.length
@@ -1280,4 +1323,6 @@ export default {
 .offer-card--on { transform: translateY(-10px); }
 .offer-skip { align-self: center; padding: 18px 28px; border-radius: 14px; background: #fff; border: 2px solid var(--line); font-size: 22px; font-weight: 800; color: var(--ink-3); cursor: pointer; }
 .offer-skip--on { border-color: var(--ink); color: var(--ink); }
+/* The market card in focus, whole and big, at the left (where card details always go). */
+.card-zoom { position: absolute; left: 60px; top: 150px; transform: scale(1.35); transform-origin: top left; z-index: 7; pointer-events: none; filter: drop-shadow(0 12px 28px rgba(27,33,48,0.25)); }
 </style>
