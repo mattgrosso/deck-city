@@ -5,10 +5,12 @@
       <h1 class="howto__title">{{ current.title }}</h1>
       <p v-for="(line, i) in current.lines" :key="i" class="howto__line">{{ line }}</p>
       <div class="howto__dots"><span v-for="(p, i) in PAGES" :key="i" class="dot" :class="{ 'dot--on': i === page }" /></div>
+      <!-- Each hint is a button too, for a finger (Matt, 2026-10-31: "there's
+           no way to advance the tutorial on an iPad"). -->
       <div class="howto__hint">
-        <span class="btn btn--dpad">↔</span> Page
-        <span class="btn btn--a">{{ glyphs.select }}</span> {{ page === PAGES.length - 1 ? 'Play' : 'Next' }}
-        <span class="btn btn--b">{{ glyphs.back }}</span> Close
+        <button type="button" class="howto__act" :disabled="page === 0" @click.stop="$emit('prev')"><span class="btn btn--dpad">↔</span> Back</button>
+        <button type="button" class="howto__act howto__act--main" @click.stop="$emit('next')"><span class="btn btn--a">{{ glyphs.select }}</span> {{ page === PAGES.length - 1 ? 'Play' : 'Next' }}</button>
+        <button type="button" class="howto__act" @click.stop="$emit('close')"><span class="btn btn--b">{{ glyphs.back }}</span> Close</button>
       </div>
     </div>
   </div>
@@ -92,6 +94,7 @@ export const PAGES = [
 
 export default {
   name: 'HowTo',
+  emits: ['prev', 'next', 'close'],
   props: { page: { type: Number, default: 0 }, glyphs: { type: Object, required: true } },
   data () { return { PAGES } },
   computed: { current () { return PAGES[Math.min(this.page, PAGES.length - 1)] } }
@@ -112,4 +115,8 @@ export default {
 .btn--a { background: #5fd36f; }
 .btn--b { background: #ff6b6b; }
 .btn--dpad { background: #dfe5ee; border-radius: 7px; margin-left: 0; }
+.howto__act { display: inline-flex; align-items: center; gap: 4px; margin-right: 18px; padding: 10px 18px 10px 8px; border: 1.5px solid var(--line); border-radius: 999px; background: #fff; font: inherit; font-weight: 800; color: var(--ink); cursor: pointer; }
+.howto__act:disabled { opacity: 0.4; cursor: default; }
+.howto__act--main { border-color: #5fd36f; background: #effbf1; }
+.howto__act .btn { margin-left: 0; }
 </style>

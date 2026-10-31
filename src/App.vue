@@ -124,7 +124,7 @@
         <Overlay v-if="mode === 'election'" :kind="electionShown.passed ? 'won' : 'lost'" :eyebrow="`Era ${['I', 'II', 'III'][electionShown.era - 1]} · election${electionShown.early ? ' called early' : ''}`" :title="electionShown.passed ? 'Re-elected' : 'Voted out'" :lines="electionLines" hint="Continue" :glyph="glyphs.select" />
         <Overlay v-if="mode === 'over'" :kind="game.state.run.status === 'won' ? 'won' : 'lost'" :eyebrow="`Turn ${turn}`" :title="game.state.run.status === 'won' ? 'Three eras. A great city.' : 'The run is over'" :lines="overLines" :items="overItems" :index="overIndex" hint="Choose" :glyph="glyphs.select" @pick="overIndex = $event; act('select', 'click')" />
         <Overlay v-if="mode === 'menu'" kind="plain" title="Paused" :items="menuLabels" :index="menuIndex" hint="Choose" :glyph="glyphs.select" @pick="menuIndex = $event; act('select', 'click')" />
-        <HowTo v-if="mode === 'howto'" :page="howtoPage" :glyphs="glyphs" />
+        <HowTo v-if="mode === 'howto'" :page="howtoPage" :glyphs="glyphs" @prev="act('left', 'click')" @next="act('select', 'click')" @close="act('back', 'click')" />
       </template>
 
       <Overlay v-if="screen === 'title'" kind="title" eyebrow="A deck-building city builder" title="Deck City" :lines="['Three eras. Choose a mandate for each and meet it before the public runs out of patience.', 'Press A, Enter or click to start.']" hint="Start" :glyph="glyphs.select" @click="act('select', 'click')" />
