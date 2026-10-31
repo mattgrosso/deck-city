@@ -18,6 +18,7 @@ import { createTurnManager, advancePhase, assertPhase } from './turn/turnManager
 import { resolveTrigger } from './effects/effectRegistry'
 import { evaluateCondition } from './conditions/conditionRegistry'
 import { afterUse } from './cards/uses'
+import { choosePlacement, layStreets } from './state/autoPlace'
 import './effects/coreEffects' // registers the starter effect vocabulary as a side effect
 import './conditions/coreConditions' // registers the starter condition vocabulary as a side effect
 
@@ -196,9 +197,34 @@ export function createGame ({
       return edges
     }
 
-    if (!position) throw new Error('Invalid or occupied cell: undefined')
     if (card.unique && state.builtStructures.some(i => i.card.id === card.id)) {
       throw new Error(`There can only be one ${card.name}`)
+    }
+    // A facility you already have is upgraded, not built again (Matt,
+    // 2026-10-31: "play a police station card on top of an existing police
+    // station to just upgrade it and increase its capacity"): the one with
+    // the least room left gets this card's room on top.
+    if (card.clears && card.slots && !position) {
+      const same = state.builtStructures.filter(i => i.card.id === card.id && i.slots)
+      if (same.length) {
+        const fullest = same.reduce((a, b) => (b.slots.capacity - b.slots.used < a.slots.capacity - a.slots.used ? b : a))
+        state.hand.splice(index, 1)
+        spendTreasury(state, effectiveCost(state, card))
+        fullest.slots.capacity += card.slots.capacity
+        const back = afterUse(card)
+        if (back) addToDiscardPile(state.deck, [back])
+        context.log?.push(`${card.name} upgraded: room for ${fullest.slots.capacity - fullest.slots.used} more.`)
+        notePlay(context, card)
+        return fullest
+      }
+    }
+    // No spot named: the city picks one, and lays the street it needs
+    // (state/autoPlace.js).
+    if (!position) {
+      const spot = choosePlacement(state, card)
+      if (!spot) throw new Error(`No room left in the city for ${card.name}`)
+      layStreets(state, spot.streets)
+      position = { x: spot.x, y: spot.y, rotation: spot.rotation }
     }
     // Monuments (claimed goals) skip the requirement entirely (see
     // cards/goalCards.js); everything else can only be built on a cell with

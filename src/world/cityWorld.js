@@ -12,7 +12,7 @@
 
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
-import { PITCH, LOT, GAP, allModels, recipeFor, cornerPoint, edgeCentre, buildingPlacements } from './cityLayout'
+import { PITCH, LOT, GAP, allModels, recipeFor, cornerPoint, edgeCentre, cellCentre, buildingPlacements } from './cityLayout'
 import { makeStreetEdge, makeStreetNode } from './streets'
 import { fittedBuilding } from './buildgen'
 
@@ -444,6 +444,13 @@ export function createCityWorld (canvas, { reducedMotion = false } = {}) {
       }
       if (moved) fit()
     }
+    // Flashes: a ring that grows and fades where something just happened.
+    for (const f of [...flashes]) {
+      const k = Math.min(1, (t - f.at) / 900)
+      f.mesh.scale.setScalar(0.6 + 1.6 * k)
+      f.mesh.material.opacity = 0.85 * (1 - k)
+      if (k >= 1) { world.remove(f.mesh); flashes.delete(f) }
+    }
     // The cursor ring breathes.
     const pulse = 0.75 + 0.25 * Math.sin(t / 220)
     for (const ov of overlays.values()) if (ov.ring.material.opacity > 0) ov.ring.material.opacity = pulse
@@ -451,8 +458,21 @@ export function createCityWorld (canvas, { reducedMotion = false } = {}) {
     requestAnimationFrame(tick)
   }
 
+  // Where the city just built (state/autoPlace.js chose the spot), or a
+  // facility just took a bad card: a ring that grows and fades there.
+  const flashes = new Set()
+  const flashGeo = new THREE.RingGeometry(0.42, 0.5, 40)
+  function flash (grid, x, y, colour = 0xffd166) {
+    const c = cellCentre(grid, x, y)
+    const mesh = new THREE.Mesh(flashGeo, new THREE.MeshBasicMaterial({ color: colour, transparent: true, depthWrite: false, side: THREE.DoubleSide }))
+    mesh.rotation.x = -Math.PI / 2; mesh.position.set(c.x, 0.08, c.z)
+    world.add(mesh)
+    flashes.add({ mesh, at: now() })
+  }
+
   return {
     ready,
+    flash,
     update,
     resize,
     project,

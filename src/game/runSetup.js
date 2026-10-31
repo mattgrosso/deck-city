@@ -61,10 +61,10 @@ export function runGameOptions ({ rng } = {}) {
     startingBuildings: STARTING_BUILDINGS,
     run: RUN,
     upkeep: UPKEEP,
-    // Always for sale beside the city row: Roads (yarn selfplay: cities
-    // stalled with budget to spare and no street to build on) and the four
-    // services (Matt: "I didn't see a police station for a long time").
-    supplyCardIds: ['street-permit', ...SERVICES],
+    // Always for sale beside the city row: the four services (Matt: "I
+    // didn't see a police station for a long time"). No Street Permits: the
+    // city lays its own streets now (state/autoPlace.js).
+    supplyCardIds: [...SERVICES],
     // A new map each game: a river, a lake or a coast, never on the town.
     terrain: { dry: { x0: 9, y0: 5, x1: 15, y1: 11 }, firstEra: RUN.eras[0].limits },
     ...(rng ? { rng } : {})

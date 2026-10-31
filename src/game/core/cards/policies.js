@@ -12,7 +12,6 @@ export const POLICIES = [
   { id: 'free-market', name: 'Free Market', text: '+1 buy every turn.', mods: { buys: 1 } },
   { id: 'bigger-council', name: 'Bigger Council', text: 'Draw 1 more card every turn.', mods: { handSize: 1 }, rare: true },
   { id: 'zoning-reform', name: 'Zoning Reform', text: 'Combining costs 2 less.', mods: { combineDiscount: 2 } },
-  { id: 'street-grid', name: 'Street Grid Act', text: 'Every Road lays 1 more segment.', mods: { roadSegments: 1 } },
   { id: 'rent-control', name: 'Rent Control', text: 'Homes pay no upkeep.', mods: { upkeepFreeTags: ['residential'] } },
   { id: 'infrastructure-bond', name: 'Infrastructure Bond', text: '4 more buildings run free of upkeep.', mods: { upkeepFree: 4 } },
   { id: 'main-street', name: 'Main Street Program', text: 'Every shop: +1 revenue.', rules: [{ tags: ['commercial'], stat: 'revenue', amount: 1 }] },

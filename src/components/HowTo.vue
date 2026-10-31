@@ -33,14 +33,14 @@ export const PAGES = [
     lines: [
       'Your budget is the revenue of everything you have built. The starting city earns 5.',
       'Spend it or lose it: nothing carries over unless a goal says so.',
-      'Buildings cost budget to place. The number on the coin is the price.'
+      'Every card costs budget to play. The number on the coin is the price.'
     ]
   },
   {
-    title: 'Roads first, then buildings.',
+    title: 'The city builds itself.',
     lines: [
-      'A Road card lays up to two street segments, each joined to a street you already have.',
-      'A building can only go on a plot that touches a street.',
+      'Play a building and the city finds it the best spot it has: next to the neighbours it likes, with its own kind, and it lays any street it needs.',
+      'Each card has dots for its uses. A spent card leaves your deck.',
       'Houses bring people. Shops and factories bring jobs. People without jobs turn to crime.'
     ]
   },
@@ -65,7 +65,7 @@ export const PAGES = [
     lines: [
       'Patience drains every turn: faster with bad cards in your deck, idle workers and disasters. Parks, culture and civic buildings slow it, never stop it.',
       'Met the Mandate early? Pick it in the market to call the election now: half the patience left carries into the next era.',
-      'Each new era widens the city limits and brings a new tier of buildings to the City Row. Street Permits (one-use Roads) are always for sale beside it, and two Roads combine into a Boulevard, two Boulevards into a Highway.'
+      'Each new era widens the city limits and brings a new tier of buildings to the City Row. The services (Police, Fire, Clinic, Sanitation) are always for sale beside it. A facility holds a set number of bad cards; play another of the same on it to add room.'
     ]
   },
   {
@@ -83,8 +83,8 @@ export const PAGES = [
     lines: [
       'Every building counts its four neighbours. Houses grow beside houses and shrink beside factories.',
       'Shops earn more beside houses and less beside other shops. Factories earn more in a cluster.',
-      'Each game has its own map: a river, a lake or a coast. Nothing builds on water, but a home beside it houses one more and a shop beside it earns one more. A Road can bridge it.',
-      'Big places cover more than one plot: a School two, a University an L of three, a Stadium a 2×2. Turn them with LB / RB (Q / R) while aiming. They count every neighbour they touch, and no street may run through them.',
+      'Each game has its own map: a river, a lake or a coast. Nothing builds on water, but a home beside it houses one more and a shop beside it earns one more.',
+      'Big places cover more than one plot: a School two, a University an L of three, a Stadium a 2×2. They count every neighbour they touch.',
       'While you aim, the panel shows what the spot is worth and what changes next door.'
     ]
   }

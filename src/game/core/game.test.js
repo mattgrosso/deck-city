@@ -85,10 +85,12 @@ describe('createGame', () => {
     expect(() => game.actions.acquireCard('road')).toThrow(/requires phase "acquire"/)
   })
 
-  it('rejects building without a position', () => {
+  it('with no spot named, the city picks one beside a street (state/autoPlace.js)', () => {
     const game = createGame({ cardCatalog: EXAMPLE_CARDS, startingDeckCardIds: ['road'] })
     game.actions.advance() // draw -> build
-    expect(() => game.actions.playCard('road')).toThrow(/Invalid or occupied cell/)
+    const built = game.actions.playCard('road')
+    expect(game.state.builtStructures).toHaveLength(1)
+    expect(built.position).toBeTruthy()
   })
 
   it('rejects building onto an already-occupied cell', () => {

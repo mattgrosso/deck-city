@@ -80,15 +80,15 @@ describe('the run', () => {
     expect(game.state.gameStatus).toBe('playing')
   })
 
-  it('sells Street Permits from the supply without using up the supply', () => {
+  it('sells the services from the supply without using up the supply', () => {
     const game = newRun()
     game.actions.chooseMandate(game.state.run.offer[0].id)
     game.actions.advance()
     game.state.treasury = 5
-    game.actions.acquireCard('street-permit')
-    expect(game.supply.map(c => c.id)).toEqual(['street-permit', 'police-station', 'fire-station', 'clinic', 'sanitation-center'])
+    game.actions.acquireCard('police-station')
+    expect(game.supply.map(c => c.id)).toEqual(['police-station', 'fire-station', 'clinic', 'sanitation-center'])
     expect(game.cityRow.sourceDeck.drawPile.concat(game.cityRow.cards).some(c => c.id === 'police-station')).toBe(false)
-    expect(game.state.deck.discardPile.some(c => c.id === 'street-permit')).toBe(true)
+    expect(game.state.deck.discardPile.some(c => c.id === 'police-station')).toBe(true)
     expect(game.state.buys).toBe(0)
   })
 

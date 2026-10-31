@@ -128,10 +128,13 @@ export const STARTER_CARD_CATALOG = [
   ROAD, STREET_PERMIT, RESIDENTIAL, COMMERCIAL, INDUSTRIAL, CIVIC_RECYCLE, CRIME, TRASH, POLLUTION
 ]
 
-/** The 10-card starting deck: 3 Road, 2 Residential, 2 Commercial, 2 Industrial, 1 Civic Works. */
+/**
+ * The 8-card starting deck: 3 Residential, 2 Commercial, 2 Industrial, 1
+ * Civic Works. No Roads since the city lays its own streets (2026-10-31,
+ * state/autoPlace.js).
+ */
 export const STARTER_DECK_CARDS = [
-  ROAD.id, ROAD.id, ROAD.id,
-  RESIDENTIAL.id, RESIDENTIAL.id,
+  RESIDENTIAL.id, RESIDENTIAL.id, RESIDENTIAL.id,
   COMMERCIAL.id, COMMERCIAL.id,
   INDUSTRIAL.id, INDUSTRIAL.id,
   CIVIC_RECYCLE.id

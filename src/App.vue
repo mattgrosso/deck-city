@@ -167,7 +167,7 @@ import {
   createGame, effectiveCost, clearsOf, isInLimits, isWater,
   calcStatTotal, countCardsByTag, evaluateCondition, isBuildable, listConnectedEdges,
   previewPlacement, instanceStats, canCombine, canCombinePair, sizeOf, combineCost, combineOptions, calcBudget, calcUpkeep,
-  isMultiTile, shapeOf, footprint, placementProblem, marketPrice, roadSegmentsOf, policyMod, policyPrice, slotCapacity, discardsNeeded
+  isMultiTile, footprint, placementProblem, marketPrice, roadSegmentsOf, policyMod, policyPrice, slotCapacity, discardsNeeded
 } from '@/game/core'
 import { attachInput, GLYPHS } from '@/ui/input'
 import { stepCursor, nearestCell } from '@/ui/layout'
@@ -813,9 +813,12 @@ export default {
       if (card.type === 'disaster') return this.refuse(`${card.name} can't be played. It already bit when you drew it.`)
       if (card.type === 'status') {
         const slot = this.slotFor(card)
-        if (!slot) return this.refuse(`No free slot for ${card.name}. Build a ${this.clearerName(card)} or wait a turn.`)
-        try { this.game.actions.clearStatus(card.id) } catch (err) { return this.refuse(err.message) }
-        this.say(`${slot.card.name} took the ${card.name} card. It's gone for good.`, 'good')
+        if (!slot) return this.refuse(`No room for ${card.name}. Build a ${this.clearerName(card)}, or play another on a full one to add room.`)
+        let took
+        try { took = this.game.actions.clearStatus(card.id) } catch (err) { return this.refuse(err.message) }
+        const into = took?.position ? took : slot
+        this.say(`${into.card.name} took the ${card.name} card (${into.slots.used} of ${slotCapacity(this.game.state, into)} full).`, 'good')
+        if (into.position) this.$refs.scene?.flashAt?.(into.position, 0x7fd38b)
         this.handIndex = Math.min(this.handIndex, Math.max(0, this.game.state.hand.length - 1))
         this.refresh()
         return
@@ -838,19 +841,22 @@ export default {
         this.handIndex = index === 0 ? 1 : 0
         return
       }
-      const grid = this.game.state.cityGrid
-      let targets
-      if (card.placesRoad) {
-        this.pendingEdges = []
-        targets = listConnectedEdges(grid).map(e => ({ id: e.key, kind: 'edge', key: e.key }))
-      } else {
-        // A multi-tile building keeps the last way it was turned, if it fits that way anywhere.
-        const turns = isMultiTile(card) ? [this.aimRotation, 0, 1, 2, 3].filter((r, i, all) => all.indexOf(r) === i) : [0]
-        targets = []
-        for (const r of turns) { targets = this.cellTargets(card, r); if (targets.length) { this.aimRotation = r; break } }
-        if (!isMultiTile(card)) this.aimRotation = 0
+      // The city picks the spot and lays any street it needs (Matt,
+      // 2026-10-31: "you just play the card, the game picks the best spot
+      // for it"; core/state/autoPlace.js). A Road card from an old save
+      // still aims by hand.
+      if (!card.placesRoad) {
+        const before = this.game.state.builtStructures.length
+        let built
+        try { built = this.game.actions.playCard(card.id) } catch (err) { return this.refuse(err.message, 'board') }
+        const upgraded = this.game.state.builtStructures.length === before
+        this.afterPlay(card, upgraded ? this.game.log.slice(-1)[0] : `${card.name} built.`)
+        if (built?.position) this.$refs.scene?.flashAt?.(built.position)
+        return
       }
-      if (!targets.length) return this.refuse(card.placesRoad ? 'Nowhere left to lay a street.' : isMultiTile(card) ? `No room for ${card.name} (${shapeOf(card).length} plots) beside a street. Lay more Road.` : 'No empty plot beside a street. Lay a Road first.', 'board')
+      this.pendingEdges = []
+      const targets = listConnectedEdges(this.game.state.cityGrid).map(e => ({ id: e.key, kind: 'edge', key: e.key }))
+      if (!targets.length) return this.refuse('Nowhere left to lay a street.', 'board')
       this.selectedIndex = index
       this.targets = this.withScreen(targets)
       this.aimNearest(this.lastAim)

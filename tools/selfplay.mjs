@@ -5,7 +5,7 @@ import { runGameOptions } from '@/game/runSetup'
 import { valueOfBuild } from '@/game/core/economy/priceList'
 import {
   createGame,
-  POLICIES, calcStatTotal, slotCapacity, policyPrice, marketPrice, effectiveCost, isMultiTile, placementProblem, canCombine, canCombinePair, combineCost, isCellEmpty, isBuildable, listConnectedEdges, evaluateCondition, previewPlacement, clearsOf
+  POLICIES, calcStatTotal, slotCapacity, policyPrice, marketPrice, effectiveCost, canCombine, canCombinePair, combineCost, choosePlacement, evaluateCondition, clearsOf
 } from '@/game/core'
 
 const GAMES = Number(process.argv[2] ?? 20)
@@ -36,33 +36,18 @@ function play () {
       if (status) { game.actions.clearStatus(status.id); continue }
       const civic = hand.find(c => c.type === 'civic' && !(c.effects?.onPlay ?? []).some(e => e.type === 'discardCards') && effectiveCost(s, c) <= s.treasury)
       if (civic) { game.actions.playCivicCard(civic.id); continue }
-      const grid = s.cityGrid
-      const cells = []
-      for (let y = 0; y < grid.height; y++) for (let x = 0; x < grid.width; x++) if (isCellEmpty(grid, x, y) && isBuildable(grid, x, y)) cells.push({ x, y })
-      // A one-use Street Permit in hand is laid now (it was bought to be used).
-      const permit = hand.find(c => c.exhaust && c.placesRoad && effectiveCost(s, c) <= s.treasury)
-      if (permit && cells.length < 10) { const e = listConnectedEdges(grid); if (e.length) { const a = e[Math.floor(rng() * e.length)].key; const more = listConnectedEdges(grid, [a]); game.actions.playCard(permit.id, { edges: more.length ? [a, more[0].key] : [a] }); continue } }
-      // Lay streets ahead: keep at least four plots open.
-      const roadCard = hand.find(c => c.placesRoad && effectiveCost(s, c) <= s.treasury)
-      if (roadCard && cells.length < 4) { const e = listConnectedEdges(grid); if (e.length) { const a = e[Math.floor(rng() * e.length)].key; const more = listConnectedEdges(grid, [a]); game.actions.playCard(roadCard.id, { edges: more.length ? [a, more[0].key] : [a] }); continue } }
+      // The city places what it builds (state/autoPlace.js): the robot only
+      // picks which card, the one whose best spot scores highest.
       const builds = hand.filter(c => c.type === 'building' && !c.placesRoad && effectiveCost(s, c) <= s.treasury && !(c.unique && s.builtStructures.some(i => i.card.id === c.id)))
-      if (builds.length && cells.length) {
+      if (builds.length) {
         let best = null
         for (const c of builds) {
-          for (const at of cells) {
-            // Multi-tile buildings (state/shapes.js): every way round that fits.
-            for (const rotation of isMultiTile(c) ? [0, 1, 2, 3] : [0]) {
-              if (placementProblem(s, c, at, rotation)) continue
-              const p = previewPlacement(s, c, at, rotation)
-              const v = (p.delta.population ?? 0) * 1.5 + (p.delta.revenue ?? 0) * 2.4 + (p.delta.jobs ?? 0) * 0.5
-              if (!best || v > best.v) best = { c, at: { ...at, rotation }, v }
-            }
-          }
+          const spot = choosePlacement(s, c)
+          const v = spot ? spot.score : (c.clears && s.builtStructures.some(i => i.card.id === c.id) ? 1 : null)
+          if (v != null && (!best || v > best.v)) best = { c, v }
         }
-        if (best) { game.actions.playCard(best.c.id, best.at); PLAYS.n++; continue }
+        if (best) { game.actions.playCard(best.c.id); PLAYS.n++; continue }
       }
-      const road = hand.find(c => c.placesRoad && effectiveCost(s, c) <= s.treasury)
-      if (road) { const e = listConnectedEdges(grid); if (e.length) { const a = e[Math.floor(rng() * e.length)].key; const more = listConnectedEdges(grid, [a]); game.actions.playCard(road.id, { edges: more.length ? [a, more[0].key] : [a] }); continue } }
       // Nothing left worth building: combine two leftover buildings if the budget allows.
       if (process.env.COMBINE !== '0') {
         const ok = hand.filter(canCombine)
@@ -88,14 +73,6 @@ function play () {
     // card is piling up and nothing yet clears.
     const badKinds = ['crime', 'trash', 'pollution', 'debt'].map(k => [k, s.deck.drawPile.concat(s.deck.discardPile).filter(c => c.id === k).length]).sort((a, b) => b[1] - a[1])
     const deckOwns = (c) => s.deck.drawPile.concat(s.deck.discardPile, s.hand).some(x => x.id === c.id)
-    // Short of plots and of Road cards? Buy a Road from the supply.
-    {
-      const g = s.cityGrid; let open = 0
-      for (let y = 0; y < g.height; y++) for (let x = 0; x < g.width; x++) if (isCellEmpty(g, x, y) && isBuildable(g, x, y)) open++
-      const roads = s.deck.drawPile.concat(s.deck.discardPile, s.hand).filter(c => c.placesRoad).length
-      const deckSize = s.deck.drawPile.length + s.deck.discardPile.length + s.hand.length
-      if (s.buys > 0 && open < 6 && roads < deckSize / 6 && s.treasury >= marketPrice(s, game.catalog["street-permit"])) game.actions.acquireCard('street-permit')
-    }
     while (s.buys > 0) {
       const affordable = game.cityRow.cards.filter(c => marketPrice(s, c) <= s.treasury)
       const services = game.supply.filter(c => !c.placesRoad && marketPrice(s, c) <= s.treasury)

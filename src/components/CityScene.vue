@@ -101,6 +101,8 @@ export default {
   },
   beforeUnmount () { this.world?.dispose() },
   methods: {
+    /** A ring that grows and fades on a plot: where the city just built. */
+    flashAt (pos, colour) { this.world?.flash(this.grid, pos.x, pos.y, colour) },
     resize () {
       this.world?.resize(this.width, this.height, (window.devicePixelRatio || 1) * this.stageScale, this.rect)
       this.placeLabels()

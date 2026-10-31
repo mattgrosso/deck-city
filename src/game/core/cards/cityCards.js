@@ -276,4 +276,4 @@ for (const [shape, ids] of Object.entries(SHAPED)) for (const id of ids) { const
 export const CITY_CATALOG = [...CITY_CARDS, ...TOKEN_CATALOG]
 
 /** One copy of each, by tier. */
-export const cityCardsOfTier = (tier) => CITY_CARDS.filter(c => (c.tier ?? 1) === tier).map(c => c.id)
+export const cityCardsOfTier = (tier) => CITY_CARDS.filter(c => (c.tier ?? 1) === tier && !c.placesRoad).map(c => c.id) // the city lays its own streets

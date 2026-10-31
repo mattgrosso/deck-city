@@ -16,8 +16,8 @@ describe('STARTER_CARD_CATALOG', () => {
 })
 
 describe('STARTER_DECK_CARDS', () => {
-  it('is a 10-card starting deck', () => {
-    expect(STARTER_DECK_CARDS).toHaveLength(10)
+  it('is an 8-card starting deck', () => {
+    expect(STARTER_DECK_CARDS).toHaveLength(8)
   })
 
   it('every id resolves against the catalog', () => {
@@ -32,9 +32,7 @@ describe('STARTER_DECK_CARDS', () => {
     expect(civicCount).toBe(1)
   })
 
-  it('includes road cards that place roads rather than occupy a cell', () => {
-    const roadCount = STARTER_DECK_CARDS.filter(id => id === ROAD.id).length
-    expect(roadCount).toBeGreaterThan(0)
-    expect(ROAD.placesRoad).toBe(true)
+  it('has no Road cards: the city lays its own streets', () => {
+    expect(STARTER_DECK_CARDS.includes(ROAD.id)).toBe(false)
   })
 })

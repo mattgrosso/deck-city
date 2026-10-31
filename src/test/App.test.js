@@ -76,7 +76,7 @@ describe('App', () => {
     vm().handIndex = vm().game.state.hand.length - 1
     await press('select')
     expect(vm().mode).toBe('hand')
-    expect(vm().toast.text).toMatch(/No free slot/)
+    expect(vm().toast.text).toMatch(/No room for Crime/)
     vm().game.state.treasury = 0
     vm().refresh()
     vm().handIndex = vm().game.state.hand.findIndex(c => c.cost > 0)
