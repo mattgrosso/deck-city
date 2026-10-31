@@ -3,6 +3,7 @@
     <div class="top__left">
       <div class="top__title">Deck City</div>
       <div class="top__turn">Turn {{ turn }}</div>
+      <div v-if="week" class="top__week">Week {{ week }} of 4</div>
     </div>
     <div class="top__mid">
       <div class="pill pill--big" :class="{ 'focus-ring': focus === 'population' }">
@@ -10,7 +11,7 @@
         <span>{{ population }}</span><span class="muted">people</span>
       </div>
       <div class="pill" :class="{ 'focus-ring': focus === 'jobs' }"><svg viewBox="0 0 24 24"><path :d="icons.jobs" /></svg>{{ jobs }} <span class="muted">jobs</span></div>
-      <div class="pill" :class="{ 'focus-ring': focus === 'budget' }"><svg viewBox="0 0 24 24"><path :d="icons.coin" /></svg>{{ revenue }} <span class="muted">next budget</span></div>
+      <div class="pill" :class="{ 'focus-ring': focus === 'budget' }"><svg viewBox="0 0 24 24"><path :d="icons.coin" /></svg>{{ revenue >= 0 ? `+${revenue}` : `−${-revenue}` }} <span class="muted">a turn</span></div>
       <div class="pill pill--status" v-for="s in statuses" :key="s.name" :class="{ 'pill--zero': !s.count, 'focus-ring': focus === s.name }">
         <svg viewBox="0 0 24 24"><path :d="icons[s.icon]" /></svg>{{ s.count }} <span class="muted">{{ s.name }}</span>
       </div>
@@ -38,7 +39,7 @@ import { ICONS } from '@/ui/icons'
 export default {
   name: 'TopBar',
   props: {
-    turn: Number, population: Number, era: { type: Number, default: 0 }, patience: Number, patienceStart: Number, lastDrain: { type: Number, default: 0 }, endless: Boolean, jobs: Number, revenue: Number,
+    turn: Number, week: { type: Number, default: 0 }, population: Number, era: { type: Number, default: 0 }, patience: Number, patienceStart: Number, lastDrain: { type: Number, default: 0 }, endless: Boolean, jobs: Number, revenue: Number,
     statuses: Array, disasterIn: Number, headedOff: Boolean, focus: { type: String, default: null }
   },
   data () { return { icons: ICONS } },
@@ -54,6 +55,7 @@ export default {
 .top__left { width: 170px; white-space: nowrap; }
 .top__title { font-size: 13px; font-weight: 800; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-3); }
 .top__turn { font-size: 30px; font-weight: 800; line-height: 1; }
+.top__week { font-size: 15px; font-weight: 800; color: var(--ink-2, #3a4256); margin-top: 4px; letter-spacing: 0.02em; }
 .top__mid { flex: 1; display: flex; gap: 10px; align-items: center; justify-content: center; white-space: nowrap; }
 .top__right { display: flex; justify-content: flex-end; align-items: center; gap: 14px; white-space: nowrap; }
 .patience { width: 300px; padding: 6px 12px 8px; border-radius: 12px; background: #fff; border: 1.5px solid #b9a8f0; }

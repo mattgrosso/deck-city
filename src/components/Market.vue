@@ -23,8 +23,11 @@
     </div>
     <div class="market__row">
       <div class="market__head">
-        <span class="market__title">City row <span class="market__buys" :class="{ 'market__buys--none': buys < 1 }">{{ buys }} {{ buys === 1 ? 'buy' : 'buys' }} left</span></span>
-        <span class="market__note">The coin builds it; the tag buys it</span>
+        <span class="market__title">City row
+          <span v-if="open" class="market__buys">Open: buy all you can afford</span>
+          <span v-else class="market__buys market__buys--none">Opens in week 4 · {{ weeksToGo }} more {{ weeksToGo === 1 ? 'turn' : 'turns' }}</span>
+        </span>
+        <span class="market__note">The coin plays it; the tag buys it</span>
       </div>
       <div class="market__cards">
         <div
@@ -91,6 +94,11 @@ export default {
     mandate: { type: Object, default: null }, supply: { type: Array, default: () => [] }, forSale: { type: Array, default: () => [] }
   },
   emits: ['focus', 'select'],
+  computed: {
+    // The market opens in the last week of each month (core turn/phases.js MONTH).
+    open () { void this.tick; return (this.state?.week ?? 1) === 4 },
+    weeksToGo () { void this.tick; return 4 - (this.state?.week ?? 1) }
+  },
   methods: {
     // tick: the engine mutates state outside Vue, so a bump re-reads the cost.
     costOf (card) { void this.tick; return effectiveCost(this.state, card) },

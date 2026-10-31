@@ -201,7 +201,7 @@ export function rulesFor (card, catalog = {}) {
 
   if (card.unique) lines.push('Only one in the city.')
   if (card.exhaust) lines.push('Play it once, free; then it is gone.')
-  if (card.type === 'status') lines.push(`Dead weight in your hand. Play it into a ${{ crime: 'Police Station', trash: 'Sanitation Center', pollution: 'Clinic', debt: 'Bank Branch or Courthouse' }[card.id] ?? 'facility'} with a free slot to be rid of it.`)
+  if (card.type === 'status') lines.push(`Dead weight in your hand. Play it into a ${{ crime: 'Police Station', trash: 'Sanitation Center', pollution: 'Clinic', debt: 'Bank Branch or Courthouse' }[card.id] ?? 'facility'} that has room to be rid of it.`)
   return lines.map(cap)
 }
 

@@ -69,10 +69,10 @@ describe('createGame', () => {
     expect(game.state.hand).toEqual([])
     expect(game.turnManager.turnNumber).toBe(1)
 
-    // Turn 2's 'draw' phase now sees the Residential built last turn — the
-    // budget reset picks up its +1 revenue on top of baseRevenue.
+    // Turn 2's 'draw' phase now sees the Residential built last turn: its
+    // +1 revenue and baseRevenue land on top of what was saved.
     game.actions.advance()
-    expect(game.state.treasury).toBe(10 + RESIDENTIAL.stats.revenue)
+    expect(game.state.treasury).toBe(10 - RESIDENTIAL.cost + 10 + RESIDENTIAL.stats.revenue)
   })
 
   it('rejects playing a card outside the build phase', () => {
@@ -187,6 +187,7 @@ describe('createGame', () => {
       game.state.treasury = 9
       game.actions.playCivicCard('fair')
       game.actions.advance() // build -> acquire
+      game.state.week = 4 // the market's week
       game.actions.acquireCard('shop')
       game.actions.acquireCard('shop')
       expect(() => game.actions.acquireCard('shop')).toThrow(/No buys left/)

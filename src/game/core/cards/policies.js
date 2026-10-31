@@ -36,7 +36,7 @@ export const POLICIES = [
   { id: 'land-trust', name: 'Land Trust', text: 'Green spaces cost 2 less to build.', mods: { discount: [{ tag: 'green', amount: 2 }] } },
   { id: 'enterprise-zone', name: 'Enterprise Zone', text: 'Every factory: +1 revenue.', rules: [{ tags: ['industrial'], stat: 'revenue', amount: 1 }] },
   { id: 'job-guarantee', name: 'Job Guarantee', text: 'Unemployment never drains patience.', mods: { noUnemployment: 1 } },
-  { id: 'rainy-day-fund', name: 'Rainy Day Fund', text: 'Keep up to 6 unspent budget between turns.', mods: { rollover: 6 } },
+  { id: 'rainy-day-fund', name: 'Rainy Day Fund', text: 'Interest: +1 budget a turn for every 10 you have saved (up to +5).', mods: { interest: 1 } },
   { id: 'mass-housing', name: 'Mass Housing', text: 'Dense homes: +2 people each.', rules: [{ tags: ['dense'], stat: 'population', amount: 2 }] },
   { id: 'merchant-guild', name: 'Merchant Guild', text: '+1 budget every turn for every 3 shops.', mods: { budgetPer: [{ tag: 'commercial', per: 3 }] } },
   { id: 'arts-patronage', name: 'Arts Patronage', text: 'Every culture building: +1 patience a turn.', mods: { patienceTags: [{ tag: 'culture', amount: 1 }] } },

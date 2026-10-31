@@ -19,6 +19,9 @@ import { drainPatience } from './run'
 import { beginTurn } from '../effects/synergy'
 import { policyMod, policyBudget } from '../cards/policies'
 
+/** Turns in a month. The market opens in the last week (Matt, 2026-10-31: "each one is a week and every month you get a new card offer"). */
+export const MONTH = 4
+
 /**
  * Shuffles a random disaster card (from ctx.disasterCards, resolved by
  * game.js at setup) into the player's draw pile — the payoff for the
@@ -131,11 +134,10 @@ export const DEFAULT_PHASES = [
         })
       })
 
-      // Budget hard-resets to current production at the START of turn (not
-      // banked from end-of-turn revenue) - a deliberate departure from
-      // typical deckbuilder treasury accumulation. treasuryRolloverCap (0
-      // by default, raised by e.g. the City Bank goal) is the only escape
-      // valve: up to that much of last turn's leftover carries forward.
+      // Unspent budget carries over in full (2026-10-31): the market opens
+      // only at month's end (game.js, MONTH), so saving for it is the
+      // choice. (It used to reset every turn, which made playing the whole
+      // hand always right.) The Rainy Day Fund pays interest on savings.
       //
       // ctx.baseRevenue is flat municipal income on top of building
       // revenue - without it, turn 1 (zero buildings, zero revenue) resets
@@ -146,11 +148,22 @@ export const DEFAULT_PHASES = [
       const base = ctx.baseRevenue ?? 0
       const upkeep = calcUpkeep(ctx.state)
       const fromPolicies = policyBudget(ctx.state) // Tax Reform, Merchant Guild
-      const revenue = Math.max(0, fromBuildings + base + fromPolicies - upkeep)
-      const rollover = Math.min(ctx.state.treasury, (ctx.state.treasuryRolloverCap ?? 0) + policyMod(ctx.state, 'rollover'))
-      ctx.state.treasury = revenue + rollover
+      const revenue = fromBuildings + base + fromPolicies - upkeep // may be negative: upkeep comes out of savings
+      const rollover = ctx.state.treasury
+      const interest = Math.min(5, Math.floor(rollover / 10) * policyMod(ctx.state, 'interest')) // Rainy Day Fund, at most +5
+      ctx.state.week = (ctx.turnManager?.turnNumber ?? 0) % MONTH + 1 // weeks 1-4; the market opens in week 4
+      if (ctx.state.week === 1) ctx.state.monthOffered = false
+      const total = revenue + rollover + interest
+      ctx.state.treasury = Math.max(0, total)
+      // Upkeep you can't pay becomes a Debt card (a Bank Branch or Courthouse clears it).
+      if (total < 0 && ctx.catalog?.debt) {
+        addToDiscardPile(ctx.state.deck, [ctx.catalog.debt])
+        ctx.log?.push(`Upkeep ran ${-total} past your savings: +1 Debt card.`)
+      }
       ctx.state.goalsClaimedThisTurn = 0
       ctx.state.buys = (ctx.buysPerTurn ?? 1) + sumPassive(ctx.state, 'buysBonus') + policyMod(ctx.state, 'buys')
+      // Month's end: buy as much as you can afford (the market only opens then).
+      if (ctx.state.week === MONTH) ctx.state.buys = 99
       const parts = [`${fromBuildings} from buildings`]
       if (base) parts.push(`${base} base income`)
       if (fromPolicies) parts.push(`${fromPolicies} from policies`)
@@ -196,7 +209,8 @@ export const DEFAULT_PHASES = [
   {
     name: 'endOfTurn',
     run: (ctx) => {
-      if (ctx.cityRow) expireOldest(ctx.cityRow)
+      // The city row turns over at month's end, after the market (MONTH).
+      if (ctx.cityRow && ctx.state.week === MONTH) { expireOldest(ctx.cityRow); expireOldest(ctx.cityRow) }
 
       // Goals carry their own clocks (createRow's timerFor): each counts
       // down a turn and expires at zero. A row without clocks keeps the old

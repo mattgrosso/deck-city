@@ -101,3 +101,4 @@ export {
   createTurnManager, getCurrentPhase, advancePhase, runPhase, assertPhase
 } from './turn/turnManager'
 export { choosePlacement, layStreets, needs as cityNeeds } from './state/autoPlace'
+export { MONTH } from './turn/phases'

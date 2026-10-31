@@ -396,12 +396,17 @@ export function calcUpkeep (state) {
   if (!u?.per) return 0
   const freeTags = policyList(state, 'upkeepFreeTags') // Rent Control
   const count = state.builtStructures.filter(i => i.card.type === 'building' && !freeTags.some(t => i.card.tags?.includes(t))).length
-  return Math.max(0, count - (u.free ?? 0) - policyMod(state, 'upkeepFree')) * u.per * Math.max(1, policyMod(state, 'upkeepMult')) // Big Government doubles it
+  const n = Math.max(0, count - (u.free ?? 0) - policyMod(state, 'upkeepFree'))
+  // A bigger city costs more to run per building (2026-10-31, Matt: "money
+  // was just never a problem"): each costs `per`, plus that again for every
+  // `growth` buildings in the city.
+  const each = u.per * (1 + (u.growth ? n / u.growth : 0))
+  return Math.round(n * each) * Math.max(1, policyMod(state, 'upkeepMult')) // Big Government doubles it
 }
 
-/** Next turn's budget before anything carried over: revenue less upkeep, never below zero. */
+/** What next turn adds to your savings: revenue less upkeep (negative when upkeep is more). */
 export function calcBudget (state, baseRevenue = 0) {
-  return Math.max(0, calcStatTotal(state, 'revenue') + baseRevenue + policyBudget(state) - calcUpkeep(state))
+  return calcStatTotal(state, 'revenue') + baseRevenue + policyBudget(state) - calcUpkeep(state)
 }
 
 /** Status kinds a facility clears: `clears` is one tag or a list. */
@@ -449,7 +454,7 @@ export function clearStatusCard (state, cardId) {
   if (card.type !== 'status') throw new Error(`${card.name} is not a status card`)
   const tag = card.id
   const instance = state.builtStructures.find(i => clearsOf(i.card).includes(tag) && i.slots && i.slots.used < slotCapacity(state, i))
-  if (!instance) throw new Error(`No free slot for ${card.name}`)
+  if (!instance) throw new Error(`No room for ${card.name}`)
   state.hand.splice(index, 1)
   instance.slots.used += 1
   return instance

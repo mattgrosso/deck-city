@@ -85,6 +85,7 @@ describe('the run', () => {
     game.actions.chooseMandate(game.state.run.offer[0].id)
     game.actions.advance()
     game.state.treasury = 5
+    game.state.week = 4 // the market's week
     game.actions.acquireCard('police-station')
     expect(game.supply.map(c => c.id)).toEqual(['police-station', 'fire-station', 'clinic', 'sanitation-center'])
     expect(game.cityRow.sourceDeck.drawPile.concat(game.cityRow.cards).some(c => c.id === 'police-station')).toBe(false)

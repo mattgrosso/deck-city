@@ -3,7 +3,7 @@
     <div class="stage" :style="{ transform: `translate(-50%, -50%) scale(${scale})` }">
       <template v-if="screen === 'game'">
         <TopBar
-          :turn="turn" :population="population" :jobs="jobs" :revenue="nextBudget"
+          :turn="turn" :week="game.state.week || 1" :population="population" :jobs="jobs" :revenue="nextBudget"
           :era="run ? run.era : 0" :patience="run ? run.patience : 0" :patience-start="run ? run.patienceStart : 0" :last-drain="run && run.lastDrain ? run.lastDrain.total : 0" :endless="run ? run.status === 'endless' : false"
           :statuses="statuses" :disaster-in="disasterIn" :headed-off="headedOff" :focus="mode === 'stats' ? STATS[statIndex].key : null"
         />
@@ -90,6 +90,17 @@
           </div>
           <div class="overlay-mandate__hint"><span class="btn-a">{{ glyphs.select }}</span> Combine into this · <span class="btn-a">{{ glyphs.back }}</span> Back</div>
         </div>
+        <div v-if="mode === 'offer' && monthOffer.length" class="overlay-mandate">
+          <div class="overlay-mandate__eyebrow">Month's end · a new card</div>
+          <div class="overlay-mandate__lede">Keep one for your deck, free. Then the market is open.</div>
+          <div class="overlay-mandate__row">
+            <div v-for="(c, i) in monthOffer" :key="c.id + i" class="offer-card" :class="{ 'offer-card--on': i === offerIndex }" @mouseenter="offerIndex = i" @click="offerIndex = i; act('select', 'click')">
+              <GameCard :card="c" :catalog="game.catalog" :focused="i === offerIndex" />
+            </div>
+            <div class="offer-skip" :class="{ 'offer-skip--on': offerIndex === monthOffer.length }" @mouseenter="offerIndex = monthOffer.length" @click="offerIndex = monthOffer.length; act('select', 'click')">Skip</div>
+          </div>
+          <div class="overlay-mandate__hint"><span class="btn-a">{{ glyphs.select }}</span> Keep this one</div>
+        </div>
         <div v-if="mode === 'policy' && run && run.policyOffer && run.policyOffer.length" class="overlay-mandate">
           <div class="overlay-mandate__eyebrow">{{ run.policyReason || 'The council' }} · adopt a policy</div>
           <div class="overlay-mandate__lede">It stands for the rest of the run. Choose one.</div>
@@ -160,6 +171,7 @@ import PlacementPreview from '@/components/PlacementPreview.vue'
 import PolicyList from '@/components/PolicyList.vue'
 import SummaryPanel from '@/components/SummaryPanel.vue'
 import PolicyTile from '@/components/PolicyTile.vue'
+import GameCard from '@/components/GameCard.vue'
 import { runGameOptions } from '@/game/runSetup'
 import BugReportButton from '@/components/shared/BugReportButton.vue'
 import BugResolutionNotice from '@/components/shared/BugResolutionNotice.vue'
@@ -189,16 +201,16 @@ const STATS = [
   { key: 'population', title: 'Population', explain: (a) => [`${a.population} people live here.`, 'Houses add 2 each, more beside other houses. A claimed goal (a Monument) adds 1.'] },
   { key: 'jobs', title: 'Jobs', explain: (a) => [`${a.jobs} jobs for ${a.population} people. Shops give 2, factories 3.`, a.population > a.jobs ? `${a.population - a.jobs} people have no work: a Crime card joins your deck at the end of every turn this stays true.` : 'Everyone has work. Keep it that way as the city grows, or crime follows.'] },
   { key: 'budget', title: 'Next budget', explain: (a) => [`${a.nextBudget} next turn: ${a.revenue} revenue from your buildings, less ${a.upkeep} upkeep.`, `Upkeep is 1 a turn for every building after your first ${a.upkeepFree}. A combined building counts as one.`, ...(a.costRise ? [`This era every building costs ${a.costRise} more to build.`] : []), `Unspent budget is lost at the end of the turn${a.rolloverCap ? ` except up to ${a.rolloverCap} (City Bank)` : ''}.`] },
-  { key: 'crime', title: 'Crime', explain: (a) => [`${a.crime} Crime card${a.crime === 1 ? '' : 's'} in your deck. A house adds one when built; unemployment adds one a turn.`, 'Play a Crime card from your hand into a Police Station with a free slot and it leaves the game.'] },
-  { key: 'trash', title: 'Trash', explain: (a) => [`${a.trash} Trash card${a.trash === 1 ? '' : 's'} in your deck. A shop adds one when built.`, 'Play a Trash card from your hand into a Sanitation Center with a free slot and it leaves the game.'] },
-  { key: 'pollution', title: 'Pollution', explain: (a) => [`${a.pollution} Pollution card${a.pollution === 1 ? '' : 's'} in your deck. A factory adds one when built.`, 'Play a Pollution card from your hand into a Clinic with a free slot and it leaves the game.'] },
+  { key: 'crime', title: 'Crime', explain: (a) => [`${a.crime} Crime card${a.crime === 1 ? '' : 's'} in your deck. A house adds one when built; unemployment adds one a turn.`, 'Play a Crime card from your hand into a Police Station with room and it leaves the game.'] },
+  { key: 'trash', title: 'Trash', explain: (a) => [`${a.trash} Trash card${a.trash === 1 ? '' : 's'} in your deck. A shop adds one when built.`, 'Play a Trash card from your hand into a Sanitation Center with room and it leaves the game.'] },
+  { key: 'pollution', title: 'Pollution', explain: (a) => [`${a.pollution} Pollution card${a.pollution === 1 ? '' : 's'} in your deck. A factory adds one when built.`, 'Play a Pollution card from your hand into a Clinic with room and it leaves the game.'] },
   { key: 'patience', title: 'Public patience', explain: (a) => a.run?.status === 'endless' ? ['The run is won. No more elections: build what you like.'] : [`${Math.max(0, a.run.patience)} of ${a.run.patienceStart} left. At zero the election is held and your mandate, ${a.run.mandate?.name ?? 'once chosen'}, is judged.`, a.run.lastDrain ? `Last turn: ${a.run.lastDrain.parts.map(([l, v]) => `${l} ${v > 0 ? '−' : '+'}${Math.abs(v)}`).join(', ')}.` : 'Time, bad cards, unemployment and disasters wear it down; parks, culture and civic buildings slow that.', 'Met the mandate already? Pick it in the market to call the election early and carry half the patience left into the next era.'] },
   { key: 'disaster', title: 'Disaster clock', explain: (a) => [`Strikes in ${a.disasterIn} turn${a.disasterIn === 1 ? '' : 's'}. Strike ${a.strikes + 1} will shuffle ${a.strikes + 1} disaster card${a.strikes ? 's' : ''} into your deck; each bites when drawn.`, a.blockers ? `${a.blockers} Fire Station${a.blockers === 1 ? '' : 's'} standing: each blocks one card per strike.` : 'A Fire Station blocks one card per strike. Strikes get bigger, so build more over time.'] }
 ]
 
 export default {
   name: 'App',
-  components: { TopBar, CityScene, Market, Hand, PileView, Overlay, ButtonLegend, CardInfo, InfoPanel, HowTo, MandateTile, PlacementPreview, SummaryPanel, PolicyList, PolicyTile, BugReportButton, BugResolutionNotice },
+  components: { TopBar, CityScene, Market, Hand, GameCard, PileView, Overlay, ButtonLegend, CardInfo, InfoPanel, HowTo, MandateTile, PlacementPreview, SummaryPanel, PolicyList, PolicyTile, BugReportButton, BugResolutionNotice },
   // The house bug button has no store to read; it asks this for a snapshot.
   provide () {
     return { bugSnapshot: () => this.bugSnapshot() }
@@ -229,6 +241,7 @@ export default {
       picks: [],
       comboIndex: 0,
       policyIndex: 0,
+      offerIndex: 0,
       policyReturn: null,
       // A touchscreen (an iPad): tap to pick, tap again to play; the legend becomes buttons.
       touch: typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches,
@@ -298,6 +311,7 @@ export default {
     /** The pause menu as shown: Playtest mode says whether it is on. */
     menuLabels () { return MENU_ITEMS.map(i => (i === 'Playtest mode' ? `Playtest mode: ${this.playtest.on ? 'on' : 'off'}` : i)) },
     nextBudget () { void this.tick; return calcBudget(this.game.state) },
+    monthOffer () { void this.tick; return this.game.state.monthOffer ?? [] },
     run () { void this.tick; return this.game.state.run ?? null },
     supply () { void this.tick; return this.game.supply ?? [] },
     /** The policy for sale beside the city row (cards/policies.js), as a row item. */
@@ -460,6 +474,7 @@ export default {
         case 'howto': return [L('lr', 'Page'), L('select', 'Next'), L('back', 'Close')]
         case 'mandate': return [L('lr', 'Choose'), L('select', 'Take this mandate')]
         case 'policy': return [L('lr', 'Choose'), L('select', 'Adopt this policy')]
+        case 'offer': return [L('lr', 'Choose'), L('select', 'Keep this one')]
         case 'over': return [L('dpad', 'Choose'), L('select', 'Pick')]
         default: return [L('select', 'Continue')]
       }
@@ -500,6 +515,19 @@ export default {
       this.mandateIndex = 0
       this.policyIndex = 0
       this.mode = this.game.state.run?.policyOffer?.length ? 'policy' : 'mandate'
+    },
+    in_offer (action) {
+      const offer = this.game.state.monthOffer ?? []
+      const n = offer.length + 1 // the cards, then Skip
+      if (action === 'left' || action === 'up') this.offerIndex = (this.offerIndex + n - 1) % n
+      else if (action === 'right' || action === 'down') this.offerIndex = (this.offerIndex + 1) % n
+      else if (action === 'select' || action === 'confirm') {
+        const pick = offer[this.offerIndex] ?? null
+        this.game.actions.chooseOffer(pick ? pick.id : null)
+        this.say(pick ? `${pick.name} joins your deck.` : 'Skipped this month\'s card.', pick ? 'good' : undefined)
+        this.mode = 'market'
+        this.refresh()
+      } else if (action === 'menu') this.openMenu()
     },
     in_policy (action) {
       const offer = this.game.state.run.policyOffer ?? []
@@ -1002,6 +1030,8 @@ export default {
     endBuild () {
       this.game.actions.advance() // build -> acquire
       this.mode = 'market'
+      // Month's end: three cards offered, one kept free (core game.js chooseOffer).
+      if (this.game.state.monthOffer?.length) { this.offerIndex = 0; this.mode = 'offer' }
       const firstAffordable = this.cityRow.findIndex(c => marketPrice(this.game.state, c) <= this.treasury)
       const firstReady = this.goalRow.findIndex(g => this.goalMet(g))
       this.market = firstReady !== -1 ? { row: 1, index: firstReady } : { row: 0, index: Math.max(0, firstAffordable) }
@@ -1246,4 +1276,8 @@ export default {
 .toast--good { border-color: var(--green); color: #1d7a47; }
 .toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, -14px); }
 .toast-enter-active, .toast-leave-active { transition: all 200ms ease; }
+.offer-card { transition: transform 150ms ease; }
+.offer-card--on { transform: translateY(-10px); }
+.offer-skip { align-self: center; padding: 18px 28px; border-radius: 14px; background: #fff; border: 2px solid var(--line); font-size: 22px; font-weight: 800; color: var(--ink-3); cursor: pointer; }
+.offer-skip--on { border-color: var(--ink); color: var(--ink); }
 </style>

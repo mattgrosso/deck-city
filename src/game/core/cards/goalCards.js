@@ -96,9 +96,9 @@ export const GOAL_CITY_BANK = {
   cost: 0,
   tags: ['monument'],
   stats: MONUMENT_STATS,
-  condition: { type: 'treasuryAtLeast', amount: 8 },
-  // +3 now as well (2026-10-29 economy): a tier-3 reward was worth less than every tier-2 one.
-  effects: { onComplete: [{ type: 'gainTreasury', amount: 3 }, { type: 'raiseTreasuryRolloverCap', amount: 10 }] }
+  // Budget carries over now (2026-10-31), so the bar is savings, not a good turn.
+  condition: { type: 'treasuryAtLeast', amount: 30 },
+  effects: { onComplete: [{ type: 'gainTreasury', amount: 6 }] } // + a policy, like every tier II/III goal (below)
 }
 
 export const GOAL_HOUSING_ROW = {

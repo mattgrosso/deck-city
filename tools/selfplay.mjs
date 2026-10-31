@@ -5,7 +5,7 @@ import { runGameOptions } from '@/game/runSetup'
 import { valueOfBuild } from '@/game/core/economy/priceList'
 import {
   createGame,
-  POLICIES, calcStatTotal, slotCapacity, policyPrice, marketPrice, effectiveCost, canCombine, canCombinePair, combineCost, choosePlacement, evaluateCondition, clearsOf
+  POLICIES, calcStatTotal, calcUpkeep, slotCapacity, policyPrice, marketPrice, effectiveCost, canCombine, canCombinePair, combineCost, choosePlacement, evaluateCondition, clearsOf, MONTH
 } from '@/game/core'
 
 const GAMES = Number(process.argv[2] ?? 20)
@@ -65,15 +65,18 @@ function play () {
       if (s.run.policyOffer?.length) game.actions.choosePolicy(s.run.policyOffer[0].id)
       game.actions.chooseMandate(s.run.offer[0].id)
     }
+    // Month's end (game.js MONTH): keep the best of the three offered, then shop.
+    const market = s.week === MONTH
+    if (s.monthOffer?.length) game.actions.chooseOffer(s.monthOffer.map(c => ({ c, v: valueOfBuild(c).value })).sort((a, b) => b.v - a.v)[0].c.id)
     // Spare budget at the end of buying? The policy for sale.
-    if (process.env.NOSHOP !== '1' && s.policyForSale && s.treasury >= policyPrice(s) + 4) game.actions.buyPolicy()
+    if (market && process.env.NOSHOP !== '1' && s.policyForSale && s.treasury >= policyPrice(s) + 4) game.actions.buyPolicy()
     const goal = game.goalRow.cards.find(g => evaluateCondition(g.condition, { state: s, catalog: game.catalog }))
     if (goal) game.actions.claimGoal(goal.id)
     // Buy: the best value for money, but a clearer first for whatever bad
     // card is piling up and nothing yet clears.
     const badKinds = ['crime', 'trash', 'pollution', 'debt'].map(k => [k, s.deck.drawPile.concat(s.deck.discardPile).filter(c => c.id === k).length]).sort((a, b) => b[1] - a[1])
     const deckOwns = (c) => s.deck.drawPile.concat(s.deck.discardPile, s.hand).some(x => x.id === c.id)
-    while (s.buys > 0) {
+    while (market && s.buys > 0) {
       const affordable = game.cityRow.cards.filter(c => marketPrice(s, c) <= s.treasury)
       const services = game.supply.filter(c => !c.placesRoad && marketPrice(s, c) <= s.treasury)
       if (!affordable.length && !services.length) break
@@ -83,7 +86,7 @@ function play () {
       if (!best || (!clearer && valueOfBuild(best).value < (best.cost ?? 0))) break
       game.actions.acquireCard(best.id)
     }
-    if (process.env.MONEY) { MONEY[turn] = MONEY[turn] ?? []; MONEY[turn].push([s.treasury, calcStatTotal(s, "revenue")]) }
+    if (process.env.MONEY) { MONEY[turn] = MONEY[turn] ?? []; MONEY[turn].push([s.treasury, calcStatTotal(s, "revenue"), s.builtStructures.length, calcUpkeep(s)]) }
     for (let i = 0; i < 4; i++) game.actions.advance()
     for (const [label, v] of s.run?.lastDrain?.parts ?? []) { const k = label.replace(/^\d+ /, ''); DRAIN[k] = DRAIN[k] ?? [0, 0]; DRAIN[k][0] += v; DRAIN[k][1]++ }
     DRAIN.__turns = (DRAIN.__turns ?? 0) + 1
@@ -117,4 +120,4 @@ console.log(`final population ${avg(results.map(r => r.pop))}, buildings ${avg(r
 console.log('patience drain per turn, on average: ' + Object.entries(DRAIN).filter(([k]) => k !== '__turns').map(([k, [sum]]) => `${k} ${Math.round(sum / DRAIN.__turns * 10) / 10}`).join(', '))
 
 console.log('at the end, on average: ' + Object.keys(STATS[0]).map(k => `${k} ${avg(STATS.map(x => x[k]))}`).join(', '))
-if (process.env.MONEY) for (const t of [1, 5, 10, 20, 30, 45, 60]) if (MONEY[t]) console.log(`turn ${t}: unspent ${avg(MONEY[t].map(x => x[0]))} of an income of ${avg(MONEY[t].map(x => x[1]))}`)
+if (process.env.MONEY) for (const t of [1, 5, 10, 20, 30, 45, 60]) if (MONEY[t]) console.log(`turn ${t}: unspent ${avg(MONEY[t].map(x => x[0]))}, revenue ${avg(MONEY[t].map(x => x[1]))}, upkeep ${avg(MONEY[t].map(x => x[3]))}, buildings ${avg(MONEY[t].map(x => x[2]))}`)

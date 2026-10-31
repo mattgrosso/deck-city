@@ -108,6 +108,7 @@ describe('earning policies', () => {
     const sale = s.policyForSale
     expect(sale).toBeTruthy()
     s.treasury = 50
+    s.week = 4 // the market's week
     const price = 10 + 4 * s.policies.length
     game.actions.buyPolicy()
     expect(s.treasury).toBe(50 - price)

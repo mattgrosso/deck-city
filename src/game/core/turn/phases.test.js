@@ -31,23 +31,21 @@ describe('draw phase', () => {
     expect(state.hand).toHaveLength(2)
   })
 
-  it('resets treasury to building revenue + base revenue, ignoring whatever treasury was before', () => {
-    const state = createPlayerState({ treasury: 999 })
+  it('adds building revenue + base revenue to what was saved (budget carries over in full)', () => {
+    const state = createPlayerState({ treasury: 20 })
     buildStructure(state, { id: 'shop', type: 'building', stats: { revenue: 3 } })
 
     phase('draw').run({ state, catalog: {}, log: [], baseRevenue: 4 })
 
-    expect(state.treasury).toBe(3 + 4)
+    expect(state.treasury).toBe(20 + 3 + 4)
   })
 
-  it('carries forward leftover treasury up to the rollover cap, on top of the reset', () => {
-    const state = createPlayerState({ treasury: 20 })
-    state.treasuryRolloverCap = 5
-
-    phase('draw').run({ state, catalog: {}, log: [], baseRevenue: 4 })
-
-    // min(20, 5) rollover + 0 revenue + 4 base
-    expect(state.treasury).toBe(5 + 4)
+  it('counts the weeks of the month from the turn number', () => {
+    const state = createPlayerState()
+    phase('draw').run({ state, catalog: {}, log: [], turnManager: { turnNumber: 3 } })
+    expect(state.week).toBe(4)
+    phase('draw').run({ state, catalog: {}, log: [], turnManager: { turnNumber: 4 } })
+    expect(state.week).toBe(1)
   })
 
   it('a disaster bites the moment it is drawn, then leaves and another card takes its place', () => {
@@ -71,10 +69,11 @@ describe('endOfTurn phase', () => {
     const cityRow = createRow({ sourceDeck, size: 4 })
     const oldest = cityRow.cards[0]
 
+    state.week = 4 // the row turns over at month's end
     phase('endOfTurn').run({ state, cityRow, log: [], turnManager: createTurnManager({ state }) })
 
     expect(state.treasury).toBe(7) // budget resets happen in 'draw', not here
-    expect(cityRow.cards).not.toContain(oldest)
+    expect(cityRow.cards[0]).not.toBe(oldest) // turned over (two go at month's end; one may come back round)
     expect(cityRow.cards).toHaveLength(4)
     expect(state.disasterTimer.turnsUntilDeadline).toBe(3)
   })

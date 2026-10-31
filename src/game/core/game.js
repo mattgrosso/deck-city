@@ -15,6 +15,7 @@ import { createRun, choosePolicy as chooseRunPolicy, chooseMandate as chooseRunM
 import { createDeck, addToDiscardPile, shuffle } from './piles/deck'
 import { createRow, acquireFromRow } from './piles/row'
 import { createTurnManager, advancePhase, assertPhase } from './turn/turnManager'
+import { MONTH } from './turn/phases'
 import { resolveTrigger } from './effects/effectRegistry'
 import { evaluateCondition } from './conditions/conditionRegistry'
 import { afterUse } from './cards/uses'
@@ -265,9 +266,15 @@ export function createGame ({
     return card
   }
 
+  /** The market is open in the last week of each month (turn/phases.js MONTH). */
+  function assertMarketOpen () {
+    if ((state.week ?? 1) !== MONTH) throw new Error(`The market opens in week ${MONTH}: ${MONTH - (state.week ?? 1)} more turn${MONTH - (state.week ?? 1) === 1 ? '' : 's'}.`)
+  }
+
   function acquireCard (cardId) {
     assertPlaying(state)
     assertPhase(turnManager, 'acquire')
+    assertMarketOpen()
     const inRow = cityRow.cards.find(c => c.id === cardId)
     const card = inRow ?? supply.find(c => c.id === cardId)
     if (!card) throw new Error(`Card "${cardId}" is not in the city row`)
@@ -371,6 +378,7 @@ export function createGame ({
   function buyPolicy () {
     assertPlaying(state)
     assertPhase(turnManager, 'acquire')
+    assertMarketOpen()
     const policy = state.policyForSale
     if (!policy) throw new Error('No policy for sale')
     const price = policyPrice(state)
@@ -383,7 +391,32 @@ export function createGame ({
   }
 
   function advance () {
-    return advancePhase(turnManager, context)
+    const out = advancePhase(turnManager, context)
+    // Month's end (Matt, 2026-10-31: "you complete a combat, and then you're
+    // given three new cards you could put into your deck"): the first time
+    // the market opens each month, three cards from the city deck are
+    // offered, one to keep for free.
+    if (turnManager.phases[turnManager.currentPhaseIndex]?.name === 'acquire' && state.week === MONTH && !state.monthOffered) {
+      state.monthOffered = true
+      const source = cityRow?.sourceDeck
+      if (source) {
+        if (!source.drawPile.length) { source.drawPile.push(...source.discardPile.splice(0)); shuffle(source) }
+        state.monthOffer = source.drawPile.splice(-3).reverse()
+      }
+    }
+    return out
+  }
+
+  /** Keep one of the month's three cards (or none: null). The rest go back under the city deck. */
+  function chooseOffer (cardId = null) {
+    const offer = state.monthOffer ?? []
+    if (!offer.length) throw new Error('Nothing on offer')
+    const pick = cardId ? offer.find(c => c.id === cardId) : null
+    if (cardId && !pick) throw new Error(`"${cardId}" is not on offer`)
+    if (pick) { addToDiscardPile(state.deck, [pick]); log.push(`Kept ${pick.name} from the month's offer.`) }
+    if (cityRow?.sourceDeck) cityRow.sourceDeck.drawPile.unshift(...offer.filter(c => c !== pick))
+    state.monthOffer = []
+    return pick
   }
 
   return {
@@ -394,6 +427,6 @@ export function createGame ({
     turnManager,
     catalog,
     log,
-    actions: { playCard, playCivicCard, combineCards, buyPolicy, choosePolicy: (id) => chooseRunPolicy(context, id), acquireCard, claimGoal, clearStatus, chooseMandate, callElection, keepBuilding, advance }
+    actions: { chooseOffer, playCard, playCivicCard, combineCards, buyPolicy, choosePolicy: (id) => chooseRunPolicy(context, id), acquireCard, claimGoal, clearStatus, chooseMandate, callElection, keepBuilding, advance }
   }
 }

@@ -23,7 +23,7 @@ export const STARTING_BUILDINGS = [
  * out of control immediately"): upkeep on every building past the first
  * few, and every building costs more to build in each new era.
  */
-export const UPKEEP = { per: 1, free: 3 }
+export const UPKEEP = { per: 1, free: 3, growth: 40 }
 export const COST_RISE = [0, 3, 6]
 
 /**

@@ -149,7 +149,7 @@ export const COMMERCIAL_CARDS = [
   B('bookshop', 'Bookshop', 1, ['commercial', 'culture'], 7, { stats: { jobs: 1, revenue: 1 }, near: [nd('revenue', 1, 'education')], onNth: [draw(1)] }),
   B('shopping-arcade', 'Shopping Arcade', 2, ['commercial'], 9, { stats: { jobs: 3, revenue: 2 }, near: [nd('revenue', 1, 'commercial')], freeFirst: 'commercial', onBuild: [status('trash')], flavor: 'Shops that like company.' }),
   B('department-store', 'Department Store', 2, ['commercial'], 10, { stats: { jobs: 4, revenue: 2 }, buysBonus: 1, onCity: only('commercial', gain(1)), onBuild: [status('trash')], flavor: 'Everything under one roof.' }),
-  B('bank-branch', 'Bank Branch', 2, ['commercial', 'finance'], 11, { stats: { jobs: 2, revenue: 2 }, near: [deck('revenue', 1, 'debt', 4)], onBuild: [{ type: 'raiseTreasuryRolloverCap', amount: 4 }], flavor: 'Your debts are its interest.' }),
+  B('bank-branch', 'Bank Branch', 2, ['commercial', 'finance'], 9, { stats: { jobs: 2, revenue: 2 }, near: [deck('revenue', 1, 'debt', 4)], flavor: 'Your debts are its interest.' }),
   B('restaurant-row', 'Restaurant Row', 2, ['commercial', 'food', 'leisure'], 11, { stats: { jobs: 3, revenue: 2 }, near: [nd('revenue', 1, 'culture'), nd('revenue', 1, 'residential')], onToken: only('tourist', gain(1)) }),
   B('hotel', 'Hotel', 2, ['commercial', 'tourism'], 12, { stats: { jobs: 3, revenue: 2 }, onTurn: [tokenPerAdj('tourist', 'landmark')], onToken: only('tourist', gain(1)), flavor: 'Every Tourist spends a little more.' }),
   B('farmers-market', 'Farmers Market', 2, ['commercial', 'food'], 10, { stats: { jobs: 2, revenue: 1 }, near: [nd('revenue', 1, 'rural'), nd('revenue', 1, 'green')], onCity: only('rural', grow('revenue', 1, 3)), onBuild: [clear(1)] }),
