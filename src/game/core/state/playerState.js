@@ -12,6 +12,7 @@ import { footprint } from './shapes'
 import { accepts, fireWatchers, firstOfTurn } from '../effects/synergy'
 import { policyMod, policyList, policyRulesFor, slotCapacity, policyBudget } from '../cards/policies'
 import { isMultiTile } from './shapes'
+import { afterUse } from '../cards/uses'
 
 /**
  * @param {Object} options
@@ -156,7 +157,7 @@ export function removeStatusCard (state, cardId, amount = 1, opts = {}) {
 
   for (const pile of piles) {
     while (removed < amount) {
-      if (opts.requiresSlot && instance.slots.used >= instance.slots.capacity) return removed
+      if (opts.requiresSlot && instance.slots.used >= slotCapacity(state, instance)) return removed
       const index = pile.findIndex(card => card.id === cardId)
       if (index === -1) break
       pile.splice(index, 1)
@@ -347,7 +348,10 @@ export function buildStructure (state, card, context = {}) {
   // A Monument (a claimed goal) is single use (Matt, 2026-10-29: "the
   // monument you get to build, then that card's gone"); every other
   // building card goes round again.
-  if (card.type !== 'goal' && !card.exhaust) addToDiscardPile(state.deck, [card])
+  // Every other card counts down its uses (cards/uses.js) and goes when they run out.
+  const back = card.type === 'goal' || card.exhaust ? null : afterUse(card)
+  if (back) addToDiscardPile(state.deck, [back])
+  else if (card.type !== 'goal' && !card.exhaust) context.log?.push?.(`${card.name} is used up.`)
 
   return instance
 }

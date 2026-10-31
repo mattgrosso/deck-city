@@ -98,7 +98,7 @@ export function effectText (effect, catalog) {
     case 'gainStatus': return `+${plural(amount, `${nameOf(effect.card, catalog)} card`)}`
     case 'consumeStatus':
       return effect.requiresSlot
-        ? `remove ${nameOf(effect.card, catalog)} from your deck, one per free slot`
+        ? `remove ${nameOf(effect.card, catalog)} from your deck, one per space left`
         : `remove ${plural(amount, nameOf(effect.card, catalog))} from your deck`
     case 'gainStatusPerAdjacent': return `add 1 ${nameOf(effect.card, catalog)} per neighbouring ${tagWord(effect.targetTag, 1, catalog)}`
     case 'drawCards': return `draw ${plural(amount, 'card')}`
@@ -170,7 +170,7 @@ export function rulesFor (card, catalog = {}) {
 
   if (card.clears) {
     const kinds = (Array.isArray(card.clears) ? card.clears : [card.clears]).map(k => tagWord(k, 1, catalog)).join(' or ')
-    lines.push(`Play a ${kinds} card from your hand into it: ${plural(card.slots?.capacity ?? 1, 'slot')} a turn. Gone for good.`)
+    lines.push(`Play a ${kinds} card from your hand into it and it's gone for good. Holds ${card.slots?.capacity ?? 1}, then it's full.`)
   } else if (card.slots) lines.push(`${plural(card.slots.capacity, 'slot')}${card.slots.expandable ? ', expandable' : ''}`)
   if (card.blocksDisasters) lines.push(`While it stands, blocks ${Number(card.blocksDisasters) === 1 ? 'one disaster card' : `${Number(card.blocksDisasters)} disaster cards`} every strike.`)
 
@@ -213,7 +213,7 @@ export const KEYWORDS = {
   unique: 'Landmarks marked “only one” can stand once in a city.',
   budget: 'Your budget each turn is the revenue of every building you have. Unspent budget is lost unless a card says otherwise.',
   road: 'A building can only go on a plot that touches a street. A Road card lays up to two segments, each joined to a street you already have.',
-  slot: 'Play a status card from your hand into a facility with a free slot and the card leaves the game. Slots refill every turn.',
+  slot: 'Play a bad card from your hand into a facility with room and it leaves the game. Each facility holds a set number, then it\'s full: play the same facility again to add room.',
   status: 'Crime, Trash and Pollution are dead cards. Play one into the right facility to be rid of it; otherwise it just clogs your hand.',
   monument: 'A claimed goal. Costs nothing to build, needs a street like anything else, and gives +1 population and +1 revenue.',
   disaster: 'Every fourth turn a strike shuffles disaster cards into your deck, one more each time (up to three), starting over each era. Each Fire Station blocks one. A disaster bites once when drawn, then it is gone.',
@@ -235,7 +235,7 @@ export function keywordsFor (card, catalog = {}) {
   want('debt', 'debt')
   want('budget', 'budget')
   want('road', 'road')
-  want('slot', 'slot')
+  want('slot', 'slot', 'then it\'s full', 'space left')
   want('status', 'crime', 'trash', 'pollution')
   want('monument', 'monument')
   want('disaster', 'disaster')

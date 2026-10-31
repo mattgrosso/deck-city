@@ -17,6 +17,7 @@ import { createRow, acquireFromRow } from './piles/row'
 import { createTurnManager, advancePhase, assertPhase } from './turn/turnManager'
 import { resolveTrigger } from './effects/effectRegistry'
 import { evaluateCondition } from './conditions/conditionRegistry'
+import { afterUse } from './cards/uses'
 import './effects/coreEffects' // registers the starter effect vocabulary as a side effect
 import './conditions/coreConditions' // registers the starter condition vocabulary as a side effect
 
@@ -229,8 +230,11 @@ export function createGame ({
     state.hand.splice(index, 1)
     spendTreasury(state, effectiveCost(state, card))
     resolveTrigger(card, 'onPlay', { ...context, cardIds: discardCardIds })
-    // `exhaust` cards (Tourists, Commuters...) are spent: gone after one play.
-    if (!card.exhaust) addToDiscardPile(state.deck, [card])
+    // `exhaust` cards (Tourists...) are spent: gone after one play. Others
+    // count down their uses (cards/uses.js) and go once they run out.
+    const back = card.exhaust ? null : afterUse(card)
+    if (back) addToDiscardPile(state.deck, [back])
+    else if (!card.exhaust) context.log?.push(`${card.name} is used up.`)
     notePlay(context, card)
     return card
   }

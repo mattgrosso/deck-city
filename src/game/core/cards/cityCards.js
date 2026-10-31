@@ -57,7 +57,8 @@ function B (id, name, tier, tags, cost, o = {}) {
   if (o.onNth) { effects.onNthPlay = o.onNth; card.every = o.every ?? 3 }
   if (o.onCombine) effects.onCombine = o.onCombine
   if (Object.keys(effects).length) card.effects = effects
-  if (o.clears) { card.clears = o.clears; card.slots = { capacity: o.slots ?? 2 } }
+  // `slots` is how many a turn it once took; it now holds three turns' worth in all, then it's full.
+  if (o.clears) { card.clears = o.clears; card.slots = { capacity: (o.slots ?? 2) * 3 } }
   for (const k of ['handSize', 'buysBonus', 'discount', 'blocks', 'unique', 'flavor', 'patience', 'placesRoad', 'roadSegments', 'lanes', 'freeFirst']) if (o[k] !== undefined) card[k === 'handSize' ? 'handSizeBonus' : k === 'blocks' ? 'blocksDisasters' : k] = o[k]
   return card
 }
@@ -214,7 +215,7 @@ export const SERVICE_CARDS = [
   B('courthouse', 'Courthouse', 2, ['safety', 'service'], 10, { stats: { jobs: 2 }, clears: ['crime', 'debt'], slots: 2, onClear: [gain(1)], flavor: 'Fines: +1 budget for every card it takes.' }),
   B('city-hall', 'City Hall', 2, ['service', 'landmark'], 15, { patience: 1, stats: { jobs: 3, revenue: 2 }, buysBonus: 1, onCombine: [pat(1)], unique: true, flavor: 'Every merger is a ribbon to cut.' }),
   B('university', 'University', 3, ['education', 'service', 'landmark'], 15, { stats: { jobs: 6, revenue: 2 }, handSize: 1, near: [nd('revenue', 1, 'education')], onNth: [draw(1)], unique: true }),
-  B('prison', 'Prison', 3, ['safety', 'service'], 4, { patience: -1, stats: { jobs: 4 }, clears: 'crime', slots: 4 }),
+  B('prison', 'Prison', 3, ['safety', 'service'], 3, { patience: -1, stats: { jobs: 4 }, clears: 'crime', slots: 4 }),
   B('emergency-services', 'Emergency Services', 3, ['safety', 'health', 'service'], 17, { stats: { jobs: 3 }, blocks: 2, clears: ['crime', 'pollution'], slots: 2, onAnyClear: [gain(1)] })
 ]
 

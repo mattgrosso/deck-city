@@ -20,6 +20,7 @@
 // leans to ("Market Quarter", "Garden District"). Each combine adds its +1
 // lean; `size` counts the plain buildings inside (1, 2, 4, 8, 16).
 
+import { usesLeft } from './uses'
 import { CARD_TYPES } from './cardSchema'
 
 // The family a building belongs to for naming. Mirrors ui/cardText.js's
@@ -140,6 +141,8 @@ function merge (a, b) {
     cost: (a.cost ?? 0) + (b.cost ?? 0),
     stats,
     combo: true,
+    // As many plays as the longer-lived half had left (cards/uses.js).
+    uses: Math.max(usesLeft(a), usesLeft(b)),
     size: sizeOf(a) + sizeOf(b),
     madeFrom: [a.name, b.name],
     // How it looks on the board and on the card: like the dearer half's own building.

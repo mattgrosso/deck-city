@@ -14,6 +14,11 @@
     <div class="card__window">
       <img v-if="hasArt" class="card__pic" :src="`/art/${artId}.png?v=${ART_VERSION}`" alt="" draggable="false">
       <svg v-else viewBox="0 0 24 24"><path :d="iconPath" /></svg>
+      <!-- Plays left before the card is gone (cards/uses.js): a dot each, filled while unused. -->
+      <div v-if="uses" class="card__uses" :title="`${uses.left} of ${uses.total} uses left`">
+        <template v-if="uses.total <= 5"><i v-for="n in uses.total" :key="n" :class="{ on: n <= uses.left }" /></template>
+        <span v-else>×{{ uses.left }}</span>
+      </div>
     </div>
     <div class="card__type">{{ typeLabel }}</div>
     <div class="card__rules">
@@ -25,6 +30,7 @@
 
 <script>
 import { familyOf, FAMILIES, rulesFor } from '@/ui/cardText'
+import { isLimited, usesLeft, defaultUses } from '@/game/core/cards/uses'
 import { ICONS, iconFor } from '@/ui/icons'
 import { ART_IDS } from '@/world/cardArt'
 
@@ -53,6 +59,7 @@ export default {
     isDark () { return this.family === 'status' || this.family === 'disaster' },
     showCost () { return !this.isDark && this.card.type !== 'goal' },
     shownCost () { return this.cost ?? this.card.cost ?? 0 },
+    uses () { return isLimited(this.card) ? { left: usesLeft(this.card), total: Math.max(defaultUses(this.card), usesLeft(this.card)) } : null },
     iconPath () { return ICONS[iconFor(this.card, this.family)] },
     artId () { return (this.card.lookAs ?? this.card).id },
     hasArt () { return ART_IDS.includes(this.artId) },
@@ -106,6 +113,13 @@ export default {
   font-size: 19px; font-weight: 800;
   box-shadow: 0 1px 0 #fff inset, 0 2px 4px rgba(0,0,0,0.25);
 }
+.card__uses {
+  position: absolute; right: 6px; bottom: 6px; display: flex; gap: 4px; align-items: center;
+  padding: 4px 6px; border-radius: 999px; background: rgba(20, 24, 34, 0.72);
+  color: #fff; font-size: 14px; font-weight: 800;
+}
+.card__uses i { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid #fff; }
+.card__uses i.on { background: #fff; }
 .card__cost--up { background: radial-gradient(circle at 35% 30%, #ffd2c2, #e8603c 60%, #a8361a); color: #fff; }
 .card__cost--free { background: #f1f1f1; color: #555; }
 .card__cost--off { background: radial-gradient(circle at 35% 30%, #c6f7d8, #2fb36a 60%, #1d7a47); color: #fff; }

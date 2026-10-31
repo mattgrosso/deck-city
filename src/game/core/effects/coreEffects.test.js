@@ -21,7 +21,7 @@ describe('gainStatus / consumeStatus', () => {
   it('gainStatus looks the card up in the catalog and adds it to discard', () => {
     const state = createPlayerState()
     resolveEffect({ type: 'gainStatus', card: 'crime', amount: 2 }, { state, catalog })
-    expect(state.deck.discardPile).toEqual([CRIME, CRIME])
+    expect(state.deck.discardPile.map(c => c.id)).toEqual([CRIME.id, CRIME.id])
   })
 
   it('consumeStatus resolves buildingId "self" to context.instanceId', () => {
@@ -36,7 +36,7 @@ describe('gainStatus / consumeStatus', () => {
 
     // CLINIC itself is in the discard pile too, from buildStructure()
     // returning the played card there; only CRIME is consumed.
-    expect(state.deck.discardPile).toEqual([CLINIC])
+    expect(state.deck.discardPile.map(c => c.id)).toEqual([CLINIC.id])
     expect(instance.slots.used).toBe(1)
   })
 })
@@ -61,7 +61,7 @@ describe('drawCards / discardCards', () => {
     state.hand.push(ROAD)
     resolveEffect({ type: 'discardCards' }, { state, cardIds: ['road'] })
     expect(state.hand).toEqual([])
-    expect(state.deck.discardPile).toEqual([ROAD])
+    expect(state.deck.discardPile.map(c => c.id)).toEqual([ROAD.id])
   })
 })
 

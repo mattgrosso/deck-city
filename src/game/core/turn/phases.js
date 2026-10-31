@@ -10,7 +10,7 @@
 // active. TurnManager.assertPhase() is what enforces that gating.
 
 import {
-  resetAllSlotUsage, calcStatTotal, tickDisasterTimer, resetDisasterTimer, countDisasterBlockers, sumPassive, calcUpkeep
+  calcStatTotal, tickDisasterTimer, resetDisasterTimer, countDisasterBlockers, sumPassive, calcUpkeep
 } from '../state/playerState'
 import { resolveTrigger } from '../effects/effectRegistry'
 import { draw, discardCards, addToDrawPile, addToDiscardPile, shuffle } from '../piles/deck'
@@ -122,7 +122,6 @@ export const DEFAULT_PHASES = [
   {
     name: 'draw',
     run: (ctx) => {
-      resetAllSlotUsage(ctx.state)
       ctx.state.builtStructures.forEach(instance => {
         resolveTrigger(instance.card, 'onTurnStart', {
           state: ctx.state,
@@ -163,12 +162,21 @@ export const DEFAULT_PHASES = [
 
       const handSize = Math.max(1, (ctx.handSize ?? 5) + sumPassive(ctx.state, 'handSizeBonus') + policyMod(ctx.state, 'handSize'))
       const needed = Math.max(0, handSize - ctx.state.hand.length)
-      const drawnCards = draw(ctx.state.deck, needed)
       // onDraw triggers resolve immediately as each card lands in hand -
-      // this is what makes a disaster card (see triggerDisaster above)
-      // actually bite instead of sitting inert once drawn.
-      drawnCards.forEach(card => resolveTrigger(card, 'onDraw', { state: ctx.state, catalog: ctx.catalog, log: ctx.log }))
-      ctx.state.hand.push(...drawnCards)
+      // this is what makes a disaster card (see triggerDisaster above) bite.
+      // A disaster then leaves at once and another card is drawn in its
+      // place (Matt, 2026-10-31: "these flood cards they just last forever"):
+      // it never sits in your hand, and the strike shows in the log.
+      let want = needed
+      for (let guard = 0; want > 0 && guard < 20; guard++) {
+        const drawnCards = draw(ctx.state.deck, want)
+        if (!drawnCards.length) break
+        drawnCards.forEach(card => resolveTrigger(card, 'onDraw', { state: ctx.state, catalog: ctx.catalog, log: ctx.log }))
+        const kept = drawnCards.filter(card => card.type !== 'disaster')
+        for (const card of drawnCards) if (card.type === 'disaster') ctx.log?.push(`${card.name} struck, and passed.`)
+        ctx.state.hand.push(...kept)
+        want -= kept.length
+      }
     }
   },
   {

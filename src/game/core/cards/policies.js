@@ -32,7 +32,7 @@ export const POLICIES = [
   // More, so a run that earns ten of them still sees new ones (2026-10-29).
   { id: 'tourism-board', name: 'Tourism Board', text: 'Every landmark: +2 revenue.', rules: [{ tags: ['landmark'], stat: 'revenue', amount: 2 }] },
   { id: 'school-funding', name: 'School Funding', text: 'Every school: +2 people (families move in).', rules: [{ tags: ['education'], stat: 'population', amount: 2 }] },
-  { id: 'sanitation-act', name: 'Sanitation Act', text: 'Every building that takes bad cards takes 1 more a turn.', mods: { slotBonus: 1 } },
+  { id: 'sanitation-act', name: 'Sanitation Act', text: 'Every building that takes bad cards has room for 2 more.', mods: { slotBonus: 2 } }, // was +1 a turn, which Matt found "very powerful" (2026-10-31)
   { id: 'zoning-board', name: 'Planning Board', text: 'Buildings on 2 or more plots cost 2 less to build.', mods: { multiDiscount: 2 } },
   { id: 'land-trust', name: 'Land Trust', text: 'Green spaces cost 2 less to build.', mods: { discount: [{ tag: 'green', amount: 2 }] } },
   { id: 'enterprise-zone', name: 'Enterprise Zone', text: 'Every factory: +1 revenue.', rules: [{ tags: ['industrial'], stat: 'revenue', amount: 1 }] },
@@ -127,7 +127,7 @@ export function offerPolicies (state, rng, { count = 3, first = false } = {}) {
 /** What a card costs at the city row. */
 export const marketPrice = (state, card) => Math.max(card.price ?? card.cost ?? 0 ? 1 : 0, (card.price ?? card.cost ?? 0) - policyMod(state, 'priceDiscount'))
 
-/** How many bad cards a clearing building takes a turn (Sanitation Act adds one). */
+/** How many bad cards a clearing building holds in all (Sanitation Act adds two). */
 export const slotCapacity = (state, instance) => (instance.slots?.capacity ?? 0) + policyMod(state, 'slotBonus')
 
 /** Budget a turn from policies: flat (Tax Reform) and per building (Merchant Guild). */

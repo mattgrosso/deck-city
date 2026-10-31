@@ -43,8 +43,9 @@ export function valueOfBuild (card) {
   const kinds = Array.isArray(card.clears) ? card.clears : (card.clears ? [card.clears] : [])
   if (kinds.length) {
     const capacity = card.slots?.capacity ?? 1
-    const perTurn = Math.min(capacity, CLEARS_PER_TURN * kinds.length) + 0.1 * (capacity - 1)
-    add(`clears ${kinds.join('/')}`, perTurn * HORIZON * -VALUE.status)
+    // A facility holds `capacity` bad cards in all, then it's full (2026-10-31).
+    const total = Math.min(capacity, CLEARS_PER_TURN * kinds.length * HORIZON) + 0.05 * capacity
+    add(`clears ${kinds.join('/')}`, total * -VALUE.status)
   }
   if (card.blocksDisasters) add('blocks disasters', Number(card.blocksDisasters) * (HORIZON / STRIKE_EVERY) * -AVERAGE_DISASTER())
   if (card.patience) add('patience', card.patience * VALUE.patience * HORIZON)

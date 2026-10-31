@@ -14,21 +14,20 @@ const catalog = buildCardCatalog([CLINIC, CRIME, ROAD])
 const phase = (name) => DEFAULT_PHASES.find(p => p.name === name)
 
 describe('draw phase', () => {
-  it('resets slot usage, resolves onTurnStart effects, then draws up to hand size', () => {
+  it('keeps slot usage (a facility fills up for good), resolves onTurnStart effects, then draws up to hand size', () => {
     const state = createPlayerState({ startingDeckCards: [ROAD, ROAD, ROAD] })
     const instance = buildStructure(state, CLINIC, { catalog })
-    instance.slots.used = 5 // simulate last turn's consumption
+    instance.slots.used = 2 // what it took before: it stays taken
     state.deck.discardPile.push(CRIME)
 
     phase('draw').run({ state, catalog, handSize: 2 })
 
-    // onTurnStart's consumeStatus should have run after the reset, so the
-    // instance ends this phase having consumed exactly 1 (not blocked by
-    // last turn's stale usage).
-    expect(instance.slots.used).toBe(1)
+    // Nothing refills it (2026-10-31): usage carries over and onTurnStart's
+    // consumeStatus adds one more.
+    expect(instance.slots.used).toBe(3)
     // CLINIC itself is in the discard pile too — buildStructure() returns
     // the played card there as part of building it — only CRIME is consumed.
-    expect(state.deck.discardPile).toEqual([CLINIC])
+    expect(state.deck.discardPile.map(c => c.id)).toEqual([CLINIC.id])
     expect(state.hand).toHaveLength(2)
   })
 
@@ -51,14 +50,17 @@ describe('draw phase', () => {
     expect(state.treasury).toBe(5 + 4)
   })
 
-  it('resolves onDraw effects on cards the moment they enter hand', () => {
+  it('a disaster bites the moment it is drawn, then leaves and another card takes its place', () => {
     const disaster = { id: 'flood', type: 'disaster', name: 'Flood', effects: { onDraw: [{ type: 'spendTreasury', amount: 3 }] } }
-    const state = createPlayerState({ startingDeckCards: [disaster] })
+    const state = createPlayerState({ startingDeckCards: [disaster, ROAD] })
+    state.deck.drawPile = [ROAD, disaster] // draws from the end: the Flood comes first
+    const log = []
 
-    phase('draw').run({ state, catalog: {}, log: [], baseRevenue: 4, handSize: 1 })
+    phase('draw').run({ state, catalog: {}, log, baseRevenue: 4, handSize: 1 })
 
-    expect(state.hand).toEqual([disaster])
+    expect(state.hand.map(c => c.id)).toEqual(['road'])
     expect(state.treasury).toBe(4 - 3)
+    expect(log).toContain('Flood struck, and passed.')
   })
 })
 
@@ -226,6 +228,6 @@ describe('cleanup phase', () => {
     phase('cleanup').run({ state })
 
     expect(state.hand).toEqual([])
-    expect(state.deck.discardPile).toEqual([ROAD, ROAD])
+    expect(state.deck.discardPile.map(c => c.id)).toEqual([ROAD.id, ROAD.id])
   })
 })

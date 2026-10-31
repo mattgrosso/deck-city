@@ -17,7 +17,7 @@ export const POLICE_STATION = {
   price: 1, // to buy it at the market; `cost` is to build it
   tags: ['consumer'],
   stats: {},
-  slots: { capacity: 2, expandable: true, maxMultiplier: 2 },
+  slots: { capacity: 6, expandable: true, maxMultiplier: 2 }, // holds 6 bad cards in all, then it's full
   // Cleared BY HAND: play a Crime card from your hand into a free slot and it
   // leaves the game (game.js clearStatus). Nothing happens on its own.
   clears: CRIME.id
@@ -31,7 +31,7 @@ export const SANITATION_CENTER = {
   price: 1, // to buy it at the market; `cost` is to build it
   tags: ['consumer'],
   stats: {},
-  slots: { capacity: 2, expandable: true, maxMultiplier: 2 },
+  slots: { capacity: 6, expandable: true, maxMultiplier: 2 }, // holds 6 bad cards in all, then it's full
   // Cleared BY HAND: play a Trash card from your hand into a free slot and it
   // leaves the game (game.js clearStatus). Nothing happens on its own.
   clears: TRASH.id
@@ -45,7 +45,7 @@ export const CLINIC = {
   price: 1, // to buy it at the market; `cost` is to build it
   tags: ['consumer'],
   stats: {},
-  slots: { capacity: 2, expandable: true, maxMultiplier: 2 },
+  slots: { capacity: 6, expandable: true, maxMultiplier: 2 }, // holds 6 bad cards in all, then it's full
   // Cleared BY HAND: play a Pollution card from your hand into a free slot and it
   // leaves the game (game.js clearStatus). Nothing happens on its own.
   clears: POLLUTION.id

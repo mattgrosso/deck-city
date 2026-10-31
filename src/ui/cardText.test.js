@@ -19,7 +19,7 @@ describe('rulesFor', () => {
   it('explains a road, a facility with slots, and an adjacency card', () => {
     expect(rulesFor(starterCards.ROAD, catalog)[0]).toMatch(/up to 2 street segments/)
     expect(rulesFor(facilityCards.POLICE_STATION, catalog)).toEqual([
-      'Play a Crime card from your hand into it: 2 slots a turn. Gone for good.'
+      'Play a Crime card from your hand into it and it\'s gone for good. Holds 6, then it\'s full.'
     ])
     expect(rulesFor(facilityCards.PARK, catalog)).toEqual([
       'Next door: +1 revenue per Residential.'

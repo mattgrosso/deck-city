@@ -19,7 +19,7 @@ describe('FACILITY_CATALOG', () => {
     expect(SANITATION_CENTER.clears).toBe('trash')
     expect(CLINIC.clears).toBe('pollution')
     expect(POLICE_STATION.effects).toBeUndefined()
-    expect(POLICE_STATION.slots.capacity).toBe(2)
+    expect(POLICE_STATION.slots.capacity).toBe(6)
   })
 
   it('Fire Station blocks disasters by standing, rather than consuming a status', () => {

@@ -52,7 +52,7 @@ describe('status cards', () => {
   it('addStatusCard pushes copies into the discard pile', () => {
     const state = createPlayerState()
     addStatusCard(state, CRIME, 2)
-    expect(state.deck.discardPile).toEqual([CRIME, CRIME])
+    expect(state.deck.discardPile.map(c => c.id)).toEqual([CRIME.id, CRIME.id])
   })
 
   it('removeStatusCard removes from discard, then draw, then hand', () => {
@@ -80,7 +80,7 @@ describe('status cards', () => {
     expect(instance.slots.used).toBe(2)
     // CONSUMER itself is in the discard pile too, from buildStructure()
     // returning the played card there; only CRIME copies are consumed.
-    expect(state.deck.discardPile).toEqual([CONSUMER, CRIME])
+    expect(state.deck.discardPile.map(c => c.id)).toEqual([CONSUMER.id, CRIME.id])
   })
 
   it('removeStatusCard with requiresSlot on an unknown instance removes nothing', () => {
@@ -88,7 +88,7 @@ describe('status cards', () => {
     state.deck.discardPile.push(CRIME)
     const removed = removeStatusCard(state, 'crime', 1, { requiresSlot: true, buildingId: 'no-such-instance' })
     expect(removed).toBe(0)
-    expect(state.deck.discardPile).toEqual([CRIME])
+    expect(state.deck.discardPile.map(c => c.id)).toEqual([CRIME.id])
   })
 })
 
@@ -119,7 +119,7 @@ describe('buildStructure', () => {
 
     expect(state.builtStructures).toEqual([instance])
     expect(instance.card).toBe(BUILDING)
-    expect(state.deck.discardPile).toEqual([BUILDING])
+    expect(state.deck.discardPile.map(c => c.id)).toEqual([BUILDING.id])
   })
 
   it('sets up slots for consumer buildings', () => {
@@ -156,7 +156,7 @@ describe('placeRoad', () => {
     expect(isBuildable(state.cityGrid, 0, 0)).toBe(true)
     expect(isBuildable(state.cityGrid, 1, 0)).toBe(false)
     expect(state.builtStructures).toEqual([])
-    expect(state.deck.discardPile).toEqual([ROAD])
+    expect(state.deck.discardPile.map(c => c.id)).toEqual([ROAD.id])
   })
 
   it('resolves onBuild effects, same as buildStructure', () => {

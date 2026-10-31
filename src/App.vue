@@ -388,7 +388,7 @@ export default {
       const lines = [now ? `Gives ${now} here.` : 'Gives nothing here.']
       for (const r of st.reasons) lines.push(`${r.amount > 0 ? '+' : '−'}${Math.abs(r.amount)} ${r.stat}: ${r.tag === 'policy' ? `from ${r.policy}` : r.tag === 'water' ? 'on the waterfront' : `${r.count} ${this.game.catalog[r.tag]?.name ?? r.tag} next door`}.`)
       lines.push(...rulesFor(inst.card, this.game.catalog).slice(1))
-      if (inst.slots) lines.push(`${inst.slots.used} of ${inst.slots.capacity} slots used this turn.`)
+      if (inst.slots) lines.push(`${inst.slots.used} of ${slotCapacity(this.game.state, inst)} full.`)
       return { eyebrow: FAMILIES[familyOf(inst.card)].label, title: inst.card.name, lines, tone: inst.card.type === 'goal' ? 'gold' : 'plain' }
     },
     /** What the aimed spot is worth and what changes next door (the adjacency decision). */
